@@ -35,8 +35,5 @@
     "vsizip"
   ],
   "editor.tabSize": 2,
-  "rust-analyzer.linkedProjects": [
-    "./Cargo.toml"
-  ],
   "task.autoDetect": "off"
 }
