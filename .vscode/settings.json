@@ -35,5 +35,6 @@
     "vsizip"
   ],
   "editor.tabSize": 2,
+  "rust-analyzer.showUnlinkedFileNotification": false,
   "task.autoDetect": "off"
 }
