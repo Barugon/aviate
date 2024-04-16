@@ -152,6 +152,7 @@ impl App {
     let path = ["/vsizip//vsizip/", path.to_str().unwrap()].concat();
     let path = path::Path::new(path.as_str());
     let path = path.join(zip).join("APT_BASE.csv");
+
     self.airport_reader = match nasr::AirportReader::new(path, ctx) {
       Ok(nasr_reader) => {
         if let Some(chart_reader) = self.get_chart_reader() {
