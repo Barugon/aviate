@@ -641,4 +641,9 @@ mod test {
     let lon = super::format_lon(dd);
     assert!(lon == "117°08'47.00\"W");
   }
+
+  #[test]
+  fn test_title_case() {
+    assert!(super::title_case("title case text") == "Title Case Text");
+  }
 }
