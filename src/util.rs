@@ -514,7 +514,7 @@ pub fn stem_str(path: &path::Path) -> Option<&str> {
   path.file_stem()?.to_str()
 }
 
-/// Returns the string with each word capitalized.
+/// Returns the text with each word capitalized.
 pub fn title_case(text: &str) -> String {
   let mut first = true;
   let mut result = String::new();
