@@ -90,7 +90,7 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
             if stem.eq_ignore_ascii_case("Class_Airspace") {
               // Use the folder for shape files.
               if let Some(parent) = file.parent() {
-                shp = parent.to_owned();
+                parent.clone_into(&mut shp);
               }
             }
           }
