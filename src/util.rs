@@ -555,27 +555,31 @@ pub fn to_deg_min_sec(dd: f64) -> (f64, f64, f64) {
 }
 
 /// Nicely format a degrees, minutes, seconds string from latitude in decimal degrees.
-pub fn format_lat(dd: f64) -> String {
-  assert!((-90.0..=90.0).contains(&dd));
-  let (deg, min, sec) = to_deg_min_sec(dd);
-  let sec = (sec * 100.0).round() as u32;
-  let frac = sec % 100;
-  let sec = sec / 100;
-  let sn = if deg < 0.0 { 'S' } else { 'N' };
-  let deg = deg.abs();
-  format!("{deg:02}°{min:02}'{sec:02}.{frac:02}\"{sn}")
+pub fn format_lat(dd: f64) -> Option<String> {
+  if (-90.0..=90.0).contains(&dd) {
+    let (deg, min, sec) = to_deg_min_sec(dd);
+    let sec = (sec * 100.0).round() as u32;
+    let frac = sec % 100;
+    let sec = sec / 100;
+    let sn = if deg < 0.0 { 'S' } else { 'N' };
+    let deg = deg.abs();
+    return Some(format!("{deg:02}°{min:02}'{sec:02}.{frac:02}\"{sn}"));
+  }
+  None
 }
 
 /// Nicely format a degrees, minutes, seconds string from longitude in decimal degrees.
-pub fn format_lon(dd: f64) -> String {
-  assert!((-180.0..=180.0).contains(&dd));
-  let (deg, min, sec) = to_deg_min_sec(dd);
-  let sec = (sec * 100.0).round() as u32;
-  let frac = sec % 100;
-  let sec = sec / 100;
-  let we = if deg < 0.0 { 'W' } else { 'E' };
-  let deg = deg.abs();
-  format!("{deg:03}°{min:02}'{sec:02}.{frac:02}\"{we}")
+pub fn format_lon(dd: f64) -> Option<String> {
+  if (-180.0..=180.0).contains(&dd) {
+    let (deg, min, sec) = to_deg_min_sec(dd);
+    let sec = (sec * 100.0).round() as u32;
+    let frac = sec % 100;
+    let sec = sec / 100;
+    let we = if deg < 0.0 { 'W' } else { 'E' };
+    let deg = deg.abs();
+    return Some(format!("{deg:03}°{min:02}'{sec:02}.{frac:02}\"{we}"));
+  }
+  None
 }
 
 /// Check if a GDAL color will fit into an egui color.
@@ -626,19 +630,19 @@ mod test {
     assert!(dd == -1.0);
 
     let dd = super::to_dec_deg(34.0, 5.0, 6.9);
-    let lat = super::format_lat(dd);
+    let lat = super::format_lat(dd).unwrap();
     assert!(lat == "34°05'06.90\"N");
 
     let dd = super::to_dec_deg(-26.0, 15.0, 44.63);
-    let lat = super::format_lat(dd);
+    let lat = super::format_lat(dd).unwrap();
     assert!(lat == "26°15'44.63\"S");
 
     let dd = super::to_dec_deg(22.0, 24.0, 3.03);
-    let lon = super::format_lon(dd);
+    let lon = super::format_lon(dd).unwrap();
     assert!(lon == "022°24'03.03\"E");
 
     let dd = super::to_dec_deg(-117.0, 8.0, 47.0);
-    let lon = super::format_lon(dd);
+    let lon = super::format_lon(dd).unwrap();
     assert!(lon == "117°08'47.00\"W");
   }
 

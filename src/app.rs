@@ -751,8 +751,8 @@ impl eframe::App for App {
             let pos = (click_pos - response.inner_rect.min + pos) / zoom;
             let lcc = reader.transform().px_to_chart(pos.into());
             if let Ok(nad83) = reader.transform().chart_to_nad83(lcc) {
-              let lat = util::format_lat(nad83.y);
-              let lon = util::format_lon(nad83.x);
+              let lat = util::format_lat(nad83.y).unwrap();
+              let lon = util::format_lon(nad83.x).unwrap();
               self.select_menu.set_pos(click_pos);
               self.airport_infos = AirportInfos::Menu(format!("{lat}, {lon}"), None);
               if let Some(nasr_reader) = &self.airport_reader {
