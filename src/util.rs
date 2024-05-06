@@ -646,4 +646,50 @@ mod test {
   fn test_title_case() {
     assert!(super::title_case("title case text") == "Title Case Text");
   }
+
+  #[test]
+  fn test_i64_convert() {
+    use super::ToI32;
+    use super::ToU32;
+
+    let val = 0 as i64;
+    assert!(val.to_i32().is_some());
+    assert!(val.to_u32().is_some());
+
+    let val = 1 as i64;
+    assert!(val.to_i32().is_some());
+    assert!(val.to_u32().is_some());
+
+    let val = -1 as i64;
+    assert!(val.to_i32().is_some());
+    assert!(val.to_u32().is_none());
+
+    let val = i32::MAX as i64;
+    assert!(val.to_i32().is_some());
+    assert!(val.to_u32().is_some());
+
+    let val = i32::MAX as i64 + 1;
+    assert!(val.to_i32().is_none());
+    assert!(val.to_u32().is_some());
+
+    let val = i32::MIN as i64;
+    assert!(val.to_i32().is_some());
+    assert!(val.to_u32().is_none());
+
+    let val = i32::MIN as i64 - 1;
+    assert!(val.to_i32().is_none());
+    assert!(val.to_u32().is_none());
+
+    let val = u32::MAX as i64;
+    assert!(val.to_i32().is_none());
+    assert!(val.to_u32().is_some());
+
+    let val = u32::MAX as i64 + 1;
+    assert!(val.to_i32().is_none());
+    assert!(val.to_u32().is_none());
+
+    let val = -(u32::MAX as i64);
+    assert!(val.to_i32().is_none());
+    assert!(val.to_u32().is_none());
+  }
 }
