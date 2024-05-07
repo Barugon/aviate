@@ -536,11 +536,13 @@ pub fn title_case(text: &str) -> String {
 
 /// Convert degrees, minutes, seconds to decimal degrees.
 #[allow(unused)]
-pub fn to_dec_deg(deg: f64, min: f64, sec: f64) -> f64 {
-  assert!(min >= 0.0 && sec >= 0.0);
-  const DEG_PER_MIN: f64 = 1.0 / 60.0;
-  const DEG_PER_SEC: f64 = DEG_PER_MIN / 60.0;
-  deg.signum() * (deg.abs() + min * DEG_PER_MIN + sec * DEG_PER_SEC)
+pub fn to_dec_deg(deg: f64, min: f64, sec: f64) -> Option<f64> {
+  if min >= 0.0 && sec >= 0.0 {
+    const DEG_PER_MIN: f64 = 1.0 / 60.0;
+    const DEG_PER_SEC: f64 = DEG_PER_MIN / 60.0;
+    return Some(deg.signum() * (deg.abs() + min * DEG_PER_MIN + sec * DEG_PER_SEC));
+  }
+  None
 }
 
 /// Convert a decimal degree angle to +/- deg, min, sec.
@@ -623,25 +625,25 @@ pub fn inverted_color(color: &raster::RgbaEntry) -> epaint::Color32 {
 mod test {
   #[test]
   fn test_dd_lat_lon_conversion() {
-    let dd = super::to_dec_deg(0.0, 59.0, 60.0);
+    let dd = super::to_dec_deg(0.0, 59.0, 60.0).unwrap();
     assert!(dd == 1.0);
 
-    let dd = super::to_dec_deg(-0.0, 59.0, 60.0);
+    let dd = super::to_dec_deg(-0.0, 59.0, 60.0).unwrap();
     assert!(dd == -1.0);
 
-    let dd = super::to_dec_deg(34.0, 5.0, 6.9);
+    let dd = super::to_dec_deg(34.0, 5.0, 6.9).unwrap();
     let lat = super::format_lat(dd).unwrap();
     assert!(lat == "34°05'06.90\"N");
 
-    let dd = super::to_dec_deg(-26.0, 15.0, 44.63);
+    let dd = super::to_dec_deg(-26.0, 15.0, 44.63).unwrap();
     let lat = super::format_lat(dd).unwrap();
     assert!(lat == "26°15'44.63\"S");
 
-    let dd = super::to_dec_deg(22.0, 24.0, 3.03);
+    let dd = super::to_dec_deg(22.0, 24.0, 3.03).unwrap();
     let lon = super::format_lon(dd).unwrap();
     assert!(lon == "022°24'03.03\"E");
 
-    let dd = super::to_dec_deg(-117.0, 8.0, 47.0);
+    let dd = super::to_dec_deg(-117.0, 8.0, 47.0).unwrap();
     let lon = super::format_lon(dd).unwrap();
     assert!(lon == "117°08'47.00\"W");
   }
