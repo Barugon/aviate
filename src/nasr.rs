@@ -436,7 +436,8 @@ impl AirportSource {
     None
   }
 
-  /// Get `AirportInfo` for airports within a search radius.
+  /// Find airports within a search radius.
+  /// > **NOTE**: requires spatial index.
   /// - `coord`: chart coordinate (LCC)
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
