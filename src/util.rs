@@ -654,7 +654,7 @@ mod test {
   }
 
   #[test]
-  fn test_i64_convert() {
+  fn test_i64_conversion() {
     use super::ToI32;
     use super::ToU32;
 
