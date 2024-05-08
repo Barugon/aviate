@@ -53,11 +53,12 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
 }
 
 fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
-  let path = if let Some(path) = path.to_str() {
-    ["/vsizip/", path].concat()
-  } else {
+  let Some(path) = path.to_str() else {
     return Err("Invalid unicode in zip file path".into());
   };
+
+  // Concatenate the VSI prefix.
+  let path = ["/vsizip/", path].concat();
 
   match gdal::vsi::read_dir(path, true) {
     Ok(files) => {
@@ -118,6 +119,7 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
       return Err("Unable to read zip file".into());
     }
   }
+
   Err("Zip file does not contain usable data".into())
 }
 
