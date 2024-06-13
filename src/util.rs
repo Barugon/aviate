@@ -43,6 +43,7 @@ pub enum ZipInfo {
   /// NASR aeronautical data.
   Aero {
     csv: path::PathBuf,
+    #[allow(unused)]
     shp: path::PathBuf,
   },
 }

@@ -110,5 +110,6 @@ impl SelectMenu {
 pub enum Response {
   Close,
   LatLon,
+  #[allow(dead_code)]
   Index(usize),
 }

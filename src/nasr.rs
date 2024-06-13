@@ -526,6 +526,7 @@ impl rstar::PointDistance for LocIdx {
 #[derive(Debug)]
 pub struct AirportInfo {
   /// Feature record ID.
+  #[allow(unused)]
   pub fid: u64,
 
   /// Airport ID.

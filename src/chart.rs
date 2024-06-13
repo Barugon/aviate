@@ -104,6 +104,7 @@ pub enum RasterReply {
   Image(ImagePart, epaint::ColorImage),
 
   /// Error message from a read operation.
+  #[allow(dead_code)]
   Error(ImagePart, util::Error),
 }
 
