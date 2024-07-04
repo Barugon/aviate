@@ -40,9 +40,12 @@ impl ErrorDlg {
     win.show(ctx, |ui| {
       ui.add_space(8.0);
       ui.vertical_centered(|ui| {
-        let text = egui::RichText::from(self.text.as_ref().unwrap().as_ref());
-        let widget = egui::Label::new(text.color(epaint::Color32::LIGHT_RED)).wrap(false);
-        ui.add(widget);
+        if let Some(text) = self.text.as_ref() {
+          let text = egui::RichText::from(text.as_ref());
+          let widget = egui::Label::new(text.color(epaint::Color32::LIGHT_RED))
+            .wrap_mode(egui::TextWrapMode::Extend);
+          ui.add(widget);
+        }
       });
       ui.add_space(8.0);
       ui.separator();
