@@ -102,7 +102,14 @@ fn main() {
   eframe::run_native(
     &util::title_case(env!("CARGO_PKG_NAME")),
     opts.native,
-    Box::new(move |cc| Box::new(app::App::new(cc, opts.theme, opts.scale, opts.config))),
+    Box::new(move |cc| {
+      Ok(Box::new(app::App::new(
+        cc,
+        opts.theme,
+        opts.scale,
+        opts.config,
+      )))
+    }),
   )
   .unwrap();
 }

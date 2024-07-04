@@ -561,7 +561,10 @@ impl eframe::App for App {
     }
 
     self.top_panel_height = top_panel(self.top_panel_height, ctx, |ui| {
-      ui.set_enabled(self.ui_enabled);
+      if !self.ui_enabled {
+        ui.disable();
+      }
+
       ui.horizontal_centered(|ui| {
         let widget = egui::SelectableLabel::new(self.side_panel, " ⚙ ");
         if ui.add_sized([0.0, 21.0], widget).clicked() {
@@ -632,7 +635,9 @@ impl eframe::App for App {
 
     if self.side_panel {
       self.side_panel_width = side_panel(self.side_panel_width, ctx, |ui| {
-        ui.set_enabled(self.ui_enabled);
+        if !self.ui_enabled {
+          ui.disable();
+        }
 
         ui.horizontal(|ui| {
           let button = egui::Button::new("Open Zip File");
@@ -654,7 +659,10 @@ impl eframe::App for App {
     }
 
     central_panel(ctx, self.side_panel, |ui| {
-      ui.set_enabled(self.ui_enabled);
+      if !self.ui_enabled {
+        ui.disable();
+      }
+
       if let Some(reader) = self.get_chart_reader() {
         let zoom = self.get_chart_zoom().unwrap();
         let scroll = self.take_chart_scroll();
