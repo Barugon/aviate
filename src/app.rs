@@ -351,6 +351,12 @@ impl App {
       // Get the window size info.
       self.win_info = util::WinInfo::new(state.viewport());
 
+      // Get the zoom delta.
+      events.zoom_mod *= state.zoom_delta();
+      if events.zoom_mod != 1.0 {
+        events.zoom_pos = state.pointer.hover_pos();
+      }
+
       // Process events.
       for event in &state.events {
         match event {
@@ -398,10 +404,6 @@ impl App {
             modifiers,
           } if *button == egui::PointerButton::Secondary && !pressed && modifiers.is_none() => {
             events.secondary_click = Some(*pos);
-          }
-          egui::Event::Zoom(val) => {
-            events.zoom_pos = state.pointer.hover_pos();
-            events.zoom_mod *= val;
           }
           _ => (),
         }
