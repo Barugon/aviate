@@ -10,8 +10,8 @@ macro_rules! debugln {
   ($($arg:tt)*) => (#[cfg(debug_assertions)] println!($($arg)*));
 }
 
-#[macro_export]
 /// Return from function (and print error) if `Result` is not `Ok`.
+#[macro_export]
 macro_rules! ok {
   ($res:expr) => {
     match $res {
