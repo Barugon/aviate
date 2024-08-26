@@ -51,8 +51,11 @@ impl AirportReader {
             airport_status.set_has_basic_idx();
           }
 
-          let nad83 = spatial_ref::SpatialRef::from_epsg(4269).unwrap();
-          nad83.set_axis_mapping_strategy(0);
+          let nad83 = {
+            let mut nad83 = spatial_ref::SpatialRef::from_epsg(4269).unwrap();
+            nad83.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+            nad83
+          };
 
           // Chart transformation.
           let mut to_chart = None;

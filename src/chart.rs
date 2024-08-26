@@ -49,7 +49,7 @@ impl RasterReader {
           // Read the image data.
           match source.read(&part) {
             Ok(gdal_image) => {
-              let (w, h) = gdal_image.size;
+              let ((w, h), data) = gdal_image.into_shape_and_vec();
               let mut image = epaint::ColorImage {
                 size: [w, h],
                 pixels: Vec::with_capacity(w * h),
@@ -59,7 +59,7 @@ impl RasterReader {
               let colors = if part.dark { &dark } else { &light };
 
               // Convert the image to RGBA.
-              for val in gdal_image.data {
+              for val in data {
                 image.pixels.push(colors[val as usize]);
               }
 
@@ -126,10 +126,10 @@ impl Transform {
     geo_transform: gdal::GeoTransform,
   ) -> Result<Self, gdal::errors::GdalError> {
     // FAA uses NAD83.
-    let nad83 = spatial_ref::SpatialRef::from_epsg(4269)?;
+    let mut nad83 = spatial_ref::SpatialRef::from_epsg(4269)?;
 
     // Respect X/Y order when converting to/from lat/lon coordinates.
-    nad83.set_axis_mapping_strategy(0);
+    nad83.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
 
     let to_nad83 = spatial_ref::CoordTransform::new(&spatial_ref, &nad83)?;
     let from_nad83 = spatial_ref::CoordTransform::new(&nad83, &spatial_ref)?;
@@ -233,7 +233,7 @@ impl ImagePart {
 /// Chart raster data source.
 struct RasterSource {
   dataset: gdal::Dataset,
-  band_idx: isize,
+  band_idx: usize,
   px_size: util::Size,
 }
 
@@ -287,7 +287,7 @@ impl RasterSource {
           Err(err) => return Err(format!("Unable to open chart: {err}").into()),
         };
 
-        let (band_idx, palette) = || -> Result<(isize, Vec<raster::RgbaEntry>), util::Error> {
+        let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
           // The raster bands start at index one.
           for index in 1..=dataset.raster_count() {
             let rasterband = dataset.rasterband(index).unwrap();
