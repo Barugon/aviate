@@ -17,6 +17,23 @@ mod touch;
 use eframe::egui;
 use std::env;
 
+fn main() {
+  let opts = parse_args();
+  eframe::run_native(
+    &util::title_case(env!("CARGO_PKG_NAME")),
+    opts.native,
+    Box::new(move |cc| {
+      Ok(Box::new(app::App::new(
+        cc,
+        opts.theme,
+        opts.scale,
+        opts.config,
+      )))
+    }),
+  )
+  .unwrap();
+}
+
 struct Opts {
   native: eframe::NativeOptions,
   theme: Option<egui::Visuals>,
@@ -95,21 +112,4 @@ fn parse_args() -> Opts {
     scale,
     config,
   }
-}
-
-fn main() {
-  let opts = parse_args();
-  eframe::run_native(
-    &util::title_case(env!("CARGO_PKG_NAME")),
-    opts.native,
-    Box::new(move |cc| {
-      Ok(Box::new(app::App::new(
-        cc,
-        opts.theme,
-        opts.scale,
-        opts.config,
-      )))
-    }),
-  )
-  .unwrap();
 }
