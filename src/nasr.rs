@@ -106,7 +106,6 @@ impl AirportReader {
                           }
                         }
                       }
-
                       Err(err) => {
                         let err = format!("Unable to create spatial reference: {err}");
                         send(AirportReply::Error(err.into()), false);
