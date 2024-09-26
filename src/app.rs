@@ -691,7 +691,11 @@ impl eframe::App for App {
             let scale = zoom * part.zoom.inverse();
             let rect = util::scale_rect(part.rect.into(), scale);
             let rect = rect.translate(cursor_pos.to_vec2());
-            ui.allocate_ui_at_rect(rect, |ui| {
+            let ui_builder = egui::UiBuilder {
+              max_rect: Some(rect),
+              ..Default::default()
+            };
+            ui.allocate_new_ui(ui_builder, |ui| {
               let mut clip = ui.clip_rect();
               clip.max -= emath::Vec2::splat(ui.spacing().scroll.bar_width * 0.5);
               ui.set_clip_rect(clip);

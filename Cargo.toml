@@ -11,9 +11,9 @@ mobile = []
 
 [dependencies]
 dirs = "5.0"
-eframe = "0.28"
-egui_extras = {version = "0.28", features = ["image"]}
-egui_file = "0.18"
+eframe = "0.29"
+egui_extras = {version = "0.29", features = ["image"]}
+egui_file = "0.19"
 gdal = {version = "0.17", features = ["bindgen"]}
 image = {version = "0.25", features = ["png"]}
 rstar = "0.12"
