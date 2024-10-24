@@ -160,13 +160,11 @@ mod inner {
     pub fn new(items: sync::Arc<sync::RwLock<Items>>) -> Self {
       let (tx, rx) = mpsc::channel();
       Self {
-        join: Some(thread::spawn({
-          move || {
-            // Wait for a message. Exit when the connection is closed.
-            while rx.recv().is_ok() {
-              // Persist the items.
-              items.read().unwrap().store_items();
-            }
+        join: Some(thread::spawn(move || {
+          // Wait for a message. Exit when the connection is closed.
+          while rx.recv().is_ok() {
+            // Persist the items.
+            items.read().unwrap().store_items();
           }
         })),
         tx: Some(tx),
