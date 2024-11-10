@@ -214,7 +214,7 @@ impl From<Hashable> for f64 {
   }
 }
 
-pub struct Image {
+pub struct ImageData {
   pub w: usize,
   pub h: usize,
   pub px: Vec<u8>,

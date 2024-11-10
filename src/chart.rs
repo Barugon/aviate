@@ -49,7 +49,7 @@ impl RasterReader {
           match source.read(&part) {
             Ok(gdal_image) => {
               let ((w, h), data) = gdal_image.into_shape_and_vec();
-              let mut image = util::Image {
+              let mut image = util::ImageData {
                 w,
                 h,
                 px: Vec::with_capacity(w * h * 4),
@@ -101,7 +101,7 @@ impl RasterReader {
 
 pub enum RasterReply {
   /// Image result from a read operation.
-  Image(ImagePart, util::Image),
+  Image(ImagePart, util::ImageData),
 
   /// Error message from a read operation.
   #[allow(dead_code)]
