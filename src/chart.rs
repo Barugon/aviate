@@ -1,10 +1,10 @@
 use crate::util;
-use eframe::{egui, epaint};
 use gdal::{raster, spatial_ref};
 use std::{any, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
 pub struct RasterReader {
+  #[allow(unused)]
   transform: Transform,
   tx: mpsc::Sender<ImagePart>,
   rx: mpsc::Receiver<RasterReply>,
@@ -13,12 +13,11 @@ pub struct RasterReader {
 impl RasterReader {
   /// Create a new chart raster reader.
   /// - `path`: chart file path
-  /// - `ctx`: egui context for requesting a repaint
-  pub fn new<P: AsRef<path::Path>>(path: P, ctx: &egui::Context) -> Result<Self, util::Error> {
-    RasterReader::_new(path.as_ref(), ctx.clone())
+  pub fn new<P: AsRef<path::Path>>(path: P) -> Result<Self, util::Error> {
+    RasterReader::_new(path.as_ref())
   }
 
-  fn _new(path: &path::Path, ctx: egui::Context) -> Result<Self, util::Error> {
+  fn _new(path: &path::Path) -> Result<Self, util::Error> {
     // Open the chart source.
     let (source, transform, palette) = RasterSource::open(path)?;
 
@@ -31,8 +30,8 @@ impl RasterReader {
       .name(any::type_name::<RasterReader>().to_owned())
       .spawn(move || {
         // Convert the color palette.
-        let light: Vec<epaint::Color32> = palette.iter().map(util::color).collect();
-        let dark: Vec<epaint::Color32> = palette.iter().map(util::inverted_color).collect();
+        let light: Vec<[u8; 4]> = palette.iter().map(util::color).collect();
+        let dark: Vec<[u8; 4]> = palette.iter().map(util::inverted_color).collect();
         drop(palette);
 
         // Wait for a message. Exit when the connection is closed.
@@ -50,29 +49,29 @@ impl RasterReader {
           match source.read(&part) {
             Ok(gdal_image) => {
               let ((w, h), data) = gdal_image.into_shape_and_vec();
-              let mut image = epaint::ColorImage {
-                size: [w, h],
-                pixels: Vec::with_capacity(w * h),
+              let mut image = util::Image {
+                w,
+                h,
+                px: Vec::with_capacity(w * h * 4),
               };
 
               // Choose the palette.
               let colors = if part.dark { &dark } else { &light };
 
-              // Convert the image to RGBA.
+              // Convert the image to packed RGBA.
               for val in data {
-                image.pixels.push(colors[val as usize]);
+                let color = colors[val as usize];
+                for c in color {
+                  image.px.push(c);
+                }
               }
 
               // Send it.
               ttx.send(RasterReply::Image(part, image)).unwrap();
-
-              // Request a repaint here so that the main thread will wake up and get the message.
-              ctx.request_repaint();
             }
             Err(err) => {
               let text = format!("{err}");
               ttx.send(RasterReply::Error(part, text.into())).unwrap();
-              ctx.request_repaint();
             }
           }
         }
@@ -83,6 +82,7 @@ impl RasterReader {
   }
 
   /// Get the transformation.
+  #[allow(unused)]
   pub fn transform(&self) -> &Transform {
     &self.transform
   }
@@ -101,7 +101,7 @@ impl RasterReader {
 
 pub enum RasterReply {
   /// Image result from a read operation.
-  Image(ImagePart, epaint::ColorImage),
+  Image(ImagePart, util::Image),
 
   /// Error message from a read operation.
   #[allow(dead_code)]
@@ -110,12 +110,17 @@ pub enum RasterReply {
 
 /// Transformations between pixel, chart (LCC) and NAD83 coordinates.
 pub struct Transform {
+  #[allow(unused)]
   px_size: util::Size,
+  #[allow(unused)]
   spatial_ref: spatial_ref::SpatialRef,
+  #[allow(unused)]
   to_px: gdal::GeoTransform,
   from_px: gdal::GeoTransform,
   to_nad83: spatial_ref::CoordTransform,
+  #[allow(unused)]
   from_nad83: spatial_ref::CoordTransform,
+  #[allow(unused)]
   bounds: util::Bounds,
 }
 
@@ -151,16 +156,19 @@ impl Transform {
   }
 
   /// Get the spatial reference as a proj4 string.
+  #[allow(unused)]
   pub fn get_proj4(&self) -> String {
     self.spatial_ref.to_proj4().unwrap()
   }
 
   /// Get the full size of the chart in pixels.
+  #[allow(unused)]
   pub fn px_size(&self) -> util::Size {
     self.px_size
   }
 
   /// Get the bounds as chart (LCC) coordinates.
+  #[allow(unused)]
   pub fn bounds(&self) -> &util::Bounds {
     &self.bounds
   }
@@ -173,6 +181,7 @@ impl Transform {
 
   /// Convert a chart coordinate to a pixel coordinate.
   /// - `coord`: chart coordinate
+  #[allow(unused)]
   pub fn chart_to_px(&self, coord: util::Coord) -> util::Coord {
     gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into()
   }
@@ -188,6 +197,7 @@ impl Transform {
 
   /// Convert a NAD83 coordinate to a chart coordinate.
   /// - `coord`: NAD83 coordinate
+  #[allow(unused)]
   pub fn nad83_to_chart(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
     let mut x = [coord.x];
     let mut y = [coord.y];
@@ -204,6 +214,7 @@ impl Transform {
 
   /// Convert a NAD83 coordinate to a pixel coordinate.
   /// - `coord`: NAD83 coordinate
+  #[allow(unused)]
   pub fn nad83_to_px(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
     let coord = self.nad83_to_chart(coord);
     coord.map(|coord| self.chart_to_px(coord))

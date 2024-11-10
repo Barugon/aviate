@@ -1,0 +1,71 @@
+[gd_scene load_steps=2 format=3 uid="uid://b1gmyyw2nkaa6"]
+
+[sub_resource type="Theme" id="Theme_c0823"]
+default_font_size = 14
+
+[node name="MainWidget" type="MainWidget"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = SubResource("Theme_c0823")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 2
+
+[node name="ToolbarPanel" type="PanelContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/ToolbarPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/ToolbarPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="SidebarButton" type="CheckButton" parent="VBoxContainer/ToolbarPanel/MarginContainer/HBoxContainer"]
+layout_mode = 2
+button_pressed = true
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 2
+
+[node name="SidebarPanel" type="PanelContainer" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/HBoxContainer/SidebarPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Button1" type="Button" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Button 1"
+
+[node name="Button2" type="Button" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Button 2"
+
+[node name="ChartWidget" type="ChartWidget" parent="VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3

@@ -1,3 +1,2 @@
-.vscode/launch.json
-/target
+target/
 Cargo.lock
