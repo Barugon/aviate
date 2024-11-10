@@ -58,20 +58,11 @@ impl IControl for ChartWidget {
     if let Some(chart) = &self.chart_source {
       for reply in chart.get_replies() {
         match reply {
-          RasterReply::Image(part, image) => {
-            if let Some(image) = Image::create_from_data(
-              image.w as i32,
-              image.h as i32,
-              false,
-              Format::RGBA8,
-              image.px.into(),
-            ) {
-              if let Some(texture) = ImageTexture::create_from_image(image) {
-                let mut this = self.to_gd();
-                let texture: Gd<Texture2D> = texture.upcast();
-                self.chart_image = Some(ChartImage { part, texture });
-                this.queue_redraw();
-              }
+          RasterReply::Image(part, data) => {
+            if let Some(texture) = create_texture(data) {
+              let mut this = self.to_gd();
+              self.chart_image = Some(ChartImage { part, texture });
+              this.queue_redraw();
             }
           }
           RasterReply::Error(part, err) => {
@@ -87,4 +78,19 @@ struct ChartImage {
   #[allow(unused)]
   part: chart::ImagePart,
   texture: Gd<Texture2D>,
+}
+
+/// Create a `Gd<Texture2D>` from `util::ImageData`.`
+fn create_texture(data: util::ImageData) -> Option<Gd<Texture2D>> {
+  if let Some(image) = Image::create_from_data(
+    data.w as i32,
+    data.h as i32,
+    false,
+    Format::RGBA8,
+    data.px.into(),
+  ) {
+    return ImageTexture::create_from_image(image).map(|texture| texture.upcast());
+  }
+
+  None
 }
