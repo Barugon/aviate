@@ -7,5 +7,6 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 
 [dependencies]
+dirs = "5.0"
 gdal = {version = "0.17", features = ["bindgen"]}
 godot = "0.1"
