@@ -1,5 +1,5 @@
 use godot::{
-  engine::{CheckButton, Control, IControl, PanelContainer},
+  engine::{Button, CheckButton, Control, FileDialog, IControl, PanelContainer},
   prelude::*,
 };
 
@@ -19,6 +19,15 @@ impl MainWidget {
       sidebar.set_visible(toggle);
     }
   }
+
+  #[func]
+  fn open_zip_file(&self) {
+    let this = self.to_gd();
+    if let Some(node) = this.find_child("FileDialog".into()) {
+      let mut file_dialog = node.cast::<FileDialog>();
+      file_dialog.show();
+    }
+  }
 }
 
 #[godot_api]
@@ -32,6 +41,11 @@ impl IControl for MainWidget {
     if let Some(node) = this.find_child("SidebarButton".into()) {
       let mut button = node.cast::<CheckButton>();
       button.connect("toggled".into(), this.callable("toggle_sidebar"));
+    }
+
+    if let Some(node) = this.find_child("OpenButton".into()) {
+      let mut button = node.cast::<Button>();
+      button.connect("pressed".into(), this.callable("open_zip_file"));
     }
   }
 }
