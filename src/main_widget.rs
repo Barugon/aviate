@@ -1,6 +1,6 @@
 use crate::{chart_widget::ChartWidget, util};
 use godot::{
-  engine::{Button, CheckButton, Control, FileDialog, IControl, OptionButton, PanelContainer},
+  engine::{Button, CheckButton, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
   prelude::*,
 };
 
@@ -86,21 +86,26 @@ impl IControl for MainWidget {
       file_dialog.connect("file_selected".into(), this.callable("zip_file_selected"));
 
       let vbox = file_dialog.get_vbox().unwrap();
-      hide_folders_button(vbox.upcast());
+      hide_buttons(vbox.upcast());
     }
   }
 }
 
-/// Iterate until we find the `OptionButton` of folders then hide it.
-fn hide_folders_button(node: Gd<Node>) {
-  let children = node.get_children();
-  for child in children.iter_shared() {
-    let name = child.get_name().to_string();
-    if name.contains("Container") {
-      hide_folders_button(child);
-    } else if name.contains("OptionButton") {
-      let mut option_button = child.cast::<OptionButton>();
-      option_button.set_visible(false);
+/// Hide the forward and back buttons.
+fn hide_buttons(node: Gd<Node>) {
+  if let Ok(hbox) = node.get_children().at(0).try_cast::<HBoxContainer>() {
+    let children = hbox.get_children();
+
+    // Back button.
+    if let Ok(button) = children.at(0).try_cast::<Button>() {
+      let mut button = button;
+      button.set_visible(false);
+    }
+
+    // Forward button.
+    if let Ok(button) = children.at(1).try_cast::<Button>() {
+      let mut button = button;
+      button.set_visible(false);
     }
   }
 }
