@@ -40,14 +40,21 @@ impl MainWidget {
     if let Ok(info) = util::get_zip_info(&path) {
       match info {
         util::ZipInfo::Chart(files) => {
-          let this = self.to_gd();
-          if let Some(node) = this.find_child("ChartWidget".into()) {
-            let mut chart_widget = node.cast::<ChartWidget>();
-            let file = files.first().unwrap().to_str().unwrap().into();
-            chart_widget.bind_mut().open_chart(&path, file);
+          if files.len() == 1 {
+            let this = self.to_gd();
+            if let Some(node) = this.find_child("ChartWidget".into()) {
+              let mut chart_widget = node.cast::<ChartWidget>();
+              let mut chart_widget = chart_widget.bind_mut();
+              let file = files.first().unwrap().to_str().unwrap().into();
+              chart_widget.open_chart(&path, file);
+            }
+          } else {
+            godot_print!("Multi-file ZipInfo::Chart is not implemented");
           }
         }
-        util::ZipInfo::Aero { csv: _, shp: _ } => (),
+        util::ZipInfo::Aero { csv: _, shp: _ } => {
+          godot_print!("ZipInfo::Aero is not implemented");
+        }
       }
     }
   }
