@@ -56,8 +56,6 @@ impl IControl for ChartWidget {
     }
   }
 
-  fn ready(&mut self) {}
-
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::RESIZED {
       self.request_image();
