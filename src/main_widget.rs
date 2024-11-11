@@ -37,8 +37,8 @@ impl MainWidget {
 
   #[func]
   fn zip_file_selected(&self, path: String) {
-    if let Ok(info) = util::get_zip_info(&path) {
-      match info {
+    match util::get_zip_info(&path) {
+      Ok(info) => match info {
         util::ZipInfo::Chart(files) => {
           if files.len() == 1 {
             let this = self.to_gd();
@@ -49,12 +49,15 @@ impl MainWidget {
               chart_widget.open_chart(&path, file);
             }
           } else {
-            godot_print!("Multi-file ZipInfo::Chart is not implemented");
+            godot_error!("Multi-file ZipInfo::Chart is not implemented");
           }
         }
         util::ZipInfo::Aero { csv: _, shp: _ } => {
-          godot_print!("ZipInfo::Aero is not implemented");
+          godot_error!("ZipInfo::Aero is not implemented");
         }
+      },
+      Err(err) => {
+        godot_error!("{err}");
       }
     }
   }
