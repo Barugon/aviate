@@ -1,9 +1,98 @@
 use gdal::raster;
-use godot::builtin::Vector2;
-use std::{borrow, cmp, ops};
+use godot::prelude::*;
+use std::{borrow, cmp, collections, ops, path};
 
 /// Error message as either `&'static str` or `String`.
 pub type Error = borrow::Cow<'static, str>;
+
+pub enum ZipInfo {
+  /// Chart raster data.
+  Chart(Vec<path::PathBuf>),
+
+  /// NASR aeronautical data.
+  #[allow(unused)]
+  Aero {
+    csv: path::PathBuf,
+    #[allow(unused)]
+    shp: path::PathBuf,
+  },
+}
+
+/// Returns information about what type of FAA data (if any) is contained in a zip file.
+pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
+  _get_zip_info(path.as_ref())
+}
+
+fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
+  let Some(path) = path.to_str() else {
+    return Err("Invalid unicode in zip file path".into());
+  };
+
+  // Concatenate the VSI prefix.
+  let path = ["/vsizip/", path].concat();
+
+  match gdal::vsi::read_dir(path, true) {
+    Ok(files) => {
+      let mut csv = path::PathBuf::new();
+      let mut shp = path::PathBuf::new();
+      let mut tfws = collections::HashSet::new();
+      let mut tifs = Vec::new();
+      for file in files {
+        let Some(ext) = file.extension() else {
+          continue;
+        };
+
+        // Make sure there's no invalid unicode.
+        if file.to_str().is_none() {
+          continue;
+        }
+
+        if ext.eq_ignore_ascii_case("tfw") {
+          tfws.insert(file);
+        } else if ext.eq_ignore_ascii_case("tif") {
+          tifs.push(file);
+        } else if csv.as_os_str().is_empty() && ext.eq_ignore_ascii_case("zip") {
+          if let Some(stem) = file.file_stem().and_then(|stem| stem.to_str()) {
+            if stem.to_ascii_uppercase().ends_with("_CSV") {
+              csv = file;
+            }
+          }
+        } else if shp.as_os_str().is_empty() && ext.eq_ignore_ascii_case("shp") {
+          if let Some(stem) = file.file_stem() {
+            if stem.eq_ignore_ascii_case("Class_Airspace") {
+              // Use the folder for shape files.
+              if let Some(parent) = file.parent() {
+                parent.clone_into(&mut shp);
+              }
+            }
+          }
+        }
+      }
+
+      // Both the shape folder and CSV zip must be present for aero data to be valid.
+      if !csv.as_os_str().is_empty() && !shp.as_os_str().is_empty() {
+        return Ok(ZipInfo::Aero { csv, shp });
+      }
+
+      // Only accept TIFF files that have matching TFW files.
+      let mut files = Vec::with_capacity(cmp::min(tifs.len(), tfws.len()));
+      for file in tifs {
+        if tfws.contains(&file.with_extension("tfw")) {
+          files.push(file);
+        }
+      }
+
+      if !files.is_empty() {
+        return Ok(ZipInfo::Chart(files));
+      }
+    }
+    Err(_) => {
+      return Err("Unable to read zip file".into());
+    }
+  }
+
+  Err("Zip file does not contain usable data".into())
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Coord {

@@ -6,13 +6,44 @@ use godot::{
   },
   prelude::*,
 };
+use std::path;
 
 #[derive(GodotClass)]
 #[class(base=Control)]
-struct ChartWidget {
+pub struct ChartWidget {
   base: Base<Control>,
   chart_source: Option<chart::RasterReader>,
   chart_image: Option<ChartImage>,
+}
+
+impl ChartWidget {
+  pub fn open_chart(&mut self, path: &str, file: &str) {
+    // Concatenate the VSI prefix and the file path.
+    let path = ["/vsizip/", path].concat();
+    let path = path::Path::new(path.as_str()).join(file);
+
+    // Create a new chart reader.
+    match chart::RasterReader::new(path) {
+      Ok(chart_source) => {
+        self.chart_source = Some(chart_source);
+        self.request_image();
+      }
+      Err(err) => {
+        godot_error!("{err}");
+      }
+    }
+  }
+
+  fn request_image(&self) {
+    if let Some(chart_source) = &self.chart_source {
+      let this = self.to_gd();
+      let rect = this.get_rect();
+      let size = rect.size.into();
+      let pos = (0, 0).into();
+      let part = chart::ImagePart::new(util::Rect { pos, size }, 1.0, true);
+      chart_source.read_image(part);
+    }
+  }
 }
 
 #[godot_api]
@@ -25,22 +56,11 @@ impl IControl for ChartWidget {
     }
   }
 
-  fn ready(&mut self) {
-    let path = "/vsizip//home/barugon/Downloads/FAA/Los_Angeles.zip/Los Angeles SEC.tif";
-    self.chart_source = chart::RasterReader::new(path).ok();
-  }
+  fn ready(&mut self) {}
 
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::RESIZED {
-      if let Some(chart) = &self.chart_source {
-        let this: Gd<Self> = self.to_gd();
-        let rect = this.get_rect();
-        let size = rect.size.into();
-        let pos = (0, 0).into();
-        let rect = util::Rect { pos, size };
-        let part = chart::ImagePart::new(rect, 1.0, true);
-        chart.read_image(part);
-      }
+      self.request_image();
     }
   }
 
