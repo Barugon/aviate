@@ -57,15 +57,19 @@ theme_override_constants/margin_bottom = 5
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="Button1" type="Button" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+[node name="OpenButton" type="Button" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Button 1"
-
-[node name="Button2" type="Button" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Button 2"
+text = "Open Zip File"
 
 [node name="ChartWidget" type="ChartWidget" parent="VBoxContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="FileDialog" type="FileDialog" parent="."]
+title = "Open FAA Zip File"
+initial_position = 1
+size = Vector2i(400, 300)
+ok_button_text = "Open"
+file_mode = 0
+filters = PackedStringArray("zip")
