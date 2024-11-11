@@ -72,9 +72,11 @@ impl MainWidget {
   }
 
   fn show_alert(&self, text: &str) {
-    if let Some(child) = self.to_gd().find_child("AlertDialog".into()) {
+    let this = self.to_gd();
+    if let Some(child) = this.find_child("AlertDialog".into()) {
       let mut alert_dialog = child.cast::<AcceptDialog>();
       alert_dialog.set_text(text.into());
+      alert_dialog.reset_size();
       alert_dialog.show();
     } else {
       godot_error!("{text}");
@@ -90,6 +92,7 @@ impl IControl for MainWidget {
 
   fn ready(&mut self) {
     let this = self.to_gd();
+
     if let Some(node) = this.find_child("SidebarButton".into()) {
       let mut button = node.cast::<CheckButton>();
       button.connect("toggled".into(), this.callable("toggle_sidebar"));
