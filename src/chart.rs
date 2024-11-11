@@ -49,11 +49,8 @@ impl RasterReader {
           match source.read(&part) {
             Ok(gdal_image) => {
               let ((w, h), data) = gdal_image.into_shape_and_vec();
-              let mut image = util::ImageData {
-                w,
-                h,
-                px: Vec::with_capacity(w * h * 4),
-              };
+              let px = Vec::with_capacity(w * h);
+              let mut image = util::ImageData { w, h, px };
 
               // Choose the palette.
               let colors = if part.dark { &dark } else { &light };
@@ -61,9 +58,7 @@ impl RasterReader {
               // Convert the image to packed RGBA.
               for val in data {
                 let color = colors[val as usize];
-                for c in color {
-                  image.px.push(c);
-                }
+                image.px.push(color);
               }
 
               // Send it.

@@ -306,7 +306,7 @@ impl From<Hashable> for f64 {
 pub struct ImageData {
   pub w: usize,
   pub h: usize,
-  pub px: Vec<u8>,
+  pub px: Vec<[u8; 4]>,
 }
 
 /// Check if a GDAL color will fit into a `Color`.

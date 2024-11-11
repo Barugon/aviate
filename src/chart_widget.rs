@@ -107,7 +107,7 @@ fn create_texture(data: util::ImageData) -> Option<Gd<Texture2D>> {
     data.h as i32,
     false,
     Format::RGBA8,
-    data.px.into(),
+    data.px.as_flattened().into(),
   ) {
     return ImageTexture::create_from_image(image).map(|texture| texture.upcast());
   }
