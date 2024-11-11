@@ -1,6 +1,8 @@
 use crate::{chart_widget::ChartWidget, util};
 use godot::{
-  engine::{Button, CheckButton, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
+  engine::{
+    AcceptDialog, Button, CheckButton, Control, FileDialog, HBoxContainer, IControl, PanelContainer,
+  },
   prelude::*,
 };
 
@@ -37,11 +39,18 @@ impl MainWidget {
 
   #[func]
   fn zip_file_selected(&self, path: String) {
+    let this = self.to_gd();
+
+    // The file dialog needs to be hidden first or it will generate an error if the alert dialog is shown.
+    if let Some(node) = this.find_child("FileDialog".into()) {
+      let mut file_dialog = node.cast::<FileDialog>();
+      file_dialog.hide();
+    }
+
     match util::get_zip_info(&path) {
       Ok(info) => match info {
         util::ZipInfo::Chart(files) => {
           if files.len() == 1 {
-            let this = self.to_gd();
             if let Some(node) = this.find_child("ChartWidget".into()) {
               let mut chart_widget = node.cast::<ChartWidget>();
               let mut chart_widget = chart_widget.bind_mut();
@@ -57,8 +66,18 @@ impl MainWidget {
         }
       },
       Err(err) => {
-        godot_error!("{err}");
+        self.show_alert(err.as_ref());
       }
+    }
+  }
+
+  fn show_alert(&self, text: &str) {
+    if let Some(child) = self.to_gd().find_child("AlertDialog".into()) {
+      let mut alert_dialog = child.cast::<AcceptDialog>();
+      alert_dialog.set_text(text.into());
+      alert_dialog.show();
+    } else {
+      godot_error!("{text}");
     }
   }
 }
