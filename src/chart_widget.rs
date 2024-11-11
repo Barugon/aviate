@@ -100,17 +100,13 @@ struct ChartImage {
   texture: Gd<Texture2D>,
 }
 
-/// Create a `Gd<Texture2D>` from `util::ImageData`.`
+/// Create a `Gd<Texture2D>` from `util::ImageData`.
 fn create_texture(data: util::ImageData) -> Option<Gd<Texture2D>> {
-  if let Some(image) = Image::create_from_data(
-    data.w as i32,
-    data.h as i32,
-    false,
-    Format::RGBA8,
-    data.px.as_flattened().into(),
-  ) {
+  let w = data.w as i32;
+  let h = data.h as i32;
+  let data = data.px.as_flattened().into();
+  if let Some(image) = Image::create_from_data(w, h, false, Format::RGBA8, data) {
     return ImageTexture::create_from_image(image).map(|texture| texture.upcast());
   }
-
   None
 }
