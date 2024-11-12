@@ -55,14 +55,16 @@ impl MainWidget {
               let mut chart_widget = node.cast::<ChartWidget>();
               let mut chart_widget = chart_widget.bind_mut();
               let file = files.first().unwrap().to_str().unwrap().into();
-              chart_widget.open_chart(&path, file);
+              if let Err(err) = chart_widget.open_chart(&path, file) {
+                self.show_alert(err.as_ref());
+              }
             }
           } else {
-            godot_error!("Multi-file ZipInfo::Chart is not implemented");
+            self.show_alert("Multi-file charts are not yet supported");
           }
         }
         util::ZipInfo::Aero { csv: _, shp: _ } => {
-          godot_error!("ZipInfo::Aero is not implemented");
+          self.show_alert("Aero data is not yet supported");
         }
       },
       Err(err) => {

@@ -17,7 +17,7 @@ pub struct ChartWidget {
 }
 
 impl ChartWidget {
-  pub fn open_chart(&mut self, path: &str, file: &str) {
+  pub fn open_chart(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
     // Concatenate the VSI prefix and the file path.
     let path = ["/vsizip/", path].concat();
     let path = path::Path::new(path.as_str()).join(file);
@@ -27,10 +27,9 @@ impl ChartWidget {
       Ok(chart_source) => {
         self.chart_source = Some(chart_source);
         self.request_image();
+        Ok(())
       }
-      Err(err) => {
-        godot_error!("{err}");
-      }
+      Err(err) => Err(err),
     }
   }
 
