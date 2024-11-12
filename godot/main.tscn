@@ -1,13 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://b1gmyyw2nkaa6"]
+[gd_scene load_steps=2 format=3 uid="uid://b1gmyyw2nkaa6"]
 
 [sub_resource type="Theme" id="Theme_se57b"]
 default_font_size = 14
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_08g8s"]
-bg_color = Color(0.203922, 0.203922, 0.203922, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qg0an"]
-bg_color = Color(0.203922, 0.203922, 0.203922, 1)
 
 [node name="MainWidget" type="MainWidget"]
 anchors_preset = 15
@@ -28,7 +22,6 @@ theme_override_constants/separation = 2
 
 [node name="ToolbarPanel" type="PanelContainer" parent="VBoxContainer"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_08g8s")
 
 [node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/ToolbarPanel"]
 layout_mode = 2
@@ -52,7 +45,6 @@ theme_override_constants/separation = 2
 
 [node name="SidebarPanel" type="PanelContainer" parent="VBoxContainer/HBoxContainer"]
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_qg0an")
 
 [node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/HBoxContainer/SidebarPanel"]
 layout_mode = 2
