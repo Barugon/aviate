@@ -16,8 +16,7 @@ struct MainWidget {
 impl MainWidget {
   #[func]
   fn toggle_sidebar(&self, toggle: bool) {
-    let this = self.to_gd();
-    if let Some(node) = this.find_child("SidebarPanel".into()) {
+    if let Some(node) = self.base().find_child("SidebarPanel".into()) {
       let mut sidebar = node.cast::<PanelContainer>();
       sidebar.set_visible(toggle);
     }
@@ -25,8 +24,7 @@ impl MainWidget {
 
   #[func]
   fn open_zip_file(&self) {
-    let this = self.to_gd();
-    if let Some(node) = this.find_child("FileDialog".into()) {
+    if let Some(node) = self.base().find_child("FileDialog".into()) {
       let mut file_dialog = node.cast::<FileDialog>();
       if let Some(folder) = dirs::download_dir() {
         if let Some(folder) = folder.to_str() {
@@ -39,7 +37,7 @@ impl MainWidget {
 
   #[func]
   fn zip_file_selected(&self, path: String) {
-    let this = self.to_gd();
+    let this = self.base();
 
     // The file dialog needs to be hidden first or it will generate an error if the alert dialog is shown.
     if let Some(node) = this.find_child("FileDialog".into()) {
@@ -54,7 +52,7 @@ impl MainWidget {
             if let Some(node) = this.find_child("ChartWidget".into()) {
               let mut chart_widget = node.cast::<ChartWidget>();
               let mut chart_widget = chart_widget.bind_mut();
-              let file = files.first().unwrap().to_str().unwrap();
+              let file = files.first().and_then(|f| f.to_str()).unwrap();
               if let Err(err) = chart_widget.open_chart(&path, file) {
                 self.show_alert(err.as_ref());
               }
@@ -74,8 +72,7 @@ impl MainWidget {
   }
 
   fn show_alert(&self, text: &str) {
-    let this = self.to_gd();
-    if let Some(child) = this.find_child("AlertDialog".into()) {
+    if let Some(child) = self.base().find_child("AlertDialog".into()) {
       let mut alert_dialog = child.cast::<AcceptDialog>();
       alert_dialog.set_text(text.into());
       alert_dialog.reset_size();
@@ -93,8 +90,7 @@ impl IControl for MainWidget {
   }
 
   fn ready(&mut self) {
-    let this = self.to_gd();
-
+    let this = self.base();
     if let Some(node) = this.find_child("SidebarButton".into()) {
       let mut button = node.cast::<CheckButton>();
       button.connect("toggled".into(), this.callable("toggle_sidebar"));

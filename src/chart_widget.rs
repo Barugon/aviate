@@ -34,13 +34,43 @@ impl ChartWidget {
 
   fn request_image(&self) {
     if let Some(chart_reader) = &self.chart_reader {
-      let this = self.to_gd();
-      let rect = this.get_rect();
+      let rect = self.base().get_rect();
       let size = rect.size.into();
       let pos = (0, 0).into();
       let part = chart::ImagePart::new(util::Rect { pos, size }, 1.0, true);
       chart_reader.read_image(part);
     }
+  }
+
+  fn get_chart_reply(&self) -> Option<ChartImage> {
+    let mut chart_image = None;
+
+    // Collect all chart replies to get to the most recent image.
+    if let Some(chart_reader) = &self.chart_reader {
+      for reply in chart_reader.get_replies() {
+        match reply {
+          chart::RasterReply::Image(part, data) => {
+            if let Some(texture) = create_texture(data) {
+              chart_image = Some(ChartImage { part, texture });
+            }
+          }
+          chart::RasterReply::Error(part, err) => {
+            godot_error!("{err} @ {part:?}");
+          }
+        }
+      }
+    }
+    chart_image
+  }
+
+  fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
+    if let Some(chart_image) = &self.chart_image {
+      let size = chart_image.texture.get_size();
+      let rect = Rect2::new(Vector2::new(0.0, 0.0), size);
+      let texture = chart_image.texture.clone();
+      return Some((texture, rect));
+    }
+    None
   }
 }
 
@@ -61,31 +91,16 @@ impl IControl for ChartWidget {
   }
 
   fn draw(&mut self) {
-    if let Some(chart_image) = &self.chart_image {
-      let mut this = self.to_gd();
-      let size = chart_image.texture.get_size();
-      let rect = Rect2::from_components(0.0, 0.0, size.x, size.y);
-      this.draw_texture_rect(chart_image.texture.clone(), rect, false);
-    }
+    if let Some((texture, rect)) = self.get_draw_info() {
+      self.base_mut().draw_texture_rect(texture, rect, false);
+    };
   }
 
   fn process(&mut self, _delta: f64) {
-    // Collect any chart replies.
-    if let Some(chart_reader) = &self.chart_reader {
-      for reply in chart_reader.get_replies() {
-        match reply {
-          chart::RasterReply::Image(part, data) => {
-            if let Some(texture) = create_texture(data) {
-              let mut this = self.to_gd();
-              self.chart_image = Some(ChartImage { part, texture });
-              this.queue_redraw();
-            }
-          }
-          chart::RasterReply::Error(part, err) => {
-            godot_error!("{err} @ {part:?}");
-          }
-        }
-      }
+    let chart_image = self.get_chart_reply();
+    if chart_image.is_some() {
+      self.chart_image = chart_image;
+      self.base_mut().queue_redraw();
     }
   }
 }
