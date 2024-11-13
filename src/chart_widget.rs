@@ -1,5 +1,4 @@
 use crate::{chart, util};
-use chart::RasterReply;
 use godot::{
   engine::{
     image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, Texture2D,
@@ -12,7 +11,7 @@ use std::path;
 #[class(base=Control)]
 pub struct ChartWidget {
   base: Base<Control>,
-  chart_source: Option<chart::RasterReader>,
+  chart_reader: Option<chart::RasterReader>,
   chart_image: Option<ChartImage>,
 }
 
@@ -24,8 +23,8 @@ impl ChartWidget {
 
     // Create a new chart reader.
     match chart::RasterReader::new(path) {
-      Ok(chart_source) => {
-        self.chart_source = Some(chart_source);
+      Ok(chart_reader) => {
+        self.chart_reader = Some(chart_reader);
         self.request_image();
         Ok(())
       }
@@ -34,13 +33,13 @@ impl ChartWidget {
   }
 
   fn request_image(&self) {
-    if let Some(chart_source) = &self.chart_source {
+    if let Some(chart_reader) = &self.chart_reader {
       let this = self.to_gd();
       let rect = this.get_rect();
       let size = rect.size.into();
       let pos = (0, 0).into();
       let part = chart::ImagePart::new(util::Rect { pos, size }, 1.0, true);
-      chart_source.read_image(part);
+      chart_reader.read_image(part);
     }
   }
 }
@@ -50,7 +49,7 @@ impl IControl for ChartWidget {
   fn init(base: Base<Control>) -> Self {
     Self {
       base,
-      chart_source: None,
+      chart_reader: None,
       chart_image: None,
     }
   }
@@ -72,17 +71,17 @@ impl IControl for ChartWidget {
 
   fn process(&mut self, _delta: f64) {
     // Collect any chart replies.
-    if let Some(chart) = &self.chart_source {
-      for reply in chart.get_replies() {
+    if let Some(chart_reader) = &self.chart_reader {
+      for reply in chart_reader.get_replies() {
         match reply {
-          RasterReply::Image(part, data) => {
+          chart::RasterReply::Image(part, data) => {
             if let Some(texture) = create_texture(data) {
               let mut this = self.to_gd();
               self.chart_image = Some(ChartImage { part, texture });
               this.queue_redraw();
             }
           }
-          RasterReply::Error(part, err) => {
+          chart::RasterReply::Error(part, err) => {
             godot_error!("{err} @ {part:?}");
           }
         }
