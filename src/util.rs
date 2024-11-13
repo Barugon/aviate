@@ -150,6 +150,15 @@ impl From<Vector2> for Pos {
   }
 }
 
+impl From<Pos> for Vector2 {
+  fn from(pos: Pos) -> Self {
+    Self {
+      x: pos.x as f32,
+      y: pos.y as f32,
+    }
+  }
+}
+
 impl From<Pos> for (isize, isize) {
   fn from(pos: Pos) -> (isize, isize) {
     (pos.x as isize, pos.y as isize)
@@ -194,6 +203,15 @@ impl From<Vector2> for Size {
     Self {
       w: size.x.round() as u32,
       h: size.y.round() as u32,
+    }
+  }
+}
+
+impl From<Size> for Vector2 {
+  fn from(size: Size) -> Self {
+    Self {
+      x: size.w as f32,
+      y: size.h as f32,
     }
   }
 }
@@ -260,6 +278,24 @@ impl Rect {
     Self {
       pos: Pos { x, y },
       size: Size { w, h },
+    }
+  }
+}
+
+impl From<Rect2> for Rect {
+  fn from(rect: Rect2) -> Self {
+    Self {
+      pos: rect.position.into(),
+      size: rect.size.into(),
+    }
+  }
+}
+
+impl From<Rect> for Rect2 {
+  fn from(rect: Rect) -> Self {
+    Self {
+      position: rect.pos.into(),
+      size: rect.size.into(),
     }
   }
 }
