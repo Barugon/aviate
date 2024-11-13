@@ -54,7 +54,7 @@ impl MainWidget {
             if let Some(node) = this.find_child("ChartWidget".into()) {
               let mut chart_widget = node.cast::<ChartWidget>();
               let mut chart_widget = chart_widget.bind_mut();
-              let file = files.first().unwrap().to_str().unwrap().into();
+              let file = files.first().unwrap().to_str().unwrap();
               if let Err(err) = chart_widget.open_chart(&path, file) {
                 self.show_alert(err.as_ref());
               }
