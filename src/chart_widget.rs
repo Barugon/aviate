@@ -43,16 +43,14 @@ impl ChartWidget {
   }
 
   fn get_chart_reply(&self) -> Option<ChartImage> {
-    let mut chart_image = None;
+    let mut image_info = None;
 
     // Collect all chart replies to get to the most recent image.
     if let Some(chart_reader) = &self.chart_reader {
       for reply in chart_reader.get_replies() {
         match reply {
           chart::RasterReply::Image(part, data) => {
-            if let Some(texture) = create_texture(data) {
-              chart_image = Some(ChartImage { part, texture });
-            }
+            image_info = Some((part, data));
           }
           chart::RasterReply::Error(part, err) => {
             godot_error!("{err} @ {part:?}");
@@ -60,7 +58,15 @@ impl ChartWidget {
         }
       }
     }
-    chart_image
+
+    // Convert to texture and return.
+    if let Some((part, data)) = image_info {
+      if let Some(texture) = create_texture(data) {
+        return Some(ChartImage { part, texture });
+      }
+    }
+
+    None
   }
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
