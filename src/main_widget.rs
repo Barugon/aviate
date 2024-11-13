@@ -77,9 +77,9 @@ impl MainWidget {
       alert_dialog.set_text(text.into());
       alert_dialog.reset_size();
       alert_dialog.show();
-    } else {
-      godot_error!("{text}");
+      return;
     }
+    godot_error!("{text}");
   }
 }
 
