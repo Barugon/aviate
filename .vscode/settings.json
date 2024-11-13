@@ -1,13 +1,14 @@
 {
   "cSpell.ignoreWords": [
+    "Hashable",
+    "NASR",
     "barugon",
     "consts",
     "epsg",
     "gdal",
     "gdextension",
-    "Hashable",
     "hbox",
-    "NASR",
+    "palettized",
     "rasterband",
     "tfws",
     "tifs",
