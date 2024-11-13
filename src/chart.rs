@@ -57,8 +57,7 @@ impl RasterReader {
 
               // Convert the image to packed RGBA.
               for val in data {
-                let color = colors[val as usize];
-                image.px.push(color);
+                image.px.push(colors[val as usize]);
               }
 
               // Send it.
