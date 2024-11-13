@@ -1,10 +1,10 @@
+#![allow(unused)]
 use crate::util;
 use gdal::{raster, spatial_ref};
 use std::{any, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
 pub struct RasterReader {
-  #[allow(unused)]
   transform: Transform,
   tx: mpsc::Sender<ImagePart>,
   rx: mpsc::Receiver<RasterReply>,
@@ -76,7 +76,6 @@ impl RasterReader {
   }
 
   /// Get the transformation.
-  #[allow(unused)]
   pub fn transform(&self) -> &Transform {
     &self.transform
   }
@@ -98,23 +97,17 @@ pub enum RasterReply {
   Image(ImagePart, util::ImageData),
 
   /// Error message from a read operation.
-  #[allow(dead_code)]
   Error(ImagePart, util::Error),
 }
 
 /// Transformations between pixel, chart (LCC) and NAD83 coordinates.
 pub struct Transform {
-  #[allow(unused)]
   px_size: util::Size,
-  #[allow(unused)]
   spatial_ref: spatial_ref::SpatialRef,
-  #[allow(unused)]
   to_px: gdal::GeoTransform,
   from_px: gdal::GeoTransform,
   to_nad83: spatial_ref::CoordTransform,
-  #[allow(unused)]
   from_nad83: spatial_ref::CoordTransform,
-  #[allow(unused)]
   bounds: util::Bounds,
 }
 
@@ -150,19 +143,16 @@ impl Transform {
   }
 
   /// Get the spatial reference as a proj4 string.
-  #[allow(unused)]
   pub fn get_proj4(&self) -> String {
     self.spatial_ref.to_proj4().unwrap()
   }
 
   /// Get the full size of the chart in pixels.
-  #[allow(unused)]
   pub fn px_size(&self) -> util::Size {
     self.px_size
   }
 
   /// Get the bounds as chart (LCC) coordinates.
-  #[allow(unused)]
   pub fn bounds(&self) -> &util::Bounds {
     &self.bounds
   }
@@ -175,7 +165,6 @@ impl Transform {
 
   /// Convert a chart coordinate to a pixel coordinate.
   /// - `coord`: chart coordinate
-  #[allow(unused)]
   pub fn chart_to_px(&self, coord: util::Coord) -> util::Coord {
     gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into()
   }
@@ -191,7 +180,6 @@ impl Transform {
 
   /// Convert a NAD83 coordinate to a chart coordinate.
   /// - `coord`: NAD83 coordinate
-  #[allow(unused)]
   pub fn nad83_to_chart(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
     let mut x = [coord.x];
     let mut y = [coord.y];
@@ -201,14 +189,12 @@ impl Transform {
 
   /// Convert a pixel coordinate to a NAD83 coordinate.
   /// - `coord`: pixel coordinate
-  #[allow(unused)]
   pub fn px_to_nad83(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
     self.chart_to_nad83(self.px_to_chart(coord))
   }
 
   /// Convert a NAD83 coordinate to a pixel coordinate.
   /// - `coord`: NAD83 coordinate
-  #[allow(unused)]
   pub fn nad83_to_px(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
     let coord = self.nad83_to_chart(coord);
     coord.map(|coord| self.chart_to_px(coord))
