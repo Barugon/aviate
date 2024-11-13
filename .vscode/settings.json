@@ -6,10 +6,13 @@
     "consts",
     "epsg",
     "gdal",
+    "gdext",
     "gdextension",
     "hbox",
+    "libaviate",
     "palettized",
     "rasterband",
+    "reloadable",
     "tfws",
     "tifs",
     "vsizip"
