@@ -303,13 +303,15 @@ impl From<Hashable> for f64 {
   }
 }
 
+pub type Color = [u8; 4];
+
 pub struct ImageData {
   pub w: usize,
   pub h: usize,
-  pub px: Vec<[u8; 4]>,
+  pub px: Vec<Color>,
 }
 
-/// Check if a GDAL color will fit into a `Color`.
+/// Check if a GDAL `RgbaEntry` will fit into a `Color`.
 pub fn check_color(color: raster::RgbaEntry) -> bool {
   const COMP_RANGE: ops::Range<i16> = 0..256;
   COMP_RANGE.contains(&color.r)
@@ -318,13 +320,13 @@ pub fn check_color(color: raster::RgbaEntry) -> bool {
     && COMP_RANGE.contains(&color.a)
 }
 
-/// Convert a GDAL color to `[u8; 4]`.
-pub fn color(color: &raster::RgbaEntry) -> [u8; 4] {
+/// Convert a GDAL `RgbaEntry` to a `Color`.
+pub fn color(color: &raster::RgbaEntry) -> Color {
   [color.r as u8, color.g as u8, color.b as u8, color.a as u8]
 }
 
-/// Convert a GDAL color to `[u8; 4]` and invert the luminance.
-pub fn inverted_color(color: &raster::RgbaEntry) -> [u8; 4] {
+/// Convert a GDAL `RgbaEntry` to a luminance inverted `Color`.
+pub fn inverted_color(color: &raster::RgbaEntry) -> Color {
   let r = color.r as f32;
   let g = color.g as f32;
   let b = color.b as f32;

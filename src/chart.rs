@@ -30,8 +30,8 @@ impl RasterReader {
       .name(any::type_name::<RasterReader>().to_owned())
       .spawn(move || {
         // Convert the color palette.
-        let light: Vec<[u8; 4]> = palette.iter().map(util::color).collect();
-        let dark: Vec<[u8; 4]> = palette.iter().map(util::inverted_color).collect();
+        let light: Vec<util::Color> = palette.iter().map(util::color).collect();
+        let dark: Vec<util::Color> = palette.iter().map(util::inverted_color).collect();
         drop(palette);
 
         // Wait for a message. Exit when the connection is closed.
@@ -55,7 +55,7 @@ impl RasterReader {
               // Choose the palette.
               let colors = if part.dark { &dark } else { &light };
 
-              // Convert the image to packed RGBA.
+              // Convert the palettized image to packed RGBA.
               for val in data {
                 image.px.push(colors[val as usize]);
               }
