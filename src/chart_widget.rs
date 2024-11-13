@@ -38,6 +38,14 @@ impl ChartWidget {
       let size = rect.size.into();
       let pos = (0, 0).into();
       let part = chart::ImagePart::new(util::Rect { pos, size }, 1.0, true);
+
+      // Check if the image part is the same as the current one.
+      if let Some(chart_image) = &self.chart_image {
+        if chart_image.part == part {
+          return;
+        }
+      }
+
       chart_reader.read_image(part);
     }
   }
