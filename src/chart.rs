@@ -49,18 +49,18 @@ impl RasterReader {
           match source.read(&part) {
             Ok(gdal_image) => {
               let ((w, h), data) = gdal_image.into_shape_and_vec();
-              let px = Vec::with_capacity(w * h);
-              let mut image = util::ImageData { w, h, px };
+              let mut px = Vec::with_capacity(w * h);
 
               // Choose the palette.
               let colors = if part.dark { &dark } else { &light };
 
               // Convert the palettized image to packed RGBA.
               for val in data {
-                image.px.push(colors[val as usize]);
+                px.push(colors[val as usize]);
               }
 
-              // Send it.
+              // Send the image data.
+              let image = util::ImageData { w, h, px };
               ttx.send(RasterReply::Image(part, image)).unwrap();
             }
             Err(err) => {
