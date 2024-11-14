@@ -77,6 +77,10 @@ impl MainWidget {
       let mut alert_dialog = child.cast::<AcceptDialog>();
       if let Some(label) = alert_dialog.get_label() {
         let mut label = label;
+        label.set(
+          "theme_override_colors/font_color".into(),
+          Variant::from(Color::from_rgb(1.0, 0.4, 0.4)),
+        );
         label.set_horizontal_alignment(HorizontalAlignment::CENTER);
       }
       alert_dialog.set_text(text.into());
