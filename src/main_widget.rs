@@ -3,6 +3,7 @@ use godot::{
   engine::{
     AcceptDialog, Button, CheckButton, Control, FileDialog, HBoxContainer, IControl, PanelContainer,
   },
+  global::HorizontalAlignment,
   prelude::*,
 };
 
@@ -74,6 +75,10 @@ impl MainWidget {
   fn show_alert(&self, text: &str) {
     if let Some(child) = self.base().find_child("AlertDialog".into()) {
       let mut alert_dialog = child.cast::<AcceptDialog>();
+      if let Some(label) = alert_dialog.get_label() {
+        let mut label = label;
+        label.set_horizontal_alignment(HorizontalAlignment::CENTER);
+      }
       alert_dialog.set_text(text.into());
       alert_dialog.reset_size();
       alert_dialog.show();
