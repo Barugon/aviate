@@ -34,10 +34,10 @@ impl ChartWidget {
 
   fn request_image(&self) {
     if let Some(chart_reader) = &self.chart_reader {
-      let rect = self.base().get_rect();
-      let size = rect.size.into();
+      let size = self.base().get_size().into();
       let pos = (0, 0).into();
-      let part = chart::ImagePart::new(util::Rect { pos, size }, 1.0, true);
+      let rect = util::Rect { pos, size };
+      let part = chart::ImagePart::new(rect, 1.0, true);
 
       // Check if the image part is the same as the current one.
       if let Some(chart_image) = &self.chart_image {
