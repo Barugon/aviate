@@ -5,7 +5,7 @@ use std::{any, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
 pub struct RasterReader {
-  transform: Transform,
+  transformation: Transformation,
   tx: mpsc::Sender<ImagePart>,
   rx: mpsc::Receiver<RasterReply>,
 }
@@ -19,7 +19,7 @@ impl RasterReader {
 
   fn _new(path: &path::Path) -> Result<Self, util::Error> {
     // Open the chart source.
-    let (source, transform, palette) = RasterSource::open(path)?;
+    let (source, transformation, palette) = RasterSource::open(path)?;
 
     // Create the communication channels.
     let (tx, trx) = mpsc::channel();
@@ -72,12 +72,16 @@ impl RasterReader {
       })
       .unwrap();
 
-    Ok(Self { transform, tx, rx })
+    Ok(Self {
+      transformation,
+      tx,
+      rx,
+    })
   }
 
   /// Get the transformation.
-  pub fn transform(&self) -> &Transform {
-    &self.transform
+  pub fn transformation(&self) -> &Transformation {
+    &self.transformation
   }
 
   /// Kick-off an image read operation.
@@ -101,7 +105,7 @@ pub enum RasterReply {
 }
 
 /// Transformations between pixel, chart (LCC) and NAD83 coordinates.
-pub struct Transform {
+pub struct Transformation {
   px_size: util::Size,
   spatial_ref: spatial_ref::SpatialRef,
   to_px: gdal::GeoTransform,
@@ -111,7 +115,7 @@ pub struct Transform {
   bounds: util::Bounds,
 }
 
-impl Transform {
+impl Transformation {
   fn new(
     px_size: util::Size,
     spatial_ref: spatial_ref::SpatialRef,
@@ -131,7 +135,7 @@ impl Transform {
       max: gdal::GeoTransformEx::apply(&geo_transform, px_size.w as f64, 0.0).into(),
     };
 
-    Ok(Transform {
+    Ok(Transformation {
       px_size,
       spatial_ref,
       to_px,
@@ -240,7 +244,7 @@ impl RasterSource {
   /// - `path`: raster file path
   fn open(
     path: &path::Path,
-  ) -> Result<(Self, Transform, Vec<gdal::raster::RgbaEntry>), util::Error> {
+  ) -> Result<(Self, Transformation, Vec<gdal::raster::RgbaEntry>), util::Error> {
     match gdal::Dataset::open_ex(path, Self::open_options()) {
       Ok(dataset) => {
         // Get and check the dataset's spatial reference.
@@ -263,7 +267,7 @@ impl RasterSource {
         };
 
         // This dataset must have a geo-transformation.
-        let geo_transform = match dataset.geo_transform() {
+        let geo_transformation = match dataset.geo_transform() {
           Ok(gt) => gt,
           Err(err) => return Err(format!("Unable to open chart: {err}").into()),
         };
@@ -273,7 +277,7 @@ impl RasterSource {
           return Err("Unable to open chart: invalid pixel size".into());
         }
 
-        let chart_transform = match Transform::new(px_size, spatial_ref, geo_transform) {
+        let transformation = match Transformation::new(px_size, spatial_ref, geo_transformation) {
           Ok(trans) => trans,
           Err(err) => return Err(format!("Unable to open chart: {err}").into()),
         };
@@ -318,7 +322,7 @@ impl RasterSource {
             band_idx,
             px_size,
           },
-          chart_transform,
+          transformation,
           palette,
         ))
       }
