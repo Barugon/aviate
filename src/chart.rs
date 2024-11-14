@@ -255,31 +255,31 @@ impl RasterSource {
                 let proj4 = proj4.to_lowercase();
                 for item in ["+proj=lcc", "+datum=nad83", "+units=m"] {
                   if !proj4.contains(item) {
-                    return Err("Unable to open chart: invalid spatial reference".into());
+                    return Err("Unable to open chart\ninvalid spatial reference".into());
                   }
                 }
               }
-              Err(err) => return Err(format!("Unable to open chart: {err}").into()),
+              Err(err) => return Err(format!("Unable to open chart\n{err}").into()),
             }
             sr
           }
-          Err(err) => return Err(format!("Unable to open chart: {err}").into()),
+          Err(err) => return Err(format!("Unable to open chart\n{err}").into()),
         };
 
         // This dataset must have a geo-transformation.
         let geo_transformation = match dataset.geo_transform() {
           Ok(gt) => gt,
-          Err(err) => return Err(format!("Unable to open chart: {err}").into()),
+          Err(err) => return Err(format!("Unable to open chart\n{err}").into()),
         };
 
         let px_size: util::Size = dataset.raster_size().into();
         if !px_size.is_valid() {
-          return Err("Unable to open chart: invalid pixel size".into());
+          return Err("Unable to open chart\ninvalid pixel size".into());
         }
 
         let transformation = match Transformation::new(px_size, spatial_ref, geo_transformation) {
           Ok(trans) => trans,
-          Err(err) => return Err(format!("Unable to open chart: {err}").into()),
+          Err(err) => return Err(format!("Unable to open chart\n{err}").into()),
         };
 
         let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
@@ -293,7 +293,7 @@ impl RasterSource {
                 // The color table must have 256 entries.
                 let size = color_table.entry_count();
                 if size != 256 {
-                  return Err("Unable to open chart: invalid color table".into());
+                  return Err("Unable to open chart\ninvalid color table".into());
                 }
 
                 // Collect the color entries as RGB.
@@ -306,14 +306,14 @@ impl RasterSource {
                       continue;
                     }
                   }
-                  return Err("Unable to open chart: invalid color table".into());
+                  return Err("Unable to open chart\ninvalid color table".into());
                 }
                 return Ok((index, palette));
               }
-              return Err("Unable to open chart: color table not found".into());
+              return Err("Unable to open chart\ncolor table not found".into());
             }
           }
-          Err("Unable to open chart: raster layer not found".into())
+          Err("Unable to open chart\nraster layer not found".into())
         }()?;
 
         Ok((
@@ -326,7 +326,7 @@ impl RasterSource {
           palette,
         ))
       }
-      Err(err) => Err(format!("Unable to open chart: {err}").into()),
+      Err(err) => Err(format!("Unable to open chart\n{err}").into()),
     }
   }
 
