@@ -2,6 +2,15 @@ use gdal::raster;
 use godot::prelude::*;
 use std::{borrow, cmp, collections, ops, path};
 
+#[allow(unused)]
+pub fn print_children(nodes: Array<Gd<Node>>) {
+  for child in nodes.iter_shared() {
+    let name = child.get_name();
+    godot_print!("{name}");
+    print_children(child.get_children());
+  }
+}
+
 /// Error message as either `&'static str` or `String`.
 pub type Error = borrow::Cow<'static, str>;
 
