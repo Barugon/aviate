@@ -1,0 +1,18 @@
+{
+  // Build library and then debug Godot.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug",
+      "program": "${env:GODOT4_BIN}",
+      "preLaunchTask": "rust: cargo build",
+      "args": [
+        "--path",
+        "${workspaceFolder}/godot"
+      ],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
