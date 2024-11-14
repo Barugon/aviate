@@ -15,6 +15,7 @@
     "reloadable",
     "tfws",
     "tifs",
+    "unresizable",
     "vsizip"
   ],
   "editor.tabSize": 2
