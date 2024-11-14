@@ -27,11 +27,15 @@ impl MainWidget {
   fn open_zip_file(&self) {
     if let Some(node) = self.base().find_child("FileDialog".into()) {
       let mut file_dialog = node.cast::<FileDialog>();
+      let property = "theme_override_font_sizes/title_font_size".into();
+      file_dialog.set(property, Variant::from(16.0));
+
       if let Some(folder) = dirs::download_dir() {
         if let Some(folder) = folder.to_str() {
           file_dialog.set_current_dir(folder.into());
         }
       }
+
       file_dialog.show();
     }
   }
@@ -75,6 +79,9 @@ impl MainWidget {
   fn show_alert(&self, text: &str) {
     if let Some(child) = self.base().find_child("AlertDialog".into()) {
       let mut alert_dialog = child.cast::<AcceptDialog>();
+      let property = "theme_override_font_sizes/title_font_size".into();
+      alert_dialog.set(property, Variant::from(16.0));
+
       if let Some(label) = alert_dialog.get_label() {
         let mut label = label;
         let property = "theme_override_colors/font_color".into();
@@ -82,6 +89,7 @@ impl MainWidget {
         label.set(property, color);
         label.set_horizontal_alignment(HorizontalAlignment::CENTER);
       }
+
       alert_dialog.set_text(text.into());
       alert_dialog.reset_size();
       alert_dialog.show();
