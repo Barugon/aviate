@@ -31,7 +31,7 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   // Concatenate the VSI prefix.
   let path = ["/vsizip/", path].concat();
 
-  match gdal::vsi::read_dir(path, true) {
+  match gdal::vsi::read_dir(&path, true) {
     Ok(files) => {
       let mut csv = path::PathBuf::new();
       let mut shp = path::PathBuf::new();
@@ -87,7 +87,13 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
       }
     }
     Err(_) => {
-      return Err("Unable to read zip file".into());
+      let path = path::Path::new(&path);
+      if let Some(ext) = path.extension() {
+        if ext.eq_ignore_ascii_case("zip") {
+          return Err("Unable to read zip file".into());
+        }
+      }
+      return Err("Not a zip file".into());
     }
   }
 
