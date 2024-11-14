@@ -53,7 +53,9 @@ impl MainWidget {
     match util::get_zip_info(&path) {
       Ok(info) => match info {
         util::ZipInfo::Chart(files) => {
-          if files.len() == 1 {
+          if files.len() > 1 {
+            self.show_alert("Multi-file charts are not yet supported");
+          } else {
             if let Some(node) = this.find_child("ChartWidget".into()) {
               let mut chart_widget = node.cast::<ChartWidget>();
               let mut chart_widget = chart_widget.bind_mut();
@@ -62,8 +64,6 @@ impl MainWidget {
                 self.show_alert(err.as_ref());
               }
             }
-          } else {
-            self.show_alert("Multi-file charts are not yet supported");
           }
         }
         util::ZipInfo::Aero { csv: _, shp: _ } => {
