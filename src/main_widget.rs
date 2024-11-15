@@ -1,16 +1,16 @@
-use crate::{chart_widget::ChartWidget, util};
+use crate::{chart_widget::ChartWidget, select_dialog::SelectDialog, util};
 use godot::{
-  engine::{
-    AcceptDialog, Button, CheckButton, Control, FileDialog, HBoxContainer, IControl, PanelContainer,
-  },
+  engine::{AcceptDialog, Button, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
   global::HorizontalAlignment,
   prelude::*,
 };
+use std::path;
 
 #[derive(GodotClass)]
 #[class(base=Control)]
 struct MainWidget {
   base: Base<Control>,
+  chart_info: Option<(String, Vec<path::PathBuf>)>,
 }
 
 #[godot_api]
@@ -41,11 +41,9 @@ impl MainWidget {
   }
 
   #[func]
-  fn zip_file_selected(&self, path: String) {
-    let this = self.base();
-
+  fn zip_file_selected(&mut self, path: String) {
     // The file dialog needs to be hidden first or it will generate an error if the alert dialog is shown.
-    if let Some(node) = this.find_child("FileDialog".into()) {
+    if let Some(node) = self.base().find_child("FileDialog".into()) {
       let mut file_dialog = node.cast::<FileDialog>();
       file_dialog.hide();
     }
@@ -54,16 +52,10 @@ impl MainWidget {
       Ok(info) => match info {
         util::ZipInfo::Chart(files) => {
           if files.len() > 1 {
-            self.show_alert("Multi-file charts are not yet supported");
+            self.select_chart(&files);
+            self.chart_info = Some((path, files));
           } else {
-            if let Some(node) = this.find_child("ChartWidget".into()) {
-              let mut chart_widget = node.cast::<ChartWidget>();
-              let mut chart_widget = chart_widget.bind_mut();
-              let file = files.first().and_then(|f| f.to_str()).unwrap();
-              if let Err(err) = chart_widget.open_chart(&path, file) {
-                self.show_alert(err.as_ref());
-              }
-            }
+            self.open_chart(&path, files.first().and_then(|f| f.to_str()).unwrap());
           }
         }
         util::ZipInfo::Aero { csv: _, shp: _ } => {
@@ -72,6 +64,31 @@ impl MainWidget {
       },
       Err(err) => {
         self.show_alert(err.as_ref());
+      }
+    }
+  }
+
+  #[func]
+  fn chart_selected(&mut self, index: u32) {
+    if let Some((path, files)) = self.chart_info.take() {
+      self.open_chart(&path, files[index as usize].to_str().unwrap());
+    }
+  }
+
+  fn select_chart(&self, files: &Vec<path::PathBuf>) {
+    if let Some(node) = self.base().find_child("SelectDialog".into()) {
+      let mut select_dialog = node.cast::<SelectDialog>();
+      let choices = files.iter().map(|f| util::stem_str(f).unwrap());
+      select_dialog.bind_mut().show_choices(choices);
+    }
+  }
+
+  fn open_chart(&mut self, path: &str, file: &str) {
+    if let Some(node) = self.base().find_child("ChartWidget".into()) {
+      let mut chart_widget = node.cast::<ChartWidget>();
+      let mut chart_widget = chart_widget.bind_mut();
+      if let Err(err) = chart_widget.open_chart(path, file) {
+        self.show_alert(&*err);
       }
     }
   }
@@ -102,27 +119,37 @@ impl MainWidget {
 #[godot_api]
 impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
-    Self { base }
+    Self {
+      base,
+      chart_info: None,
+    }
   }
 
   fn ready(&mut self) {
     let this = self.base();
-    if let Some(node) = this.find_child("SidebarButton".into()) {
-      let mut button = node.cast::<CheckButton>();
-      button.connect("toggled".into(), this.callable("toggle_sidebar"));
+
+    // Connect the sidebar button.
+    if let Some(mut node) = this.find_child("SidebarButton".into()) {
+      node.connect("toggled".into(), this.callable("toggle_sidebar"));
     }
 
-    if let Some(node) = this.find_child("OpenButton".into()) {
-      let mut button = node.cast::<Button>();
-      button.connect("pressed".into(), this.callable("open_zip_file"));
+    // Connect the open button.
+    if let Some(mut node) = this.find_child("OpenButton".into()) {
+      node.connect("pressed".into(), this.callable("open_zip_file"));
     }
 
+    // Setup the file dialog.
     if let Some(node) = this.find_child("FileDialog".into()) {
       let mut file_dialog = node.cast::<FileDialog>();
       file_dialog.connect("file_selected".into(), this.callable("zip_file_selected"));
 
       let vbox = file_dialog.get_vbox().unwrap();
       hide_buttons(vbox.upcast());
+    }
+
+    // Connect the select dialog.
+    if let Some(mut node) = this.find_child("SelectDialog".into()) {
+      node.connect("selected".into(), this.callable("chart_selected"));
     }
   }
 }
