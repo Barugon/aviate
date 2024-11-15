@@ -26,7 +26,7 @@ impl AirportReader {
     let mut source = match AirportSource::open(path) {
       Ok(source) => source,
       Err(err) => {
-        let err = format!("Unable to open airport data source: {err}");
+        let err = format!("Unable to open airport data source:\n{err}");
         return Err(err.into());
       }
     };
@@ -87,13 +87,13 @@ impl AirportReader {
                             }
                           }
                           Err(err) => {
-                            let err = format!("Unable to create coordinate transformation: {err}");
+                            let err = format!("Unable to create coordinate transformation:\n{err}");
                             send(AirportReply::Error(err.into()), false);
                           }
                         }
                       }
                       Err(err) => {
-                        let err = format!("Unable to create spatial reference: {err}");
+                        let err = format!("Unable to create spatial reference:\n{err}");
                         send(AirportReply::Error(err.into()), false);
                       }
                     }
@@ -138,7 +138,7 @@ impl AirportReader {
                   };
                   send(reply, true);
                 } else {
-                  let err = "Chart transformation is needed for search\n";
+                  let err = "Chart transformation is needed for search";
                   send(AirportReply::Error(err.into()), true);
                 }
               }
