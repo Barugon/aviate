@@ -1,6 +1,6 @@
 use godot::{
   engine::{Button, ButtonGroup, IWindow, InputEvent, InputEventKey, VBoxContainer, Window},
-  global::Key,
+  global::{Key, KeyModifierMask},
   obj::Base,
   prelude::*,
 };
@@ -88,7 +88,9 @@ impl IWindow for SelectDialog {
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {
     let event_key = event.cast::<InputEventKey>();
-    if event_key.get_keycode_with_modifiers() == Key::ESCAPE {
+    if event_key.get_keycode() == Key::ESCAPE
+      && event_key.get_modifiers_mask() == KeyModifierMask::default()
+    {
       self.base_mut().hide();
     }
   }
