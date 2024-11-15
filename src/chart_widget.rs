@@ -1,17 +1,19 @@
-use crate::{chart, util};
+use crate::{chart, nasr, util};
+use std::path;
+
 use godot::{
   classes::{
     image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, Texture2D,
   },
   prelude::*,
 };
-use std::path;
 
 #[derive(GodotClass)]
 #[class(base=Control)]
 pub struct ChartWidget {
   base: Base<Control>,
   chart_reader: Option<chart::RasterReader>,
+  airport_reader: Option<nasr::AirportReader>,
   chart_image: Option<ChartImage>,
 }
 
@@ -26,6 +28,26 @@ impl ChartWidget {
       Ok(chart_reader) => {
         self.chart_reader = Some(chart_reader);
         self.request_image();
+        Ok(())
+      }
+      Err(err) => Err(err),
+    }
+  }
+
+  pub fn open_airport_csv(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
+    // Concatenate the VSI prefix and the file path.
+    let path = ["/vsizip//vsizip/", path].concat();
+    let path = path::Path::new(path.as_str());
+    let path = path.join(file).join("APT_BASE.csv");
+
+    match nasr::AirportReader::new(path) {
+      Ok(airport_reader) => {
+        if let Some(chart_reader) = &self.chart_reader {
+          let proj4 = chart_reader.transformation().get_proj4();
+          let bounds = chart_reader.transformation().bounds().clone();
+          airport_reader.set_spatial_ref(proj4, bounds);
+        }
+        self.airport_reader = Some(airport_reader);
         Ok(())
       }
       Err(err) => Err(err),
@@ -55,7 +77,7 @@ impl ChartWidget {
       let mut image_info = None;
 
       // Collect all chart replies to get to the most recent image.
-      for reply in chart_reader.get_replies() {
+      while let Some(reply) = chart_reader.get_reply() {
         match reply {
           chart::RasterReply::Image(part, data) => {
             image_info = Some((part, data));
@@ -98,6 +120,7 @@ impl IControl for ChartWidget {
     Self {
       base,
       chart_reader: None,
+      airport_reader: None,
       chart_image: None,
     }
   }

@@ -1,4 +1,4 @@
-use gdal::raster;
+use gdal::{raster, spatial_ref};
 use godot::prelude::*;
 use std::{borrow, cmp, collections, ops, path};
 
@@ -109,6 +109,19 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   Err("Zip file does not contain usable data".into())
 }
 
+pub trait Transform {
+  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError>;
+}
+
+impl Transform for spatial_ref::CoordTransform {
+  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError> {
+    let mut x = [coord.x];
+    let mut y = [coord.y];
+    self.transform_coords(&mut x, &mut y, &mut [])?;
+    Ok(Coord { x: x[0], y: y[0] })
+  }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Coord {
   pub x: f64,
@@ -139,7 +152,7 @@ pub struct Bounds {
 }
 
 impl Bounds {
-  pub fn _contains(&self, coord: Coord) -> bool {
+  pub fn contains(&self, coord: Coord) -> bool {
     coord.x >= self.min.x && coord.x < self.max.x && coord.y >= self.min.y && coord.y < self.max.y
   }
 }

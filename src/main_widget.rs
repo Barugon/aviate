@@ -1,10 +1,11 @@
 use crate::{chart_widget::ChartWidget, select_dialog::SelectDialog, util};
+use std::path;
+
 use godot::{
   classes::{AcceptDialog, Button, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
   global::HorizontalAlignment,
   prelude::*,
 };
-use std::path;
 
 #[derive(GodotClass)]
 #[class(base=Control)]
@@ -58,8 +59,10 @@ impl MainWidget {
             self.open_chart(&path, files.first().and_then(|f| f.to_str()).unwrap());
           }
         }
-        util::ZipInfo::Aero { csv: _, shp: _ } => {
-          self.show_alert("Aero data is not yet supported");
+        util::ZipInfo::Aero { csv, shp } => {
+          let csv = csv.to_str().unwrap();
+          let shp = shp.to_str().unwrap();
+          self.open_nasr(&path, csv, shp);
         }
       },
       Err(err) => {
@@ -90,7 +93,17 @@ impl MainWidget {
       let mut chart_widget = node.cast::<ChartWidget>();
       let mut chart_widget = chart_widget.bind_mut();
       if let Err(err) = chart_widget.open_chart(path, file) {
-        self.show_alert(&*err);
+        self.show_alert(err.as_ref());
+      }
+    }
+  }
+
+  fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
+    if let Some(node) = self.base().find_child("ChartWidget") {
+      let mut chart_widget = node.cast::<ChartWidget>();
+      let mut chart_widget = chart_widget.bind_mut();
+      if let Err(err) = chart_widget.open_airport_csv(path, csv) {
+        self.show_alert(err.as_ref());
       }
     }
   }

@@ -98,9 +98,9 @@ impl RasterReader {
     self.tx.send(part).unwrap();
   }
 
-  /// Get all available replies.
-  pub fn get_replies(&self) -> Vec<RasterReply> {
-    self.rx.try_iter().collect()
+  /// Get the next available reply.
+  pub fn get_reply(&self) -> Option<RasterReply> {
+    self.rx.try_recv().ok()
   }
 
   /// Get a hash of the file path.
