@@ -25,6 +25,12 @@ impl ChartWidget {
     match chart::RasterReader::new(path) {
       Ok(chart_reader) => {
         self.chart_reader = Some(chart_reader);
+
+        // Invalidate the current chart image.
+        if let Some(chart_image) = &mut self.chart_image {
+          chart_image.valid = false;
+        }
+
         self.request_image();
         Ok(())
       }
@@ -39,9 +45,9 @@ impl ChartWidget {
       let rect = util::Rect { pos, size };
       let part = chart::ImagePart::new(rect, 1.0, true);
 
-      // Check if the image part is the same as the current one.
+      // Check if the image part the same as the current one and the current one is valid.
       if let Some(chart_image) = &self.chart_image {
-        if chart_image.part == part {
+        if chart_image.valid && chart_image.part == part {
           return;
         }
       }
@@ -70,7 +76,11 @@ impl ChartWidget {
     // Convert to texture and return.
     if let Some((part, data)) = image_info {
       if let Some(texture) = create_texture(data) {
-        return Some(ChartImage { part, texture });
+        return Some(ChartImage {
+          part,
+          texture,
+          valid: true,
+        });
       }
     }
 
@@ -123,6 +133,7 @@ struct ChartImage {
   #[allow(unused)]
   part: chart::ImagePart,
   texture: Gd<Texture2D>,
+  valid: bool,
 }
 
 /// Create a `Gd<Texture2D>` from `util::ImageData`.
