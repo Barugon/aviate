@@ -78,6 +78,8 @@ impl MainWidget {
   fn select_chart(&self, files: &Vec<path::PathBuf>) {
     if let Some(node) = self.base().find_child("SelectDialog") {
       let mut select_dialog = node.cast::<SelectDialog>();
+      select_dialog.set_title("Select Chart");
+
       let choices = files.iter().map(|f| util::stem_str(f).unwrap());
       select_dialog.bind_mut().show_choices(choices);
     }
