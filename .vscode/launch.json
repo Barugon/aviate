@@ -3,16 +3,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "lldb",
-      "request": "launch",
       "name": "Debug",
-      "program": "${env:GODOT4_BIN}",
+      "type": "lldb",
       "preLaunchTask": "rust: cargo build",
+      "program": "${env:GODOT4_BIN}",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
       "args": [
         "--path",
         "${workspaceFolder}/godot"
-      ],
-      "cwd": "${workspaceFolder}"
+      ]
     }
   ]
 }
