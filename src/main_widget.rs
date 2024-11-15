@@ -78,7 +78,7 @@ impl MainWidget {
     }
   }
 
-  fn select_chart(&self, files: &Vec<path::PathBuf>) {
+  fn select_chart(&self, files: &[path::PathBuf]) {
     if let Some(node) = self.base().find_child("SelectDialog") {
       let mut select_dialog = node.cast::<SelectDialog>();
       select_dialog.set_title("Select Chart");
