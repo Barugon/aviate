@@ -1,6 +1,6 @@
 use crate::{chart_widget::ChartWidget, select_dialog::SelectDialog, util};
 use godot::{
-  engine::{AcceptDialog, Button, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
+  classes::{AcceptDialog, Button, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
   global::HorizontalAlignment,
   prelude::*,
 };
@@ -17,7 +17,7 @@ struct MainWidget {
 impl MainWidget {
   #[func]
   fn toggle_sidebar(&self, toggle: bool) {
-    if let Some(node) = self.base().find_child("SidebarPanel".into()) {
+    if let Some(node) = self.base().find_child("SidebarPanel") {
       let mut sidebar = node.cast::<PanelContainer>();
       sidebar.set_visible(toggle);
     }
@@ -25,14 +25,14 @@ impl MainWidget {
 
   #[func]
   fn open_zip_file(&self) {
-    if let Some(node) = self.base().find_child("FileDialog".into()) {
+    if let Some(node) = self.base().find_child("FileDialog") {
       let mut file_dialog = node.cast::<FileDialog>();
-      let property = "theme_override_font_sizes/title_font_size".into();
-      file_dialog.set(property, Variant::from(16.0));
+      let property = "theme_override_font_sizes/title_font_size";
+      file_dialog.set(property, &Variant::from(16.0));
 
       if let Some(folder) = dirs::download_dir() {
         if let Some(folder) = folder.to_str() {
-          file_dialog.set_current_dir(folder.into());
+          file_dialog.set_current_dir(folder);
         }
       }
 
@@ -43,7 +43,7 @@ impl MainWidget {
   #[func]
   fn zip_file_selected(&mut self, path: String) {
     // The file dialog needs to be hidden first or it will generate an error if the alert dialog is shown.
-    if let Some(node) = self.base().find_child("FileDialog".into()) {
+    if let Some(node) = self.base().find_child("FileDialog") {
       let mut file_dialog = node.cast::<FileDialog>();
       file_dialog.hide();
     }
@@ -76,7 +76,7 @@ impl MainWidget {
   }
 
   fn select_chart(&self, files: &Vec<path::PathBuf>) {
-    if let Some(node) = self.base().find_child("SelectDialog".into()) {
+    if let Some(node) = self.base().find_child("SelectDialog") {
       let mut select_dialog = node.cast::<SelectDialog>();
       let choices = files.iter().map(|f| util::stem_str(f).unwrap());
       select_dialog.bind_mut().show_choices(choices);
@@ -84,7 +84,7 @@ impl MainWidget {
   }
 
   fn open_chart(&mut self, path: &str, file: &str) {
-    if let Some(node) = self.base().find_child("ChartWidget".into()) {
+    if let Some(node) = self.base().find_child("ChartWidget") {
       let mut chart_widget = node.cast::<ChartWidget>();
       let mut chart_widget = chart_widget.bind_mut();
       if let Err(err) = chart_widget.open_chart(path, file) {
@@ -94,20 +94,19 @@ impl MainWidget {
   }
 
   fn show_alert(&self, text: &str) {
-    if let Some(child) = self.base().find_child("AlertDialog".into()) {
+    if let Some(child) = self.base().find_child("AlertDialog") {
       let mut alert_dialog = child.cast::<AcceptDialog>();
-      let property = "theme_override_font_sizes/title_font_size".into();
-      alert_dialog.set(property, Variant::from(16.0));
+      let property = "theme_override_font_sizes/title_font_size";
+      alert_dialog.set(property, &Variant::from(16.0));
 
       if let Some(label) = alert_dialog.get_label() {
         let mut label = label;
-        let property = "theme_override_colors/font_color".into();
-        let color = Variant::from(Color::from_rgb(1.0, 0.4, 0.4));
-        label.set(property, color);
+        let property = "theme_override_colors/font_color";
+        label.set(property, &Variant::from(Color::from_rgb(1.0, 0.4, 0.4)));
         label.set_horizontal_alignment(HorizontalAlignment::CENTER);
       }
 
-      alert_dialog.set_text(text.into());
+      alert_dialog.set_text(text);
       alert_dialog.reset_size();
       alert_dialog.show();
       return;
@@ -129,27 +128,27 @@ impl IControl for MainWidget {
     let this = self.base();
 
     // Connect the sidebar button.
-    if let Some(mut node) = this.find_child("SidebarButton".into()) {
-      node.connect("toggled".into(), this.callable("toggle_sidebar"));
+    if let Some(mut node) = this.find_child("SidebarButton") {
+      node.connect("toggled", &this.callable("toggle_sidebar"));
     }
 
     // Connect the open button.
-    if let Some(mut node) = this.find_child("OpenButton".into()) {
-      node.connect("pressed".into(), this.callable("open_zip_file"));
+    if let Some(mut node) = this.find_child("OpenButton") {
+      node.connect("pressed", &this.callable("open_zip_file"));
     }
 
     // Setup the file dialog.
-    if let Some(node) = this.find_child("FileDialog".into()) {
+    if let Some(node) = this.find_child("FileDialog") {
       let mut file_dialog = node.cast::<FileDialog>();
-      file_dialog.connect("file_selected".into(), this.callable("zip_file_selected"));
+      file_dialog.connect("file_selected", &this.callable("zip_file_selected"));
 
       let vbox = file_dialog.get_vbox().unwrap();
       hide_buttons(vbox.upcast());
     }
 
     // Connect the select dialog.
-    if let Some(mut node) = this.find_child("SelectDialog".into()) {
-      node.connect("selected".into(), this.callable("chart_selected"));
+    if let Some(mut node) = this.find_child("SelectDialog") {
+      node.connect("selected", &this.callable("chart_selected"));
     }
   }
 }

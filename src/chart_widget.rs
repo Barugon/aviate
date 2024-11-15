@@ -1,6 +1,6 @@
 use crate::{chart, util};
 use godot::{
-  engine::{
+  classes::{
     image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, Texture2D,
   },
   prelude::*,
@@ -110,7 +110,7 @@ impl IControl for ChartWidget {
 
   fn draw(&mut self) {
     if let Some((texture, rect)) = self.get_draw_info() {
-      self.base_mut().draw_texture_rect(texture, rect, false);
+      self.base_mut().draw_texture_rect(&texture, rect, false);
     };
   }
 
@@ -134,8 +134,8 @@ fn create_texture(data: util::ImageData) -> Option<Gd<Texture2D>> {
   let w = data.w as i32;
   let h = data.h as i32;
   let data = data.px.as_flattened().into();
-  if let Some(image) = Image::create_from_data(w, h, false, Format::RGBA8, data) {
-    return ImageTexture::create_from_image(image).map(|texture| texture.upcast());
+  if let Some(image) = Image::create_from_data(w, h, false, Format::RGBA8, &data) {
+    return ImageTexture::create_from_image(&image).map(|texture| texture.upcast());
   }
   None
 }
