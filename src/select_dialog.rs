@@ -46,12 +46,13 @@ impl SelectDialog {
       // Populate with new buttons.
       let this = self.base();
       let group = ButtonGroup::new_gd();
+      let callable = this.callable("choice_selected");
       for choice in choices {
         let mut button = Button::new_alloc();
         button.set_text(choice);
         button.set_toggle_mode(true);
         button.set_button_group(&group);
-        button.connect("pressed", &mut this.callable("choice_selected"));
+        button.connect("pressed", &callable);
         items.add_child(&button);
       }
     }
