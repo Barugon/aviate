@@ -394,3 +394,14 @@ pub fn inverted_color(color: &raster::RgbaEntry) -> Color {
 
   [r, g, b, color.a as u8]
 }
+
+/// Return the file stem portion of a path as a `String`.
+#[allow(unused)]
+pub fn stem_string<P: AsRef<path::Path>>(path: P) -> Option<String> {
+  stem_str(path.as_ref()).map(|stem| stem.to_owned())
+}
+
+/// Return the file stem portion of a path as a `&str`.
+pub fn stem_str(path: &path::Path) -> Option<&str> {
+  path.file_stem()?.to_str()
+}
