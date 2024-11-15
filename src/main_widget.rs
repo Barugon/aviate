@@ -89,22 +89,28 @@ impl MainWidget {
   }
 
   fn open_chart(&mut self, path: &str, file: &str) {
+    let mut err = None;
     if let Some(node) = self.base().find_child("ChartWidget") {
       let mut chart_widget = node.cast::<ChartWidget>();
       let mut chart_widget = chart_widget.bind_mut();
-      if let Err(err) = chart_widget.open_chart(path, file) {
-        self.show_alert(err.as_ref());
-      }
+      err = chart_widget.open_chart(path, file).err();
+    }
+
+    if let Some(err) = err.take() {
+      self.show_alert(err.as_ref());
     }
   }
 
   fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
+    let mut err = None;
     if let Some(node) = self.base().find_child("ChartWidget") {
       let mut chart_widget = node.cast::<ChartWidget>();
       let mut chart_widget = chart_widget.bind_mut();
-      if let Err(err) = chart_widget.open_airport_csv(path, csv) {
-        self.show_alert(err.as_ref());
-      }
+      err = chart_widget.open_airport_csv(path, csv).err();
+    };
+
+    if let Some(err) = err.take() {
+      self.show_alert(err.as_ref());
     }
   }
 
