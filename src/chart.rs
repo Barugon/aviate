@@ -1,13 +1,14 @@
 #![allow(unused)]
 use crate::util;
 use gdal::{raster, spatial_ref};
-use std::{any, path, sync::mpsc, thread};
+use std::{any, hash, hash::Hash, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
 pub struct RasterReader {
   transformation: Transformation,
   tx: mpsc::Sender<ImagePart>,
   rx: mpsc::Receiver<RasterReply>,
+  hash: u64,
 }
 
 impl RasterReader {
@@ -18,6 +19,12 @@ impl RasterReader {
   }
 
   fn _new(path: &path::Path) -> Result<Self, util::Error> {
+    // Hash the path.
+    use hash::{DefaultHasher, Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    let hash = hasher.finish();
+
     // Open the chart source.
     let (source, transformation, palette) = RasterSource::open(path)?;
 
@@ -76,6 +83,7 @@ impl RasterReader {
       transformation,
       tx,
       rx,
+      hash,
     })
   }
 
@@ -93,6 +101,11 @@ impl RasterReader {
   /// Get all available replies.
   pub fn get_replies(&self) -> Vec<RasterReply> {
     self.rx.try_iter().collect()
+  }
+
+  /// Get a hash of the file path.
+  pub fn hash(&self) -> u64 {
+    self.hash
   }
 }
 
