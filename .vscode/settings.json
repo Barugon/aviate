@@ -8,6 +8,7 @@
     "gdal",
     "gdext",
     "gdextension",
+    "hasher",
     "hbox",
     "libaviate",
     "palettized",
