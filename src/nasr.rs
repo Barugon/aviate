@@ -158,12 +158,12 @@ impl AirportReader {
   }
 
   /// True if the airport source has ID and name indexes.
-  pub fn airport_basic_idx(&self) -> bool {
+  pub fn has_basic_idx(&self) -> bool {
     self.airport_status.get() >= AirportStatus::BasicIdx
   }
 
   /// True if the airport source has a spatial index.
-  pub fn airport_spatial_idx(&self) -> bool {
+  pub fn has_spatial_idx(&self) -> bool {
     self.airport_status.get() >= AirportStatus::SpatialIdx
   }
 
