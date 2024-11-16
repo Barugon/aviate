@@ -19,7 +19,6 @@ pub enum ZipInfo {
   Chart(Vec<path::PathBuf>),
 
   /// NASR aeronautical data.
-  #[allow(unused)]
   Aero {
     csv: path::PathBuf,
     #[allow(unused)]
@@ -63,6 +62,7 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
         } else if csv.as_os_str().is_empty() && ext.eq_ignore_ascii_case("zip") {
           if let Some(stem) = file.file_stem().and_then(|stem| stem.to_str()) {
             if stem.to_ascii_uppercase().ends_with("_CSV") {
+              // CSV zip file contained in the main zip.
               csv = file;
             }
           }
