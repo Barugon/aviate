@@ -1,17 +1,17 @@
-use crate::{chart_widget::ChartWidget, select_dialog::SelectDialog, util};
-use std::path;
-
+use crate::{chart_widget::ChartWidget, nasr, select_dialog::SelectDialog, util};
 use godot::{
   classes::{AcceptDialog, Button, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
   global::HorizontalAlignment,
   prelude::*,
 };
+use std::path;
 
 #[derive(GodotClass)]
 #[class(base=Control)]
 struct MainWidget {
   base: Base<Control>,
   chart_info: Option<(String, Vec<path::PathBuf>)>,
+  chart_widget: Option<Gd<ChartWidget>>,
 }
 
 #[godot_api]
@@ -90,10 +90,8 @@ impl MainWidget {
 
   fn open_chart(&mut self, path: &str, file: &str) {
     let mut err = None;
-    if let Some(node) = self.base().find_child("ChartWidget") {
-      let mut chart_widget = node.cast::<ChartWidget>();
-      let mut chart_widget = chart_widget.bind_mut();
-      err = chart_widget.open_chart(path, file).err();
+    if let Some(chart_widget) = &mut self.chart_widget {
+      err = chart_widget.bind_mut().open_chart(path, file).err();
     }
 
     if let Some(err) = err.take() {
@@ -103,10 +101,8 @@ impl MainWidget {
 
   fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
     let mut err = None;
-    if let Some(node) = self.base().find_child("ChartWidget") {
-      let mut chart_widget = node.cast::<ChartWidget>();
-      let mut chart_widget = chart_widget.bind_mut();
-      err = chart_widget.open_airport_csv(path, csv).err();
+    if let Some(chart_widget) = &mut self.chart_widget {
+      err = chart_widget.bind_mut().open_airport_csv(path, csv).err();
     };
 
     if let Some(err) = err.take() {
@@ -142,6 +138,7 @@ impl IControl for MainWidget {
     Self {
       base,
       chart_info: None,
+      chart_widget: None,
     }
   }
 
@@ -170,6 +167,26 @@ impl IControl for MainWidget {
     // Connect the select dialog.
     if let Some(mut node) = this.find_child("SelectDialog") {
       node.connect("selected", &this.callable("chart_selected"));
+    }
+
+    // Remember the chart widget.
+    if let Some(node) = self.base().find_child("ChartWidget") {
+      self.chart_widget = Some(node.cast::<ChartWidget>());
+    }
+  }
+
+  fn process(&mut self, _delta: f64) {
+    if let Some(chart_widget) = &self.chart_widget {
+      if let Some(airport_reader) = chart_widget.bind().airport_reader() {
+        while let Some(reply) = airport_reader.get_reply() {
+          match reply {
+            nasr::AirportReply::Airport(_info) => (),
+            nasr::AirportReply::Nearby(_infos) => (),
+            nasr::AirportReply::Search(_infos) => (),
+            nasr::AirportReply::Error(err) => godot_error!("{err}"),
+          }
+        }
+      }
     }
   }
 }
