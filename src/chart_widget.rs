@@ -26,6 +26,13 @@ impl ChartWidget {
     // Create a new chart reader.
     match chart::RasterReader::new(path) {
       Ok(chart_reader) => {
+        if let Some(airport_reader) = &self.airport_reader {
+          // Send the chart spatial reference to the airport reader.
+          let proj4 = chart_reader.transformation().get_proj4();
+          let bounds = chart_reader.transformation().bounds().clone();
+          airport_reader.set_spatial_ref(proj4, bounds);
+        }
+
         self.chart_reader = Some(chart_reader);
         self.request_image();
         Ok(())
@@ -43,10 +50,12 @@ impl ChartWidget {
     match nasr::AirportReader::new(path) {
       Ok(airport_reader) => {
         if let Some(chart_reader) = &self.chart_reader {
+          // Send the chart spatial reference to the airport reader.
           let proj4 = chart_reader.transformation().get_proj4();
           let bounds = chart_reader.transformation().bounds().clone();
           airport_reader.set_spatial_ref(proj4, bounds);
         }
+
         self.airport_reader = Some(airport_reader);
         Ok(())
       }
