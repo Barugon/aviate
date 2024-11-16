@@ -63,6 +63,10 @@ impl ChartWidget {
     }
   }
 
+  pub fn airport_reader(&self) -> Option<&nasr::AirportReader> {
+    self.airport_reader.as_ref()
+  }
+
   fn request_image(&self) {
     if let Some(chart_reader) = &self.chart_reader {
       let size = self.base().get_size().into();
