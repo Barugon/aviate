@@ -1,6 +1,7 @@
 #![allow(unused)]
 use crate::util;
 use gdal::{errors, spatial_ref, vector};
+use godot::global::godot_error;
 use std::{any, collections, path, sync, thread};
 use sync::{atomic, mpsc};
 
@@ -264,7 +265,7 @@ impl ToChart {
     use util::Transform;
     match self.trans.transform(nad83) {
       Ok(lcc) => return self.bounds.contains(lcc),
-      Err(err) => println!("{err}"),
+      Err(err) => godot_error!("{err}"),
     }
     false
   }
@@ -496,10 +497,7 @@ impl rstar::RTreeObject for LocIdx {
 }
 
 impl rstar::PointDistance for LocIdx {
-  fn distance_2(
-    &self,
-    point: &<Self::Envelope as rstar::Envelope>::Point,
-  ) -> <<Self::Envelope as rstar::Envelope>::Point as rstar::Point>::Scalar {
+  fn distance_2(&self, point: &[f64; 2]) -> f64 {
     let dx = point[0] - self.coord.x;
     let dy = point[1] - self.coord.y;
     dx * dx + dy * dy
@@ -582,7 +580,7 @@ impl GetF64 for vector::Feature<'_> {
     match self.field_as_double_by_name(field) {
       Ok(val) => val,
       Err(err) => {
-        println!("{err}");
+        godot_error!("{err}");
         None
       }
     }
@@ -598,7 +596,7 @@ impl GetString for vector::Feature<'_> {
     match self.field_as_string_by_name(field) {
       Ok(val) => val,
       Err(err) => {
-        println!("{err}");
+        godot_error!("{err}");
         None
       }
     }
