@@ -94,8 +94,8 @@ impl RasterReader {
 
   /// Kick-off an image read operation.
   /// - `part`: the area to read from the source image.
-  pub fn read_image(&self, part: &ImagePart) {
-    self.tx.send(part.clone()).unwrap();
+  pub fn read_image(&self, part: ImagePart) {
+    self.tx.send(part).unwrap();
   }
 
   /// Get the next available reply.
