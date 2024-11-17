@@ -135,10 +135,10 @@ impl From<(f64, f64)> for Coord {
 }
 
 impl ops::Mul<f64> for Coord {
-  type Output = Coord;
+  type Output = Self;
 
-  fn mul(self, scale: f64) -> Self::Output {
-    Coord {
+  fn mul(self, scale: f64) -> Self {
+    Self {
       x: self.x * scale,
       y: self.y * scale,
     }
@@ -161,6 +161,16 @@ impl Bounds {
 pub struct Pos {
   pub x: i32,
   pub y: i32,
+}
+
+impl ops::Sub for Pos {
+  type Output = Self;
+
+  fn sub(mut self, offset: Pos) -> Self {
+    self.x -= offset.x;
+    self.y -= offset.y;
+    self
+  }
 }
 
 impl From<(i32, i32)> for Pos {
@@ -208,6 +218,17 @@ impl Size {
     let w = self.w as f64;
     let h = self.h as f64;
     coord.x >= 0.0 && coord.x < w && coord.y >= 0.0 && coord.y < h
+  }
+}
+
+impl ops::Mul<f64> for Size {
+  type Output = Self;
+
+  fn mul(self, scale: f64) -> Self {
+    Self {
+      w: (self.w as f64 * scale).round() as u32,
+      h: (self.h as f64 * scale).round() as u32,
+    }
   }
 }
 
