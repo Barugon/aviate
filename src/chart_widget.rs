@@ -3,8 +3,10 @@ use std::path;
 
 use godot::{
   classes::{
-    image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, Texture2D,
+    image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, InputEvent,
+    InputEventMouseMotion, Texture2D,
   },
+  global::MouseButtonMask,
   prelude::*,
 };
 
@@ -15,6 +17,7 @@ pub struct ChartWidget {
   chart_reader: Option<chart::RasterReader>,
   airport_reader: Option<nasr::AirportReader>,
   chart_image: Option<ChartImage>,
+  display_info: DisplayInfo,
 }
 
 impl ChartWidget {
@@ -67,12 +70,12 @@ impl ChartWidget {
     self.airport_reader.as_ref()
   }
 
-  fn request_image(&self) {
+  fn request_image(&mut self) {
     if let Some(chart_reader) = &self.chart_reader {
+      let pos = self.display_info.pos;
       let size = self.base().get_size().into();
-      let pos = (0, 0).into();
       let rect = util::Rect { pos, size };
-      let part = chart::ImagePart::new(rect, 1.0, true);
+      let part = chart::ImagePart::new(rect, self.display_info.zoom, false);
 
       // Check if the chart reader hash and the image part match.
       if let Some(chart_image) = &self.chart_image {
@@ -118,13 +121,19 @@ impl ChartWidget {
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
     if let Some(chart_image) = &self.chart_image {
+      let pos = chart_image.part.rect.pos - self.display_info.pos;
       let size = chart_image.texture.get_size();
-      let rect = Rect2::new(Vector2::new(0.0, 0.0), size);
+      let rect = Rect2::new(pos.into(), size);
       let texture = chart_image.texture.clone();
       return Some((texture, rect));
     }
     None
   }
+
+  #[allow(unused)]
+  const MIN_ZOOM: f32 = 1.0 / 8.0;
+  #[allow(unused)]
+  const MAX_ZOOM: f32 = 1.0;
 }
 
 #[godot_api]
@@ -135,6 +144,7 @@ impl IControl for ChartWidget {
       chart_reader: None,
       airport_reader: None,
       chart_image: None,
+      display_info: DisplayInfo::new(),
     }
   }
 
@@ -157,12 +167,66 @@ impl IControl for ChartWidget {
       self.base_mut().queue_redraw();
     }
   }
+
+  fn gui_input(&mut self, event: Gd<InputEvent>) {
+    let Some(chart_image) = &self.chart_image else {
+      return;
+    };
+
+    let Some(chart_reader) = &self.chart_reader else {
+      return;
+    };
+
+    if let Ok(event) = event.try_cast::<InputEventMouseMotion>() {
+      if event.get_button_mask() == MouseButtonMask::LEFT {
+        // Modify the pan position.
+        let mut pos = self.display_info.pos - event.get_screen_relative().into();
+
+        let size = chart_image.part.rect.size;
+        let max_size = chart_reader.transformation().px_size() * f64::from(chart_image.part.zoom);
+
+        // Make sure its within the horizontal limits.
+        if pos.x < 0 {
+          pos.x = 0;
+        } else if pos.x + size.w as i32 > max_size.w as i32 {
+          pos.x = max_size.w as i32 - size.w as i32;
+        }
+
+        // Make sure its within the vertical limits.
+        if pos.y < 0 {
+          pos.y = 0;
+        } else if pos.y + size.h as i32 > max_size.h as i32 {
+          pos.y = max_size.h as i32 - size.h as i32;
+        }
+
+        if pos != self.display_info.pos {
+          self.display_info.pos = pos;
+          self.request_image();
+          self.base_mut().queue_redraw();
+        }
+      }
+    }
+  }
 }
 
 struct ChartImage {
   texture: Gd<Texture2D>,
   part: chart::ImagePart,
   hash: u64,
+}
+
+struct DisplayInfo {
+  pos: util::Pos,
+  zoom: f32,
+}
+
+impl DisplayInfo {
+  fn new() -> Self {
+    Self {
+      pos: util::Pos::default(),
+      zoom: 1.0,
+    }
+  }
 }
 
 /// Create a `Gd<Texture2D>` from `util::ImageData`.
