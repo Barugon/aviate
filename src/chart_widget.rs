@@ -70,12 +70,19 @@ impl ChartWidget {
     self.airport_reader.as_ref()
   }
 
-  fn request_image(&mut self) {
+  pub fn set_night_mode(&mut self, dark: bool) {
+    if self.display_info.dark != dark {
+      self.display_info.dark = dark;
+      self.request_image();
+    }
+  }
+
+  fn request_image(&self) {
     if let Some(chart_reader) = &self.chart_reader {
       let pos = self.display_info.pos;
       let size = self.base().get_size().into();
       let rect = util::Rect { pos, size };
-      let part = chart::ImagePart::new(rect, self.display_info.zoom, false);
+      let part = chart::ImagePart::new(rect, self.display_info.zoom, self.display_info.dark);
 
       // Check if the chart reader hash and the image part match.
       if let Some(chart_image) = &self.chart_image {
@@ -218,6 +225,7 @@ struct ChartImage {
 struct DisplayInfo {
   pos: util::Pos,
   zoom: f32,
+  dark: bool,
 }
 
 impl DisplayInfo {
@@ -225,6 +233,7 @@ impl DisplayInfo {
     Self {
       pos: util::Pos::default(),
       zoom: 1.0,
+      dark: false,
     }
   }
 }

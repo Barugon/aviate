@@ -25,6 +25,13 @@ impl MainWidget {
   }
 
   #[func]
+  fn toggle_night_mode(&mut self, dark: bool) {
+    if let Some(chart_widget) = &mut self.chart_widget {
+      chart_widget.bind_mut().set_night_mode(dark);
+    }
+  }
+
+  #[func]
   fn open_zip_file(&self) {
     if let Some(node) = self.base().find_child("FileDialog") {
       let mut file_dialog = node.cast::<FileDialog>();
@@ -162,6 +169,11 @@ impl IControl for MainWidget {
 
       let vbox = file_dialog.get_vbox().unwrap();
       hide_buttons(vbox.upcast());
+    }
+
+    // Connect the night mode button
+    if let Some(mut node) = self.base().find_child("NightModeButton") {
+      node.connect("toggled", &this.callable("toggle_night_mode"));
     }
 
     // Connect the select dialog.
