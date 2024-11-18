@@ -79,9 +79,25 @@ impl ChartWidget {
   }
 
   #[allow(unused)]
-  pub fn zoom_to(&mut self, pos: util::Pos) {
-    self.display_info.zoom = 1.0;
-    self.set_pos(pos);
+  pub fn goto_coord(&mut self, coord: util::Coord) {
+    let Some(chart_reader) = &self.chart_reader else {
+      return;
+    };
+
+    match chart_reader.transformation().nad83_to_px(coord) {
+      Ok(px) => {
+        let chart_size = chart_reader.transformation().px_size();
+        if chart_size.contains(px) {
+          let widget_size = self.base().get_size();
+          let x = px.x as f32 - 0.5 * widget_size.x;
+          let y = px.y as f32 - 0.5 * widget_size.y;
+
+          self.display_info.zoom = 1.0;
+          self.set_pos((x, y).into());
+        }
+      }
+      Err(err) => godot_error!("{err}"),
+    }
   }
 
   pub fn set_pos(&mut self, pos: util::Pos) {
@@ -170,7 +186,7 @@ impl ChartWidget {
     None
   }
 
-  fn correct_pos(&mut self, pos: util::Pos) -> Option<util::Pos> {
+  fn correct_pos(&mut self, mut pos: util::Pos) -> Option<util::Pos> {
     let Some(chart_image) = &self.chart_image else {
       return None;
     };
@@ -182,7 +198,6 @@ impl ChartWidget {
     let image_size = chart_image.part.rect.size;
     let chart_size = chart_reader.transformation().px_size();
     let max_size = chart_size * f64::from(self.display_info.zoom);
-    let mut pos = pos;
 
     // Make sure its within the horizontal limits.
     if pos.x < 0 {
