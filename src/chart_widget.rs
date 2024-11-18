@@ -37,7 +37,8 @@ impl ChartWidget {
         }
 
         self.chart_reader = Some(chart_reader);
-        self.display_info = DisplayInfo::new();
+        self.display_info.pos = util::Pos::default();
+        self.display_info.zoom = 1.0;
         self.request_image();
         Ok(())
       }
