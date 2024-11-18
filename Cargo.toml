@@ -11,3 +11,6 @@ dirs = "5.0"
 gdal = {version = "0.17", features = ["bindgen"]}
 godot = "0.2"
 rstar = "0.12"
+
+[profile.release]
+strip = "symbols"
