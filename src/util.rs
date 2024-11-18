@@ -292,34 +292,30 @@ impl Rect {
   }
 
   pub fn fitted(&self, size: Size) -> Self {
-    let max_x = self.pos.x as u32 + self.size.w;
     let x = if self.pos.x < 0 {
       0
-    } else if max_x > size.w {
-      let d = (max_x - size.w) as i32;
-      cmp::max(0, self.pos.x - d)
+    } else if self.pos.x as u32 + self.size.w > size.w {
+      cmp::max(0, size.w as i32 - self.size.w as i32)
     } else {
       self.pos.x
     };
 
-    let w = if max_x > size.w {
-      size.w - self.pos.x as u32
+    let w = if (x as u32 + self.size.w) > size.w {
+      size.w - x as u32
     } else {
       self.size.w
     };
 
-    let max_y = self.pos.y as u32 + self.size.h;
     let y = if self.pos.y < 0 {
       0
-    } else if max_y > size.h {
-      let d = (max_y - size.h) as i32;
-      cmp::max(0, self.pos.y - d)
+    } else if self.pos.y as u32 + self.size.h > size.h {
+      cmp::max(0, size.h as i32 - self.size.h as i32)
     } else {
       self.pos.y
     };
 
-    let h = if max_y > size.h {
-      size.h - self.pos.y as u32
+    let h = if (y as u32 + self.size.h) > size.h {
+      size.h - y as u32
     } else {
       self.size.h
     };
@@ -356,6 +352,10 @@ const HASHABLE32_SCALE: f32 = (1 << 23) as f32;
 pub struct Hashable(u32);
 
 impl Hashable {
+  pub fn value(&self) -> f32 {
+    self.0 as f32 / HASHABLE32_SCALE
+  }
+
   pub fn inverse(&self) -> f32 {
     assert!(self.0 > 0);
     HASHABLE32_SCALE / self.0 as f32
@@ -378,13 +378,13 @@ impl From<f64> for Hashable {
 
 impl From<Hashable> for f32 {
   fn from(hashable: Hashable) -> Self {
-    hashable.0 as f32 / HASHABLE32_SCALE
+    hashable.value()
   }
 }
 
 impl From<Hashable> for f64 {
   fn from(hashable: Hashable) -> Self {
-    (hashable.0 as f32 / HASHABLE32_SCALE) as f64
+    hashable.value() as f64
   }
 }
 
