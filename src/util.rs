@@ -179,6 +179,15 @@ impl From<(i32, i32)> for Pos {
   }
 }
 
+impl From<(f32, f32)> for Pos {
+  fn from((x, y): (f32, f32)) -> Self {
+    Self {
+      x: x as i32,
+      y: y as i32,
+    }
+  }
+}
+
 impl From<Vector2> for Pos {
   fn from(pos: Vector2) -> Self {
     Self {
