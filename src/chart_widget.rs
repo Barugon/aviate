@@ -4,9 +4,9 @@ use std::path;
 use godot::{
   classes::{
     image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, InputEvent,
-    InputEventMouseMotion, Texture2D,
+    InputEventMouseButton, InputEventMouseMotion, Texture2D,
   },
-  global::MouseButtonMask,
+  global::{MouseButton, MouseButtonMask},
   prelude::*,
 };
 
@@ -37,6 +37,7 @@ impl ChartWidget {
         }
 
         self.chart_reader = Some(chart_reader);
+        self.display_info = DisplayInfo::new();
         self.request_image();
         Ok(())
       }
@@ -74,6 +75,37 @@ impl ChartWidget {
     if self.display_info.dark != dark {
       self.display_info.dark = dark;
       self.request_image();
+    }
+  }
+
+  #[allow(unused)]
+  pub fn zoom_to(&mut self, pos: util::Pos) {
+    self.display_info.zoom = 1.0;
+    self.set_pos(pos);
+  }
+
+  pub fn set_pos(&mut self, pos: util::Pos) {
+    let Some(pos) = self.correct_pos(pos) else {
+      return;
+    };
+
+    if pos != self.display_info.pos {
+      self.display_info.pos = pos;
+      self.request_image();
+      self.base_mut().queue_redraw();
+    }
+  }
+
+  pub fn set_zoom(&mut self, zoom: f32, offset: Vector2) {
+    let Some((zoom, pos)) = self.correct_zoom(zoom, offset) else {
+      return;
+    };
+
+    if zoom != self.display_info.zoom || pos != self.display_info.pos {
+      self.display_info.pos = pos;
+      self.display_info.zoom = zoom;
+      self.request_image();
+      self.base_mut().queue_redraw();
     }
   }
 
@@ -128,13 +160,108 @@ impl ChartWidget {
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
     if let Some(chart_image) = &self.chart_image {
-      let pos = chart_image.part.rect.pos - self.display_info.pos;
-      let size = chart_image.texture.get_size();
-      let rect = Rect2::new(pos.into(), size);
+      let zoom = self.display_info.zoom / chart_image.part.zoom.value();
+      let pos = Vector2::from(chart_image.part.rect.pos) * zoom - self.display_info.pos.into();
+      let size = chart_image.texture.get_size() * zoom;
+      let rect = Rect2::new(pos, size);
       let texture = chart_image.texture.clone();
       return Some((texture, rect));
     }
     None
+  }
+
+  fn correct_pos(&mut self, pos: util::Pos) -> Option<util::Pos> {
+    let Some(chart_image) = &self.chart_image else {
+      return None;
+    };
+
+    let Some(chart_reader) = &self.chart_reader else {
+      return None;
+    };
+
+    let image_size = chart_image.part.rect.size;
+    let chart_size = chart_reader.transformation().px_size();
+    let max_size = chart_size * f64::from(self.display_info.zoom);
+    let mut pos = pos;
+
+    // Make sure its within the horizontal limits.
+    if pos.x < 0 {
+      pos.x = 0;
+    } else if pos.x + image_size.w as i32 > max_size.w as i32 {
+      pos.x = max_size.w as i32 - image_size.w as i32;
+    }
+
+    // Make sure its within the vertical limits.
+    if pos.y < 0 {
+      pos.y = 0;
+    } else if pos.y + image_size.h as i32 > max_size.h as i32 {
+      pos.y = max_size.h as i32 - image_size.h as i32;
+    }
+
+    Some(pos)
+  }
+
+  fn correct_zoom(&mut self, zoom: f32, offset: Vector2) -> Option<(f32, util::Pos)> {
+    let Some(chart_image) = &self.chart_image else {
+      return None;
+    };
+
+    let Some(chart_reader) = &self.chart_reader else {
+      return None;
+    };
+
+    let chart_size = chart_reader.transformation().px_size();
+
+    // Clamp the zoom value.
+    let mut zoom = zoom.clamp(ChartWidget::MIN_ZOOM, ChartWidget::MAX_ZOOM);
+
+    let mut max_size = chart_size * f64::from(zoom);
+    let widget_size: util::Size = self.base().get_size().into();
+
+    // Make sure the maximum chart size is not be smaller than the widget.
+    if max_size.w < widget_size.w {
+      zoom = widget_size.w as f32 / chart_size.w as f32;
+      max_size = chart_size * f64::from(zoom);
+    }
+
+    if max_size.h < widget_size.h {
+      zoom = widget_size.h as f32 / chart_size.h as f32;
+      max_size = chart_size * f64::from(zoom);
+    }
+
+    // Keep the zoom position at the offset.
+    let pos = Vector2::from(self.display_info.pos) + offset;
+    let pos = pos * zoom / self.display_info.zoom - offset;
+    let mut pos = util::Pos {
+      x: pos.x.round() as i32,
+      y: pos.y.round() as i32,
+    };
+
+    let image_size = chart_image.part.rect.size;
+
+    // Make sure its within the horizontal limits.
+    if pos.x < 0 {
+      pos.x = 0;
+    } else if pos.x + image_size.w as i32 > max_size.w as i32 {
+      pos.x = max_size.w as i32 - image_size.w as i32;
+    }
+
+    if pos.x + widget_size.w as i32 > max_size.w as i32 {
+      pos.x = max_size.w as i32 - widget_size.w as i32;
+    }
+
+    // Make sure its within the vertical limits.
+    if pos.y < 0 {
+      pos.y = 0;
+    } else if pos.y + image_size.h as i32 > max_size.h as i32 {
+      pos.y = max_size.h as i32 - image_size.h as i32;
+    }
+
+    if pos.y + widget_size.h as i32 > max_size.h as i32 {
+      pos.y = max_size.h as i32 - widget_size.h as i32;
+    }
+
+    Some((zoom, pos))
   }
 
   #[allow(unused)]
@@ -157,7 +284,12 @@ impl IControl for ChartWidget {
 
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::RESIZED {
-      self.request_image();
+      if let Some((zoom, pos)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
+        self.display_info.zoom = zoom;
+        self.display_info.pos = pos;
+        self.request_image();
+        self.base_mut().queue_redraw();
+      }
     }
   }
 
@@ -176,41 +308,28 @@ impl IControl for ChartWidget {
   }
 
   fn gui_input(&mut self, event: Gd<InputEvent>) {
-    let Some(chart_image) = &self.chart_image else {
+    if self.chart_image.is_none() {
       return;
     };
 
-    let Some(chart_reader) = &self.chart_reader else {
-      return;
-    };
-
-    if let Ok(event) = event.try_cast::<InputEventMouseMotion>() {
+    if let Ok(event) = event.clone().try_cast::<InputEventMouseMotion>() {
       if event.get_button_mask() == MouseButtonMask::LEFT {
-        // Modify the pan position.
-        let mut pos = self.display_info.pos - event.get_screen_relative().into();
-
-        let size = chart_image.part.rect.size;
-        let max_size = chart_reader.transformation().px_size() * f64::from(chart_image.part.zoom);
-
-        // Make sure its within the horizontal limits.
-        if pos.x < 0 {
-          pos.x = 0;
-        } else if pos.x + size.w as i32 > max_size.w as i32 {
-          pos.x = max_size.w as i32 - size.w as i32;
-        }
-
-        // Make sure its within the vertical limits.
-        if pos.y < 0 {
-          pos.y = 0;
-        } else if pos.y + size.h as i32 > max_size.h as i32 {
-          pos.y = max_size.h as i32 - size.h as i32;
-        }
-
-        if pos != self.display_info.pos {
-          self.display_info.pos = pos;
-          self.request_image();
-          self.base_mut().queue_redraw();
-        }
+        let pos = self.display_info.pos - event.get_screen_relative().into();
+        self.set_pos(pos);
+      }
+    } else if let Ok(event) = event.try_cast::<InputEventMouseButton>() {
+      if event.is_pressed() {
+        match event.get_button_index() {
+          MouseButton::WHEEL_DOWN => {
+            let zoom = self.display_info.zoom * 0.8;
+            self.set_zoom(zoom, event.get_position());
+          }
+          MouseButton::WHEEL_UP => {
+            let zoom = self.display_info.zoom * 1.25;
+            self.set_zoom(zoom, event.get_position());
+          }
+          _ => (),
+        };
       }
     }
   }
