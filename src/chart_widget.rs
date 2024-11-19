@@ -266,9 +266,7 @@ impl ChartWidget {
     Some((zoom, pos))
   }
 
-  #[allow(unused)]
   const MIN_ZOOM: f32 = 1.0 / 8.0;
-  #[allow(unused)]
   const MAX_ZOOM: f32 = 1.0;
 }
 
