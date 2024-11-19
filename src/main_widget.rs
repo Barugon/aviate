@@ -217,16 +217,21 @@ impl IControl for MainWidget {
   }
 
   fn process(&mut self, _delta: f64) {
-    if let Some(chart_widget) = &self.chart_widget {
-      if let Some(airport_reader) = chart_widget.bind().airport_reader() {
-        while let Some(reply) = airport_reader.get_reply() {
-          match reply {
-            nasr::AirportReply::Airport(_info) => (),
-            nasr::AirportReply::Nearby(_infos) => (),
-            nasr::AirportReply::Search(_infos) => (),
-            nasr::AirportReply::Error(err) => godot_error!("{err}"),
-          }
-        }
+    let Some(chart_widget) = &self.chart_widget else {
+      return;
+    };
+
+    let chart_widget = chart_widget.bind();
+    let Some(airport_reader) = chart_widget.airport_reader() else {
+      return;
+    };
+
+    while let Some(reply) = airport_reader.get_reply() {
+      match reply {
+        nasr::AirportReply::Airport(_info) => (),
+        nasr::AirportReply::Nearby(_infos) => (),
+        nasr::AirportReply::Search(_infos) => (),
+        nasr::AirportReply::Error(err) => godot_error!("{err}"),
       }
     }
   }
