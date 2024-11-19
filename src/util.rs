@@ -111,6 +111,77 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   Err("Zip file does not contain usable data".into())
 }
 
+pub trait ToI32 {
+  fn to_i32(self) -> Option<i32>;
+}
+
+impl ToI32 for i64 {
+  fn to_i32(self) -> Option<i32> {
+    let cast = self as i32;
+    if cast as i64 == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
+pub trait ToU32 {
+  fn to_u32(self) -> Option<u32>;
+}
+
+impl ToU32 for i64 {
+  fn to_u32(self) -> Option<u32> {
+    let cast = self as u32;
+    if cast as i64 == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
+#[derive(Default, Eq, PartialEq)]
+pub struct WinInfo {
+  pub pos: Option<Pos>,
+  pub size: Option<Size>,
+  pub maxed: bool,
+}
+
+impl WinInfo {
+  #[allow(unused)]
+  pub fn from_value(value: Option<&serde_json::Value>) -> Self {
+    if let Some(value) = value {
+      let pos = value.get(WinInfo::POS_KEY).and_then(Pos::from_value);
+      let size = value.get(WinInfo::SIZE_KEY).and_then(Size::from_value);
+      let maxed = value
+        .get(WinInfo::MAXED_KEY)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+      return Self { pos, size, maxed };
+    }
+    WinInfo::default()
+  }
+
+  #[allow(unused)]
+  pub fn to_value(&self) -> serde_json::Value {
+    let mut value = serde_json::json!({});
+
+    if let Some(pos) = &self.pos {
+      value[WinInfo::POS_KEY] = pos.to_value();
+    }
+
+    if let Some(size) = &self.size {
+      value[WinInfo::SIZE_KEY] = size.to_value();
+    }
+
+    value[WinInfo::MAXED_KEY] = serde_json::Value::Bool(self.maxed);
+    value
+  }
+
+  const POS_KEY: &'static str = "pos";
+  const SIZE_KEY: &'static str = "size";
+  const MAXED_KEY: &'static str = "maxed";
+}
+
 pub trait Transform {
   fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError>;
 }
@@ -163,6 +234,18 @@ impl Bounds {
 pub struct Pos {
   pub x: i32,
   pub y: i32,
+}
+
+impl Pos {
+  pub fn from_value(value: &serde_json::Value) -> Option<Self> {
+    let x = value.get(0)?.as_i64()?.to_i32()?;
+    let y = value.get(1)?.as_i64()?.to_i32()?;
+    Some(Self { x, y })
+  }
+
+  pub fn to_value(self) -> serde_json::Value {
+    serde_json::json!([self.x, self.y])
+  }
 }
 
 impl ops::Sub for Pos {
@@ -221,6 +304,16 @@ pub struct Size {
 }
 
 impl Size {
+  pub fn from_value(value: &serde_json::Value) -> Option<Self> {
+    let w = value.get(0)?.as_i64()?.to_u32()?;
+    let h = value.get(1)?.as_i64()?.to_u32()?;
+    Some(Self { w, h })
+  }
+
+  pub fn to_value(self) -> serde_json::Value {
+    serde_json::json!([self.w, self.h])
+  }
+
   pub fn is_valid(&self) -> bool {
     self.w > 0 && self.h > 0
   }
@@ -440,8 +533,8 @@ pub fn inverted_color(color: &raster::RgbaEntry) -> Color {
   [r, g, b, color.a as u8]
 }
 
-/// Return the file stem portion of a path as a `String`.
 #[allow(unused)]
+/// Return the file stem portion of a path as a `String`.
 pub fn stem_string<P: AsRef<path::Path>>(path: P) -> Option<String> {
   stem_str(path.as_ref()).map(|stem| stem.to_owned())
 }
@@ -449,4 +542,14 @@ pub fn stem_string<P: AsRef<path::Path>>(path: P) -> Option<String> {
 /// Return the file stem portion of a path as a `&str`.
 pub fn stem_str(path: &path::Path) -> Option<&str> {
   path.file_stem()?.to_str()
+}
+
+/// Return the folder of a path as a `String`.
+pub fn folder_string<P: AsRef<path::Path>>(path: P) -> Option<String> {
+  folder_str(path.as_ref()).map(|stem| stem.to_owned())
+}
+
+/// Return the folder of a path as a `&str`.
+pub fn folder_str(path: &path::Path) -> Option<&str> {
+  path.parent()?.to_str()
 }
