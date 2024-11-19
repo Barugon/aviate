@@ -248,6 +248,16 @@ impl Pos {
   }
 }
 
+impl ops::Add for Pos {
+  type Output = Self;
+
+  fn add(mut self, offset: Pos) -> Self {
+    self.x += offset.x;
+    self.y += offset.y;
+    self
+  }
+}
+
 impl ops::Sub for Pos {
   type Output = Self;
 
@@ -322,6 +332,17 @@ impl Size {
     let w = self.w as f64;
     let h = self.h as f64;
     coord.x >= 0.0 && coord.x < w && coord.y >= 0.0 && coord.y < h
+  }
+}
+
+impl ops::Mul<f32> for Size {
+  type Output = Self;
+
+  fn mul(self, scale: f32) -> Self {
+    Self {
+      w: (self.w as f32 * scale).round() as u32,
+      h: (self.h as f32 * scale).round() as u32,
+    }
   }
 }
 

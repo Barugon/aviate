@@ -187,46 +187,42 @@ impl ChartWidget {
     None
   }
 
+  fn get_chart_size(&self) -> Option<util::Size> {
+    if let Some(chart_reader) = &self.chart_reader {
+      return Some(chart_reader.transformation().px_size());
+    }
+    None
+  }
+
   fn correct_pos(&mut self, mut pos: util::Pos) -> Option<util::Pos> {
-    let Some(chart_image) = &self.chart_image else {
+    let Some(chart_size) = self.get_chart_size() else {
       return None;
     };
 
-    let Some(chart_reader) = &self.chart_reader else {
-      return None;
-    };
-
-    let image_size = chart_image.part.rect.size;
-    let chart_size = chart_reader.transformation().px_size();
     let max_size = chart_size * f64::from(self.display_info.zoom);
+    let widget_size: util::Size = self.base().get_size().into();
 
     // Make sure its within the horizontal limits.
     if pos.x < 0 {
       pos.x = 0;
-    } else if pos.x + image_size.w as i32 > max_size.w as i32 {
-      pos.x = max_size.w as i32 - image_size.w as i32;
+    } else if pos.x + widget_size.w as i32 > max_size.w as i32 {
+      pos.x = max_size.w as i32 - widget_size.w as i32;
     }
 
     // Make sure its within the vertical limits.
     if pos.y < 0 {
       pos.y = 0;
-    } else if pos.y + image_size.h as i32 > max_size.h as i32 {
-      pos.y = max_size.h as i32 - image_size.h as i32;
+    } else if pos.y + widget_size.h as i32 > max_size.h as i32 {
+      pos.y = max_size.h as i32 - widget_size.h as i32;
     }
 
     Some(pos)
   }
 
   fn correct_zoom(&mut self, zoom: f32, offset: Vector2) -> Option<(f32, util::Pos)> {
-    let Some(chart_image) = &self.chart_image else {
+    let Some(chart_size) = self.get_chart_size() else {
       return None;
     };
-
-    let Some(chart_reader) = &self.chart_reader else {
-      return None;
-    };
-
-    let chart_size = chart_reader.transformation().px_size();
 
     // Clamp the zoom value.
     let mut zoom = zoom.clamp(ChartWidget::MIN_ZOOM, ChartWidget::MAX_ZOOM);
@@ -234,7 +230,7 @@ impl ChartWidget {
     let mut max_size = chart_size * f64::from(zoom);
     let widget_size: util::Size = self.base().get_size().into();
 
-    // Make sure the maximum chart size is not be smaller than the widget.
+    // Make sure the maximum chart size is not smaller than the widget.
     if max_size.w < widget_size.w {
       zoom = widget_size.w as f32 / chart_size.w as f32;
       max_size = chart_size * f64::from(zoom);
@@ -253,27 +249,17 @@ impl ChartWidget {
       y: pos.y.round() as i32,
     };
 
-    let image_size = chart_image.part.rect.size;
-
     // Make sure its within the horizontal limits.
     if pos.x < 0 {
       pos.x = 0;
-    } else if pos.x + image_size.w as i32 > max_size.w as i32 {
-      pos.x = max_size.w as i32 - image_size.w as i32;
-    }
-
-    if pos.x + widget_size.w as i32 > max_size.w as i32 {
+    } else if pos.x + widget_size.w as i32 > max_size.w as i32 {
       pos.x = max_size.w as i32 - widget_size.w as i32;
     }
 
     // Make sure its within the vertical limits.
     if pos.y < 0 {
       pos.y = 0;
-    } else if pos.y + image_size.h as i32 > max_size.h as i32 {
-      pos.y = max_size.h as i32 - image_size.h as i32;
-    }
-
-    if pos.y + widget_size.h as i32 > max_size.h as i32 {
+    } else if pos.y + widget_size.h as i32 > max_size.h as i32 {
       pos.y = max_size.h as i32 - widget_size.h as i32;
     }
 
@@ -300,12 +286,19 @@ impl IControl for ChartWidget {
 
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::RESIZED {
+      let center = self.base().get_rect().center().into();
       if let Some((zoom, pos)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
         self.display_info.zoom = zoom;
-        self.display_info.pos = pos;
-        self.request_image();
-        self.base_mut().queue_redraw();
+
+        // Recenter.
+        let pos = pos + self.display_info.center - center;
+        if let Some(pos) = self.correct_pos(pos) {
+          self.display_info.pos = pos;
+          self.request_image();
+          self.base_mut().queue_redraw();
+        }
       }
+      self.display_info.center = center;
     }
   }
 
@@ -359,6 +352,7 @@ struct ChartImage {
 
 struct DisplayInfo {
   pos: util::Pos,
+  center: util::Pos,
   zoom: f32,
   dark: bool,
 }
@@ -367,6 +361,7 @@ impl DisplayInfo {
   fn new() -> Self {
     Self {
       pos: util::Pos::default(),
+      center: util::Pos::default(),
       zoom: 1.0,
       dark: false,
     }
