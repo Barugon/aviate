@@ -1,4 +1,4 @@
-use crate::{chart_widget::ChartWidget, nasr, select_dialog::SelectDialog, util};
+use crate::{chart_widget::ChartWidget, config, nasr, select_dialog::SelectDialog, util};
 use godot::{
   classes::{AcceptDialog, Button, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
   global::HorizontalAlignment,
@@ -10,6 +10,7 @@ use std::path;
 #[class(base=Control)]
 struct MainWidget {
   base: Base<Control>,
+  config: Option<config::Storage>,
   chart_info: Option<(String, Vec<path::PathBuf>)>,
   chart_widget: Option<Gd<ChartWidget>>,
 }
@@ -25,9 +26,12 @@ impl MainWidget {
   }
 
   #[func]
-  fn toggle_night_mode(&mut self, dark: bool) {
+  fn toggle_night_mode(&mut self, night_mode: bool) {
     if let Some(chart_widget) = &mut self.chart_widget {
-      chart_widget.bind_mut().set_night_mode(dark);
+      chart_widget.bind_mut().set_night_mode(night_mode);
+      if let Some(config) = &mut self.config {
+        config.set_night_mode(night_mode);
+      }
     }
   }
 
@@ -38,9 +42,9 @@ impl MainWidget {
       let property = "theme_override_font_sizes/title_font_size";
       file_dialog.set(property, &Variant::from(16.0));
 
-      if let Some(folder) = dirs::download_dir() {
-        if let Some(folder) = folder.to_str() {
-          file_dialog.set_current_dir(folder);
+      if let Some(config) = &self.config {
+        if let Some(folder) = config.get_asset_folder() {
+          file_dialog.set_current_dir(&folder);
         }
       }
 
@@ -59,6 +63,8 @@ impl MainWidget {
     match util::get_zip_info(&path) {
       Ok(info) => match info {
         util::ZipInfo::Chart(files) => {
+          self.save_asset_folder(&path);
+
           if files.len() > 1 {
             self.select_chart(&files);
             self.chart_info = Some((path, files));
@@ -67,6 +73,8 @@ impl MainWidget {
           }
         }
         util::ZipInfo::Aero { csv, shp } => {
+          self.save_asset_folder(&path);
+
           let csv = csv.to_str().unwrap();
           let shp = shp.to_str().unwrap();
           self.open_nasr(&path, csv, shp);
@@ -137,6 +145,14 @@ impl MainWidget {
     }
     godot_error!("{text}");
   }
+
+  fn save_asset_folder(&mut self, path: &str) {
+    if let Some(config) = &mut self.config {
+      if let Some(folder) = util::folder_string(path) {
+        config.set_asset_folder(folder);
+      }
+    }
+  }
 }
 
 #[godot_api]
@@ -144,12 +160,20 @@ impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
     Self {
       base,
+      config: config::Storage::new(false),
       chart_info: None,
       chart_widget: None,
     }
   }
 
   fn ready(&mut self) {
+    // Read nite mode from the config.
+    let night_mode = self
+      .config
+      .as_ref()
+      .and_then(|c| c.get_night_mode())
+      .unwrap_or(false);
+
     let this = self.base();
 
     // Connect the sidebar button.
@@ -172,8 +196,10 @@ impl IControl for MainWidget {
     }
 
     // Connect the night mode button
-    if let Some(mut node) = self.base().find_child("NightModeButton") {
-      node.connect("toggled", &this.callable("toggle_night_mode"));
+    if let Some(node) = self.base().find_child("NightModeButton") {
+      let mut button = node.cast::<Button>();
+      button.set_pressed(night_mode);
+      button.connect("toggled", &this.callable("toggle_night_mode"));
     }
 
     // Connect the select dialog.
@@ -183,7 +209,10 @@ impl IControl for MainWidget {
 
     // Remember the chart widget.
     if let Some(node) = self.base().find_child("ChartWidget") {
-      self.chart_widget = Some(node.cast::<ChartWidget>());
+      let mut chart_widget = node.cast::<ChartWidget>();
+      chart_widget.bind_mut().set_night_mode(night_mode);
+
+      self.chart_widget = Some(chart_widget);
     }
   }
 
