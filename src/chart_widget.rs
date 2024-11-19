@@ -286,11 +286,14 @@ impl IControl for ChartWidget {
 
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::RESIZED {
+      // Get the widget center.
       let center = self.base().get_rect().center().into();
+
+      // Correct the current zoom (may change based on widget size).
       if let Some((zoom, pos)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
         self.display_info.zoom = zoom;
 
-        // Recenter.
+        // Recenter and correct the position.
         let pos = pos + self.display_info.center - center;
         if let Some(pos) = self.correct_pos(pos) {
           self.display_info.pos = pos;
@@ -298,6 +301,8 @@ impl IControl for ChartWidget {
           self.base_mut().queue_redraw();
         }
       }
+
+      // Remember the center for next time.
       self.display_info.center = center;
     }
   }
