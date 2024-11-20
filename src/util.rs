@@ -2,15 +2,6 @@ use gdal::{raster, spatial_ref};
 use godot::prelude::*;
 use std::{borrow, cmp, collections, ops, path};
 
-#[allow(unused)]
-pub fn print_children(nodes: Array<Gd<Node>>) {
-  for child in nodes.iter_shared() {
-    let name = child.get_name();
-    godot_print!("{name}");
-    print_children(child.get_children());
-  }
-}
-
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// Error message as either `&'static str` or `String`.
