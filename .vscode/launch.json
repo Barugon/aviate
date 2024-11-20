@@ -5,7 +5,7 @@
     {
       "name": "Debug",
       "type": "lldb",
-      "preLaunchTask": "rust: cargo build",
+      "preLaunchTask": "build",
       "program": "${env:GODOT4_BIN}",
       "request": "launch",
       "cwd": "${workspaceFolder}",
