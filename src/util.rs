@@ -1,5 +1,8 @@
 use gdal::{raster, spatial_ref};
-use godot::prelude::*;
+use godot::{
+  classes::{display_server::WindowMode, DisplayServer},
+  prelude::*,
+};
 use std::{borrow, cmp, collections, ops, path};
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
@@ -139,6 +142,14 @@ pub struct WinInfo {
 
 impl WinInfo {
   #[allow(unused)]
+  pub fn from_display(display_server: &Gd<DisplayServer>) -> Self {
+    let pos = Some(display_server.window_get_position().into());
+    let size = Some(display_server.window_get_size().into());
+    let maxed = display_server.window_get_mode() == WindowMode::MAXIMIZED;
+    Self { pos, size, maxed }
+  }
+
+  #[allow(unused)]
   pub fn from_value(value: Option<&serde_json::Value>) -> Self {
     if let Some(value) = value {
       let pos = value.get(WinInfo::POS_KEY).and_then(Pos::from_value);
@@ -274,12 +285,24 @@ impl From<(f32, f32)> for Pos {
   }
 }
 
+impl From<Vector2i> for Pos {
+  fn from(pos: Vector2i) -> Self {
+    Self { x: pos.x, y: pos.y }
+  }
+}
+
 impl From<Vector2> for Pos {
   fn from(pos: Vector2) -> Self {
     Self {
       x: pos.x as i32,
       y: pos.y as i32,
     }
+  }
+}
+
+impl From<Pos> for Vector2i {
+  fn from(pos: Pos) -> Self {
+    Self { x: pos.x, y: pos.y }
   }
 }
 
@@ -363,11 +386,29 @@ impl From<(usize, usize)> for Size {
   }
 }
 
+impl From<Vector2i> for Size {
+  fn from(size: Vector2i) -> Self {
+    Self {
+      w: size.x as u32,
+      h: size.y as u32,
+    }
+  }
+}
+
 impl From<Vector2> for Size {
   fn from(size: Vector2) -> Self {
     Self {
       w: size.x.round() as u32,
       h: size.y.round() as u32,
+    }
+  }
+}
+
+impl From<Size> for Vector2i {
+  fn from(size: Size) -> Self {
+    Self {
+      x: size.w as i32,
+      y: size.h as i32,
     }
   }
 }
