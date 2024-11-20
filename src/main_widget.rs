@@ -1,6 +1,9 @@
 use crate::{chart_widget::ChartWidget, config, nasr, select_dialog::SelectDialog, util};
 use godot::{
-  classes::{AcceptDialog, Button, Control, FileDialog, HBoxContainer, IControl, PanelContainer},
+  classes::{
+    AcceptDialog, Button, Control, DisplayServer, FileDialog, HBoxContainer, IControl,
+    PanelContainer,
+  },
   global::HorizontalAlignment,
   prelude::*,
 };
@@ -167,6 +170,8 @@ impl IControl for MainWidget {
   }
 
   fn ready(&mut self) {
+    DisplayServer::singleton().window_set_min_size(Vector2i { x: 600, y: 400 });
+
     // Read nite mode from the config.
     let night_mode = self
       .config
