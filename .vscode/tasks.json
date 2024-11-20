@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "cargo",
+      "command": "build",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "build",
+      "label": "build"
+    },
+    {
+      "type": "cargo",
+      "command": "clean",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "build",
+      "label": "clean"
+    },
+    {
+      "type": "cargo",
+      "command": "clippy",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "build",
+      "label": "clippy"
+    },
+    {
+      "type": "shell",
+      "command": "cargo build && $GODOT4_BIN --path ${workspaceFolder}/godot",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "label": "run"
+    },
+    {
+      "type": "cargo",
+      "command": "test",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "test",
+      "label": "test"
+    },
+    {
+      "type": "cargo",
+      "command": "update",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "label": "update"
+    }
+  ]
+}
