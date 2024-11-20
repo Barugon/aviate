@@ -1,7 +1,7 @@
 use crate::{chart_widget::ChartWidget, config, nasr, select_dialog::SelectDialog, util};
 use godot::{
   classes::{
-    AcceptDialog, Button, Control, DisplayServer, FileDialog, HBoxContainer, IControl,
+    AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl,
     PanelContainer,
   },
   global::HorizontalAlignment,
@@ -14,8 +14,8 @@ use std::path;
 struct MainWidget {
   base: Base<Control>,
   config: Option<config::Storage>,
+  chart_widget: OnReady<Gd<ChartWidget>>,
   chart_info: Option<(String, Vec<path::PathBuf>)>,
-  chart_widget: Option<Gd<ChartWidget>>,
 }
 
 #[godot_api]
@@ -30,11 +30,9 @@ impl MainWidget {
 
   #[func]
   fn toggle_night_mode(&mut self, night_mode: bool) {
-    if let Some(chart_widget) = &mut self.chart_widget {
-      chart_widget.bind_mut().set_night_mode(night_mode);
-      if let Some(config) = &mut self.config {
-        config.set_night_mode(night_mode);
-      }
+    self.chart_widget.bind_mut().set_night_mode(night_mode);
+    if let Some(config) = &mut self.config {
+      config.set_night_mode(night_mode);
     }
   }
 
@@ -107,23 +105,15 @@ impl MainWidget {
   }
 
   fn open_chart(&mut self, path: &str, file: &str) {
-    let mut err = None;
-    if let Some(chart_widget) = &mut self.chart_widget {
-      err = chart_widget.bind_mut().open_chart(path, file).err();
-    }
-
-    if let Some(err) = err.take() {
+    let result = self.chart_widget.bind_mut().open_raster_reader(path, file);
+    if let Err(err) = result {
       self.show_alert(err.as_ref());
     }
   }
 
   fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
-    let mut err = None;
-    if let Some(chart_widget) = &mut self.chart_widget {
-      err = chart_widget.bind_mut().open_airport_csv(path, csv).err();
-    };
-
-    if let Some(err) = err.take() {
+    let result = self.chart_widget.bind_mut().open_airport_reader(path, csv);
+    if let Err(err) = result {
       self.show_alert(err.as_ref());
     }
   }
@@ -164,69 +154,52 @@ impl IControl for MainWidget {
     Self {
       base,
       config: config::Storage::new(false),
+      chart_widget: OnReady::manual(),
       chart_info: None,
-      chart_widget: None,
     }
   }
 
   fn ready(&mut self) {
     DisplayServer::singleton().window_set_min_size(Vector2i { x: 600, y: 400 });
 
+    // Get the chart widget.
+    let node = self.base().find_child("ChartWidget").unwrap();
+    self.chart_widget.init(node.cast());
+
     // Read nite mode from the config.
-    let night_mode = self
-      .config
-      .as_ref()
-      .and_then(|c| c.get_night_mode())
-      .unwrap_or(false);
+    let night_mode = self.config.as_ref().and_then(|c| c.get_night_mode());
+    let night_mode = night_mode.unwrap_or(false);
+    self.chart_widget.bind_mut().set_night_mode(night_mode);
 
     let this = self.base();
 
     // Connect the sidebar button.
-    if let Some(mut node) = this.find_child("SidebarButton") {
-      node.connect("toggled", &this.callable("toggle_sidebar"));
-    }
+    let mut node = self.base().find_child("SidebarButton").unwrap();
+    node.connect("toggled", &this.callable("toggle_sidebar"));
 
     // Connect the open button.
-    if let Some(mut node) = this.find_child("OpenButton") {
-      node.connect("pressed", &this.callable("open_zip_file"));
-    }
+    let mut node = self.base().find_child("OpenButton").unwrap();
+    node.connect("pressed", &this.callable("open_zip_file"));
 
     // Setup the file dialog.
-    if let Some(node) = this.find_child("FileDialog") {
-      let mut file_dialog = node.cast::<FileDialog>();
-      file_dialog.connect("file_selected", &this.callable("zip_file_selected"));
-
-      let vbox = file_dialog.get_vbox().unwrap();
-      hide_buttons(vbox.upcast());
-    }
+    let node = self.base().find_child("FileDialog").unwrap();
+    let mut node = node.cast::<FileDialog>();
+    node.connect("file_selected", &this.callable("zip_file_selected"));
+    hide_buttons(node.get_vbox().unwrap().upcast());
 
     // Connect the night mode button
-    if let Some(node) = self.base().find_child("NightModeButton") {
-      let mut button = node.cast::<Button>();
-      button.set_pressed(night_mode);
-      button.connect("toggled", &this.callable("toggle_night_mode"));
-    }
+    let node = this.find_child("NightModeButton").unwrap();
+    let mut node = node.cast::<CheckButton>();
+    node.set_pressed(night_mode);
+    node.connect("toggled", &this.callable("toggle_night_mode"));
 
     // Connect the select dialog.
-    if let Some(mut node) = this.find_child("SelectDialog") {
-      node.connect("selected", &this.callable("chart_selected"));
-    }
-
-    // Remember the chart widget.
-    if let Some(node) = self.base().find_child("ChartWidget") {
-      let mut chart_widget = node.cast::<ChartWidget>();
-      chart_widget.bind_mut().set_night_mode(night_mode);
-
-      self.chart_widget = Some(chart_widget);
-    }
+    let mut node = this.find_child("SelectDialog").unwrap();
+    node.connect("selected", &this.callable("chart_selected"));
   }
 
   fn process(&mut self, _delta: f64) {
-    let Some(chart_widget) = &self.chart_widget else {
-      return;
-    };
-
-    let chart_widget = chart_widget.bind();
+    let chart_widget = self.chart_widget.bind();
     let Some(airport_reader) = chart_widget.airport_reader() else {
       return;
     };

@@ -9,6 +9,7 @@ use godot::{
 #[class(base=Window)]
 pub struct SelectDialog {
   base: Base<Window>,
+  items: OnReady<Gd<VBoxContainer>>,
 }
 
 #[godot_api]
@@ -18,43 +19,36 @@ impl SelectDialog {
 
   #[func]
   fn choice_selected(&mut self) {
-    if let Some(node) = self.base().find_child("Items") {
-      let items = node.cast::<VBoxContainer>();
-      for (idx, node) in items.get_children().iter_shared().enumerate() {
-        let button = node.cast::<Button>();
-        if button.is_pressed() {
-          let mut this = self.base_mut();
-          this.hide();
-          this.emit_signal("selected", &[Variant::from(idx as u32)]);
-        }
+    for (idx, node) in self.items.get_children().iter_shared().enumerate() {
+      let button = node.cast::<Button>();
+      if button.is_pressed() {
+        let mut this = self.base_mut();
+        this.hide();
+        this.emit_signal("selected", &[Variant::from(idx as u32)]);
       }
     }
   }
 
   pub fn show_choices<'a, I: Iterator<Item = &'a str>>(&mut self, choices: I) {
-    if let Some(node) = self.base().find_child("Items") {
-      let mut items = node.cast::<VBoxContainer>();
+    // Remove any existing buttons.
+    for child in self.items.get_children().iter_shared() {
+      self.items.remove_child(&child);
 
-      // Remove any existing buttons.
-      for child in items.get_children().iter_shared() {
-        items.remove_child(&child);
+      // Once removed from the tree, the node must be manually freed.
+      child.free();
+    }
 
-        // Once removed from the tree, the node must be manually freed.
-        child.free();
-      }
-
-      // Populate with new buttons.
-      let this = self.base();
-      let group = ButtonGroup::new_gd();
-      let callable = this.callable("choice_selected");
-      for choice in choices {
-        let mut button = Button::new_alloc();
-        button.set_text(choice);
-        button.set_toggle_mode(true);
-        button.set_button_group(&group);
-        button.connect("pressed", &callable);
-        items.add_child(&button);
-      }
+    // Populate with new buttons.
+    let this = self.base();
+    let group = ButtonGroup::new_gd();
+    let callable = this.callable("choice_selected");
+    for choice in choices {
+      let mut button = Button::new_alloc();
+      button.set_text(choice);
+      button.set_toggle_mode(true);
+      button.set_button_group(&group);
+      button.connect("pressed", &callable);
+      self.items.add_child(&button);
     }
 
     // Update the size and show.
@@ -67,10 +61,17 @@ impl SelectDialog {
 #[godot_api]
 impl IWindow for SelectDialog {
   fn init(base: Base<Window>) -> Self {
-    Self { base }
+    Self {
+      base,
+      items: OnReady::manual(),
+    }
   }
 
   fn ready(&mut self) {
+    // Get the items vbox.
+    let node = self.base().find_child("Items").unwrap();
+    self.items.init(node.cast());
+
     let mut this = self.base_mut();
 
     // Make the title font size a bit bigger.
@@ -82,9 +83,8 @@ impl IWindow for SelectDialog {
     this.connect("close_requested", &callable);
 
     // Connect the cancel button.
-    if let Some(mut node) = this.find_child("CancelButton") {
-      node.connect("pressed", &callable);
-    }
+    let mut node = this.find_child("CancelButton").unwrap();
+    node.connect("pressed", &callable);
   }
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {

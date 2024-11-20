@@ -14,29 +14,29 @@ use godot::{
 #[class(base=Control)]
 pub struct ChartWidget {
   base: Base<Control>,
-  chart_reader: Option<chart::RasterReader>,
+  raster_reader: Option<chart::RasterReader>,
   airport_reader: Option<nasr::AirportReader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
 }
 
 impl ChartWidget {
-  pub fn open_chart(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
+  pub fn open_raster_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
     // Concatenate the VSI prefix and the file path.
     let path = ["/vsizip/", path].concat();
     let path = path::Path::new(path.as_str()).join(file);
 
     // Create a new chart reader.
     match chart::RasterReader::new(path) {
-      Ok(chart_reader) => {
+      Ok(raster_reader) => {
         if let Some(airport_reader) = &self.airport_reader {
           // Send the chart spatial reference to the airport reader.
-          let proj4 = chart_reader.transformation().get_proj4();
-          let bounds = chart_reader.transformation().bounds().clone();
+          let proj4 = raster_reader.transformation().get_proj4();
+          let bounds = raster_reader.transformation().bounds().clone();
           airport_reader.set_spatial_ref(proj4, bounds);
         }
 
-        self.chart_reader = Some(chart_reader);
+        self.raster_reader = Some(raster_reader);
         self.display_info.pos = util::Pos::default();
         self.display_info.zoom = 1.0;
         self.request_image();
@@ -46,7 +46,7 @@ impl ChartWidget {
     }
   }
 
-  pub fn open_airport_csv(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
+  pub fn open_airport_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
     // Concatenate the VSI prefix and the file path.
     let path = ["/vsizip//vsizip/", path].concat();
     let path = path::Path::new(path.as_str());
@@ -54,10 +54,10 @@ impl ChartWidget {
 
     match nasr::AirportReader::new(path) {
       Ok(airport_reader) => {
-        if let Some(chart_reader) = &self.chart_reader {
+        if let Some(raster_reader) = &self.raster_reader {
           // Send the chart spatial reference to the airport reader.
-          let proj4 = chart_reader.transformation().get_proj4();
-          let bounds = chart_reader.transformation().bounds().clone();
+          let proj4 = raster_reader.transformation().get_proj4();
+          let bounds = raster_reader.transformation().bounds().clone();
           airport_reader.set_spatial_ref(proj4, bounds);
         }
 
@@ -81,13 +81,13 @@ impl ChartWidget {
 
   #[allow(unused)]
   pub fn goto_coord(&mut self, coord: util::Coord) {
-    let Some(chart_reader) = &self.chart_reader else {
+    let Some(raster_reader) = &self.raster_reader else {
       return;
     };
 
-    match chart_reader.transformation().nad83_to_px(coord) {
+    match raster_reader.transformation().nad83_to_px(coord) {
       Ok(px) => {
-        let chart_size = chart_reader.transformation().px_size();
+        let chart_size = raster_reader.transformation().px_size();
         if chart_size.contains(px) {
           let widget_size = self.base().get_size();
           let x = px.x as f32 - 0.5 * widget_size.x;
@@ -127,7 +127,7 @@ impl ChartWidget {
   }
 
   fn request_image(&self) {
-    if let Some(chart_reader) = &self.chart_reader {
+    if let Some(raster_reader) = &self.raster_reader {
       let pos = self.display_info.pos;
       let size = self.base().get_size().into();
       let rect = util::Rect { pos, size };
@@ -135,21 +135,21 @@ impl ChartWidget {
 
       // Check if the chart reader hash and the image part match.
       if let Some(chart_image) = &self.chart_image {
-        if chart_image.hash == chart_reader.hash() && chart_image.part == part {
+        if chart_image.hash == raster_reader.hash() && chart_image.part == part {
           return;
         }
       }
 
-      chart_reader.read_image(part);
+      raster_reader.read_image(part);
     }
   }
 
   fn get_chart_reply(&self) -> Option<ChartImage> {
-    if let Some(chart_reader) = &self.chart_reader {
+    if let Some(raster_reader) = &self.raster_reader {
       let mut image_info = None;
 
       // Collect all chart replies to get to the most recent image.
-      while let Some(reply) = chart_reader.get_reply() {
+      while let Some(reply) = raster_reader.get_reply() {
         match reply {
           chart::RasterReply::Image(part, data) => {
             image_info = Some((part, data));
@@ -166,7 +166,7 @@ impl ChartWidget {
           return Some(ChartImage {
             texture,
             part,
-            hash: chart_reader.hash(),
+            hash: raster_reader.hash(),
           });
         }
       }
@@ -188,8 +188,8 @@ impl ChartWidget {
   }
 
   fn get_chart_size(&self) -> Option<util::Size> {
-    if let Some(chart_reader) = &self.chart_reader {
-      return Some(chart_reader.transformation().px_size());
+    if let Some(raster_reader) = &self.raster_reader {
+      return Some(raster_reader.transformation().px_size());
     }
     None
   }
@@ -270,7 +270,7 @@ impl IControl for ChartWidget {
   fn init(base: Base<Control>) -> Self {
     Self {
       base,
-      chart_reader: None,
+      raster_reader: None,
       airport_reader: None,
       chart_image: None,
       display_info: DisplayInfo::new(),
