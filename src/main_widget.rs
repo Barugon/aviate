@@ -43,10 +43,8 @@ impl MainWidget {
       let property = "theme_override_font_sizes/title_font_size";
       file_dialog.set(property, &Variant::from(16.0));
 
-      if let Some(config) = &self.config {
-        if let Some(folder) = config.get_asset_folder() {
-          file_dialog.set_current_dir(&folder);
-        }
+      if let Some(folder) = self.get_asset_folder() {
+        file_dialog.set_current_dir(&folder);
       }
 
       file_dialog.show();
@@ -137,6 +135,17 @@ impl MainWidget {
       return;
     }
     godot_error!("{text}");
+  }
+
+  fn get_asset_folder(&self) -> Option<String> {
+    if let Some(config) = &self.config {
+      let folder = config.get_asset_folder();
+      if folder.is_some() {
+        return folder;
+      }
+    }
+
+    Some(dirs::download_dir()?.to_str()?.to_owned())
   }
 
   fn save_asset_folder(&mut self, path: &str) {
