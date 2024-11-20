@@ -127,14 +127,6 @@ impl ChartWidget {
     let size = self.base().get_size().into();
     let rect = util::Rect { pos, size };
     let part = chart::ImagePart::new(rect, self.display_info.zoom, self.display_info.dark);
-
-    // Check if the chart reader hash and the image part match.
-    if let Some(chart_image) = &self.chart_image {
-      if chart_image.hash == raster_reader.hash() && chart_image.part == part {
-        return;
-      }
-    }
-
     raster_reader.read_image(part);
   }
 
@@ -157,11 +149,7 @@ impl ChartWidget {
     // Convert to texture.
     let (part, data) = image_info?;
     let texture = create_texture(data)?;
-    Some(ChartImage {
-      texture,
-      part,
-      hash: raster_reader.hash(),
-    })
+    Some(ChartImage { texture, part })
   }
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
@@ -330,7 +318,6 @@ impl IControl for ChartWidget {
 struct ChartImage {
   texture: Gd<Texture2D>,
   part: chart::ImagePart,
-  hash: u64,
 }
 
 struct DisplayInfo {
