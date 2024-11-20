@@ -27,23 +27,19 @@ impl ChartWidget {
     let path = path::Path::new(path.as_str()).join(file);
 
     // Create a new chart reader.
-    match chart::RasterReader::new(path) {
-      Ok(raster_reader) => {
-        if let Some(airport_reader) = &self.airport_reader {
-          // Send the chart spatial reference to the airport reader.
-          let proj4 = raster_reader.transformation().get_proj4();
-          let bounds = raster_reader.transformation().bounds().clone();
-          airport_reader.set_spatial_ref(proj4, bounds);
-        }
-
-        self.raster_reader = Some(raster_reader);
-        self.display_info.pos = util::Pos::default();
-        self.display_info.zoom = 1.0;
-        self.request_image();
-        Ok(())
-      }
-      Err(err) => Err(err),
+    let raster_reader = chart::RasterReader::new(path)?;
+    if let Some(airport_reader) = &self.airport_reader {
+      // Send the chart spatial reference to the airport reader.
+      let proj4 = raster_reader.transformation().get_proj4();
+      let bounds = raster_reader.transformation().bounds().clone();
+      airport_reader.set_spatial_ref(proj4, bounds);
     }
+
+    self.raster_reader = Some(raster_reader);
+    self.display_info.pos = util::Pos::default();
+    self.display_info.zoom = 1.0;
+    self.request_image();
+    Ok(())
   }
 
   pub fn open_airport_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
@@ -52,20 +48,16 @@ impl ChartWidget {
     let path = path::Path::new(path.as_str());
     let path = path.join(file).join("APT_BASE.csv");
 
-    match nasr::AirportReader::new(path) {
-      Ok(airport_reader) => {
-        if let Some(raster_reader) = &self.raster_reader {
-          // Send the chart spatial reference to the airport reader.
-          let proj4 = raster_reader.transformation().get_proj4();
-          let bounds = raster_reader.transformation().bounds().clone();
-          airport_reader.set_spatial_ref(proj4, bounds);
-        }
-
-        self.airport_reader = Some(airport_reader);
-        Ok(())
-      }
-      Err(err) => Err(err),
+    let airport_reader = nasr::AirportReader::new(path)?;
+    if let Some(raster_reader) = &self.raster_reader {
+      // Send the chart spatial reference to the airport reader.
+      let proj4 = raster_reader.transformation().get_proj4();
+      let bounds = raster_reader.transformation().bounds().clone();
+      airport_reader.set_spatial_ref(proj4, bounds);
     }
+
+    self.airport_reader = Some(airport_reader);
+    Ok(())
   }
 
   pub fn airport_reader(&self) -> Option<&nasr::AirportReader> {
@@ -127,71 +119,64 @@ impl ChartWidget {
   }
 
   fn request_image(&self) {
-    if let Some(raster_reader) = &self.raster_reader {
-      let pos = self.display_info.pos;
-      let size = self.base().get_size().into();
-      let rect = util::Rect { pos, size };
-      let part = chart::ImagePart::new(rect, self.display_info.zoom, self.display_info.dark);
+    let Some(raster_reader) = &self.raster_reader else {
+      return;
+    };
 
-      // Check if the chart reader hash and the image part match.
-      if let Some(chart_image) = &self.chart_image {
-        if chart_image.hash == raster_reader.hash() && chart_image.part == part {
-          return;
-        }
+    let pos = self.display_info.pos;
+    let size = self.base().get_size().into();
+    let rect = util::Rect { pos, size };
+    let part = chart::ImagePart::new(rect, self.display_info.zoom, self.display_info.dark);
+
+    // Check if the chart reader hash and the image part match.
+    if let Some(chart_image) = &self.chart_image {
+      if chart_image.hash == raster_reader.hash() && chart_image.part == part {
+        return;
       }
-
-      raster_reader.read_image(part);
     }
+
+    raster_reader.read_image(part);
   }
 
   fn get_chart_reply(&self) -> Option<ChartImage> {
-    if let Some(raster_reader) = &self.raster_reader {
-      let mut image_info = None;
+    let raster_reader = self.raster_reader.as_ref()?;
+    let mut image_info = None;
 
-      // Collect all chart replies to get to the most recent image.
-      while let Some(reply) = raster_reader.get_reply() {
-        match reply {
-          chart::RasterReply::Image(part, data) => {
-            image_info = Some((part, data));
-          }
-          chart::RasterReply::Error(part, err) => {
-            godot_error!("{err} @ {part:?}");
-          }
+    // Collect all chart replies to get to the most recent image.
+    while let Some(reply) = raster_reader.get_reply() {
+      match reply {
+        chart::RasterReply::Image(part, data) => {
+          image_info = Some((part, data));
         }
-      }
-
-      // Convert to texture and return.
-      if let Some((part, data)) = image_info {
-        if let Some(texture) = create_texture(data) {
-          return Some(ChartImage {
-            texture,
-            part,
-            hash: raster_reader.hash(),
-          });
+        chart::RasterReply::Error(part, err) => {
+          godot_error!("{err} @ {part:?}");
         }
       }
     }
 
-    None
+    // Convert to texture.
+    let (part, data) = image_info?;
+    let texture = create_texture(data)?;
+    Some(ChartImage {
+      texture,
+      part,
+      hash: raster_reader.hash(),
+    })
   }
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
-    if let Some(chart_image) = &self.chart_image {
-      let zoom = self.display_info.zoom / chart_image.part.zoom.value();
-      let pos = Vector2::from(chart_image.part.rect.pos) * zoom - self.display_info.pos.into();
-      let size = chart_image.texture.get_size() * zoom;
-      let rect = Rect2::new(pos, size);
-      let texture = chart_image.texture.clone();
-      return Some((texture, rect));
-    }
-    None
+    let chart_image = self.chart_image.as_ref()?;
+    let zoom = self.display_info.zoom / chart_image.part.zoom.value();
+    let pos = Vector2::from(chart_image.part.rect.pos) * zoom - self.display_info.pos.into();
+    let size = chart_image.texture.get_size() * zoom;
+    let rect = Rect2::new(pos, size);
+    let texture = chart_image.texture.clone();
+    Some((texture, rect))
   }
 
   fn get_chart_size(&self) -> Option<util::Size> {
-    if let Some(raster_reader) = &self.raster_reader {
-      return Some(raster_reader.transformation().px_size());
-    }
-    None
+    let raster_reader = self.raster_reader.as_ref()?;
+    Some(raster_reader.transformation().px_size())
   }
 
   fn correct_pos(&mut self, mut pos: util::Pos) -> Option<util::Pos> {
@@ -371,8 +356,6 @@ fn create_texture(data: util::ImageData) -> Option<Gd<Texture2D>> {
   let w = data.w as i32;
   let h = data.h as i32;
   let data = data.px.as_flattened().into();
-  if let Some(image) = Image::create_from_data(w, h, false, Format::RGBA8, &data) {
-    return ImageTexture::create_from_image(&image).map(|texture| texture.upcast());
-  }
-  None
+  let image = Image::create_from_data(w, h, false, Format::RGBA8, &data)?;
+  ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
 }
