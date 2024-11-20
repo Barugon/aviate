@@ -195,10 +195,7 @@ impl ChartWidget {
   }
 
   fn correct_pos(&mut self, mut pos: util::Pos) -> Option<util::Pos> {
-    let Some(chart_size) = self.get_chart_size() else {
-      return None;
-    };
-
+    let chart_size = self.get_chart_size()?;
     let max_size = chart_size * f64::from(self.display_info.zoom);
     let widget_size: util::Size = self.base().get_size().into();
 
@@ -220,9 +217,7 @@ impl ChartWidget {
   }
 
   fn correct_zoom(&mut self, zoom: f32, offset: Vector2) -> Option<(f32, util::Pos)> {
-    let Some(chart_size) = self.get_chart_size() else {
-      return None;
-    };
+    let chart_size = self.get_chart_size()?;
 
     // Clamp the zoom value.
     let mut zoom = zoom.clamp(ChartWidget::MIN_ZOOM, ChartWidget::MAX_ZOOM);
