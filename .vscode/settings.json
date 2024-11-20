@@ -2,25 +2,29 @@
   "cSpell.ignoreWords": [
     "AABB",
     "ARPT",
-    "Hashable",
-    "NASR",
     "barugon",
+    "bindgen",
+    "cdylib",
     "consts",
     "epsg",
     "gdal",
     "gdext",
     "gdextension",
+    "Hashable",
     "hasher",
     "hbox",
     "libaviate",
+    "NASR",
     "palettized",
     "rasterband",
     "reloadable",
     "rstar",
+    "serde",
     "tfws",
     "tifs",
     "unresizable",
     "vsizip"
   ],
-  "editor.tabSize": 2
+  "editor.tabSize": 2,
+  "task.autoDetect": "off"
 }
