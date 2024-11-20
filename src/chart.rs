@@ -8,7 +8,6 @@ pub struct RasterReader {
   transformation: Transformation,
   tx: mpsc::Sender<ImagePart>,
   rx: mpsc::Receiver<RasterReply>,
-  hash: u64,
 }
 
 impl RasterReader {
@@ -19,12 +18,6 @@ impl RasterReader {
   }
 
   fn _new(path: &path::Path) -> Result<Self, util::Error> {
-    // Hash the path.
-    use hash::{DefaultHasher, Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    path.hash(&mut hasher);
-    let hash = hasher.finish();
-
     // Open the chart source.
     let (source, transformation, palette) = RasterSource::open(path)?;
 
@@ -83,7 +76,6 @@ impl RasterReader {
       transformation,
       tx,
       rx,
-      hash,
     })
   }
 
@@ -103,11 +95,6 @@ impl RasterReader {
   /// Get the next available reply.
   pub fn get_reply(&self) -> Option<RasterReply> {
     self.rx.try_recv().ok()
-  }
-
-  /// Get a hash of the file path.
-  pub fn hash(&self) -> u64 {
-    self.hash
   }
 }
 
