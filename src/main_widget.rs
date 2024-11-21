@@ -57,8 +57,7 @@ impl MainWidget {
   #[func]
   fn zip_file_selected(&mut self, path: String) {
     // The file dialog needs to be hidden first or it will generate an error if the alert dialog is shown.
-    let mut file_dialog = self.get_child::<FileDialog>("FileDialog");
-    file_dialog.hide();
+    self.get_child::<FileDialog>("FileDialog").hide();
 
     match util::get_zip_info(&path) {
       Ok(info) => match info {
