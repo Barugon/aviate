@@ -36,7 +36,7 @@ impl ChartWidget {
     }
 
     self.raster_reader = Some(raster_reader);
-    self.display_info.pos = util::Pos::default();
+    self.display_info.origin = util::Pos::default();
     self.display_info.zoom = 1.0;
     self.request_image();
     Ok(())
@@ -98,8 +98,8 @@ impl ChartWidget {
       return;
     };
 
-    if pos != self.display_info.pos {
-      self.display_info.pos = pos;
+    if pos != self.display_info.origin {
+      self.display_info.origin = pos;
       self.request_image();
       self.base_mut().queue_redraw();
     }
@@ -110,8 +110,8 @@ impl ChartWidget {
       return;
     };
 
-    if zoom != self.display_info.zoom || pos != self.display_info.pos {
-      self.display_info.pos = pos;
+    if zoom != self.display_info.zoom || pos != self.display_info.origin {
+      self.display_info.origin = pos;
       self.display_info.zoom = zoom;
       self.request_image();
       self.base_mut().queue_redraw();
@@ -123,7 +123,7 @@ impl ChartWidget {
       return;
     };
 
-    let pos = self.display_info.pos;
+    let pos = self.display_info.origin;
     let size = self.base().get_size().into();
     let rect = util::Rect { pos, size };
     let part = chart::ImagePart::new(rect, self.display_info.zoom, self.display_info.dark);
@@ -155,7 +155,7 @@ impl ChartWidget {
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
     let chart_image = self.chart_image.as_ref()?;
     let zoom = self.display_info.zoom / chart_image.part.zoom.value();
-    let pos = Vector2::from(chart_image.part.rect.pos) * zoom - self.display_info.pos.into();
+    let pos = Vector2::from(chart_image.part.rect.pos) * zoom - self.display_info.origin.into();
     let size = chart_image.texture.get_size() * zoom;
     let rect = Rect2::new(pos, size);
     let texture = chart_image.texture.clone();
@@ -210,7 +210,7 @@ impl ChartWidget {
     }
 
     // Keep the zoom position at the offset.
-    let pos = Vector2::from(self.display_info.pos) + offset;
+    let pos = Vector2::from(self.display_info.origin) + offset;
     let pos = pos * zoom / self.display_info.zoom - offset;
     let mut pos = util::Pos {
       x: pos.x.round() as i32,
@@ -252,24 +252,31 @@ impl IControl for ChartWidget {
 
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::RESIZED {
-      // Get the widget center.
-      let center = self.base().get_rect().center().into();
+      let rect: util::Rect = self.base().get_rect().into();
+      if self.chart_image.is_some() {
+        // Correct the current zoom (may change based on widget size).
+        if let Some((zoom, _)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
+          self.display_info.zoom = zoom;
 
-      // Correct the current zoom (may change based on widget size).
-      if let Some((zoom, pos)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
-        self.display_info.zoom = zoom;
+          let pos = if rect.pos.x == self.display_info.rect.pos.x {
+            // Recenter the chart.
+            self.display_info.origin + self.display_info.rect.center() - rect.center()
+          } else {
+            // Side panel was toggled, just compensate for that.
+            self.display_info.origin + (rect.pos.x - self.display_info.rect.pos.x, 0).into()
+          };
 
-        // Recenter and correct the position.
-        let pos = pos + self.display_info.center - center;
-        if let Some(pos) = self.correct_pos(pos) {
-          self.display_info.pos = pos;
-          self.request_image();
-          self.base_mut().queue_redraw();
+          // Correct the position.
+          if let Some(pos) = self.correct_pos(pos) {
+            self.display_info.origin = pos;
+            self.request_image();
+            self.base_mut().queue_redraw();
+          }
         }
       }
 
-      // Remember the center for next time.
-      self.display_info.center = center;
+      // Remember the widget rectangle for next time.
+      self.display_info.rect = rect;
     }
   }
 
@@ -294,7 +301,7 @@ impl IControl for ChartWidget {
 
     if let Ok(event) = event.clone().try_cast::<InputEventMouseMotion>() {
       if event.get_button_mask() == MouseButtonMask::LEFT {
-        let pos = self.display_info.pos - event.get_screen_relative().into();
+        let pos = self.display_info.origin - event.get_screen_relative().into();
         self.set_pos(pos);
       }
     } else if let Ok(event) = event.try_cast::<InputEventMouseButton>() {
@@ -321,8 +328,8 @@ struct ChartImage {
 }
 
 struct DisplayInfo {
-  pos: util::Pos,
-  center: util::Pos,
+  origin: util::Pos,
+  rect: util::Rect,
   zoom: f32,
   dark: bool,
 }
@@ -330,8 +337,8 @@ struct DisplayInfo {
 impl DisplayInfo {
   fn new() -> Self {
     Self {
-      pos: util::Pos::default(),
-      center: util::Pos::default(),
+      origin: util::Pos::default(),
+      rect: util::Rect::default(),
       zoom: 1.0,
       dark: false,
     }
