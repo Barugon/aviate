@@ -22,10 +22,8 @@ struct MainWidget {
 impl MainWidget {
   #[func]
   fn toggle_sidebar(&self, toggle: bool) {
-    if let Some(node) = self.base().find_child("SidebarPanel") {
-      let mut sidebar = node.cast::<PanelContainer>();
-      sidebar.set_visible(toggle);
-    }
+    let mut child = self.get_child::<PanelContainer>("SidebarPanel");
+    child.set_visible(toggle);
   }
 
   #[func]
@@ -38,26 +36,22 @@ impl MainWidget {
 
   #[func]
   fn open_zip_file(&self) {
-    if let Some(node) = self.base().find_child("FileDialog") {
-      let mut file_dialog = node.cast::<FileDialog>();
-      let property = "theme_override_font_sizes/title_font_size";
-      file_dialog.set(property, &Variant::from(16.0));
+    let mut file_dialog = self.get_child::<FileDialog>("FileDialog");
+    let property = "theme_override_font_sizes/title_font_size";
+    file_dialog.set(property, &Variant::from(16.0));
 
-      if let Some(folder) = self.get_asset_folder() {
-        file_dialog.set_current_dir(&folder);
-      }
-
-      file_dialog.show();
+    if let Some(folder) = self.get_asset_folder() {
+      file_dialog.set_current_dir(&folder);
     }
+
+    file_dialog.show();
   }
 
   #[func]
   fn zip_file_selected(&mut self, path: String) {
     // The file dialog needs to be hidden first or it will generate an error if the alert dialog is shown.
-    if let Some(node) = self.base().find_child("FileDialog") {
-      let mut file_dialog = node.cast::<FileDialog>();
-      file_dialog.hide();
-    }
+    let mut file_dialog = self.get_child::<FileDialog>("FileDialog");
+    file_dialog.hide();
 
     match util::get_zip_info(&path) {
       Ok(info) => match info {
@@ -93,13 +87,11 @@ impl MainWidget {
   }
 
   fn select_chart(&self, files: &[path::PathBuf]) {
-    if let Some(node) = self.base().find_child("SelectDialog") {
-      let mut select_dialog = node.cast::<SelectDialog>();
-      select_dialog.set_title("Select Chart");
+    let mut select_dialog = self.get_child::<SelectDialog>("SelectDialog");
+    select_dialog.set_title("Select Chart");
 
-      let choices = files.iter().map(|f| util::stem_str(f).unwrap());
-      select_dialog.bind_mut().show_choices(choices);
-    }
+    let choices = files.iter().map(|f| util::stem_str(f).unwrap());
+    select_dialog.bind_mut().show_choices(choices);
   }
 
   fn open_chart(&mut self, path: &str, file: &str) {
@@ -117,24 +109,20 @@ impl MainWidget {
   }
 
   fn show_alert(&self, text: &str) {
-    if let Some(child) = self.base().find_child("AlertDialog") {
-      let mut alert_dialog = child.cast::<AcceptDialog>();
-      let property = "theme_override_font_sizes/title_font_size";
-      alert_dialog.set(property, &Variant::from(16.0));
+    let mut alert_dialog = self.get_child::<AcceptDialog>("AlertDialog");
+    let property = "theme_override_font_sizes/title_font_size";
+    alert_dialog.set(property, &Variant::from(16.0));
 
-      if let Some(label) = alert_dialog.get_label() {
-        let mut label = label;
-        let property = "theme_override_colors/font_color";
-        label.set(property, &Variant::from(Color::from_rgb(1.0, 0.4, 0.4)));
-        label.set_horizontal_alignment(HorizontalAlignment::CENTER);
-      }
-
-      alert_dialog.set_text(text);
-      alert_dialog.reset_size();
-      alert_dialog.show();
-      return;
+    if let Some(label) = alert_dialog.get_label() {
+      let mut label = label;
+      let property = "theme_override_colors/font_color";
+      label.set(property, &Variant::from(Color::from_rgb(1.0, 0.4, 0.4)));
+      label.set_horizontal_alignment(HorizontalAlignment::CENTER);
     }
-    godot_error!("{text}");
+
+    alert_dialog.set_text(text);
+    alert_dialog.reset_size();
+    alert_dialog.show();
   }
 
   fn get_asset_folder(&self) -> Option<String> {
@@ -155,6 +143,10 @@ impl MainWidget {
       }
     }
   }
+
+  fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
+    self.base().find_child(name).unwrap().cast()
+  }
 }
 
 #[godot_api]
@@ -168,43 +160,40 @@ impl IControl for MainWidget {
     }
   }
 
+  // fn on_notification(&mut self, _what: ControlNotification) {}
+
   fn ready(&mut self) {
     DisplayServer::singleton().window_set_min_size(Vector2i { x: 600, y: 400 });
 
     // Get the chart widget.
-    let node = self.base().find_child("ChartWidget").unwrap();
-    self.chart_widget.init(node.cast());
+    self.chart_widget.init(self.get_child("ChartWidget"));
 
     // Read nite mode from the config.
     let night_mode = self.config.as_ref().and_then(|c| c.get_night_mode());
     let night_mode = night_mode.unwrap_or(false);
     self.chart_widget.bind_mut().set_night_mode(night_mode);
 
-    let this = self.base();
-
     // Connect the sidebar button.
-    let mut node = self.base().find_child("SidebarButton").unwrap();
-    node.connect("toggled", &this.callable("toggle_sidebar"));
+    let mut child = self.get_child::<CheckButton>("SidebarButton");
+    child.connect("toggled", &self.base().callable("toggle_sidebar"));
 
     // Connect the open button.
-    let mut node = self.base().find_child("OpenButton").unwrap();
-    node.connect("pressed", &this.callable("open_zip_file"));
+    let mut child = self.get_child::<Button>("OpenButton");
+    child.connect("pressed", &self.base().callable("open_zip_file"));
 
     // Setup the file dialog.
-    let node = self.base().find_child("FileDialog").unwrap();
-    let mut node = node.cast::<FileDialog>();
-    node.connect("file_selected", &this.callable("zip_file_selected"));
-    hide_buttons(node.get_vbox().unwrap().upcast());
+    let mut child = self.get_child::<FileDialog>("FileDialog");
+    child.connect("file_selected", &self.base().callable("zip_file_selected"));
+    hide_buttons(child.get_vbox().unwrap().upcast());
 
     // Connect the night mode button
-    let node = this.find_child("NightModeButton").unwrap();
-    let mut node = node.cast::<CheckButton>();
-    node.set_pressed(night_mode);
-    node.connect("toggled", &this.callable("toggle_night_mode"));
+    let mut child = self.get_child::<CheckButton>("NightModeButton");
+    child.set_pressed(night_mode);
+    child.connect("toggled", &self.base().callable("toggle_night_mode"));
 
     // Connect the select dialog.
-    let mut node = this.find_child("SelectDialog").unwrap();
-    node.connect("selected", &this.callable("chart_selected"));
+    let mut child = self.get_child::<SelectDialog>("SelectDialog");
+    child.connect("selected", &self.base().callable("chart_selected"));
   }
 
   fn process(&mut self, _delta: f64) {

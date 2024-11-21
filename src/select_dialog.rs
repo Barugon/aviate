@@ -39,9 +39,8 @@ impl SelectDialog {
     }
 
     // Populate with new buttons.
-    let this = self.base();
     let group = ButtonGroup::new_gd();
-    let callable = this.callable("choice_selected");
+    let callable = self.base().callable("choice_selected");
     for choice in choices {
       let mut button = Button::new_alloc();
       button.set_text(choice);
@@ -56,6 +55,10 @@ impl SelectDialog {
     this.reset_size();
     this.show();
   }
+
+  fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
+    self.base().find_child(name).unwrap().cast()
+  }
 }
 
 #[godot_api]
@@ -69,22 +72,19 @@ impl IWindow for SelectDialog {
 
   fn ready(&mut self) {
     // Get the items vbox.
-    let node = self.base().find_child("Items").unwrap();
-    self.items.init(node.cast());
-
-    let mut this = self.base_mut();
+    self.items.init(self.get_child("Items"));
 
     // Make the title font size a bit bigger.
     let property = "theme_override_font_sizes/title_font_size";
-    this.set(property, &Variant::from(16.0));
+    self.base_mut().set(property, &Variant::from(16.0));
 
     // Connect the X button.
-    let callable = this.callable("hide");
-    this.connect("close_requested", &callable);
+    let callable = self.base().callable("hide");
+    self.base_mut().connect("close_requested", &callable);
 
     // Connect the cancel button.
-    let mut node = this.find_child("CancelButton").unwrap();
-    node.connect("pressed", &callable);
+    let mut child = self.get_child::<Button>("CancelButton");
+    child.connect("pressed", &callable);
   }
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {
