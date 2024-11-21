@@ -24,6 +24,13 @@ impl MainWidget {
   fn toggle_sidebar(&self, toggle: bool) {
     let mut child = self.get_child::<PanelContainer>("SidebarPanel");
     child.set_visible(toggle);
+
+    let mut child = self.get_child::<CheckButton>("SidebarButton");
+    child.set_tooltip_text(if toggle {
+      "Hide side panel"
+    } else {
+      "Show side panel"
+    });
   }
 
   #[func]

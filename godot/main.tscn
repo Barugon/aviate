@@ -45,6 +45,7 @@ layout_mode = 2
 
 [node name="SidebarButton" type="CheckButton" parent="VBoxContainer/ToolbarPanel/MarginContainer/HBoxContainer"]
 layout_mode = 2
+tooltip_text = "Hide side panel"
 button_pressed = true
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
