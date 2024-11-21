@@ -435,6 +435,12 @@ pub struct Rect {
 }
 
 impl Rect {
+  pub fn center(&self) -> Pos {
+    let x = (self.pos.x + self.size.w as i32) / 2;
+    let y = (self.pos.y + self.size.h as i32) / 2;
+    Pos { x, y }
+  }
+
   pub fn scaled(&self, scale: f32) -> Self {
     Self {
       pos: Pos {
