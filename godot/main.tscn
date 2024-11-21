@@ -99,7 +99,9 @@ filters = PackedStringArray("*.zip;Zip Files")
 
 [node name="AlertDialog" type="AcceptDialog" parent="."]
 initial_position = 2
+size = Vector2i(150, 100)
 unresizable = true
+min_size = Vector2i(150, 0)
 
 [node name="SelectDialog" type="SelectDialog" parent="."]
 title = "Select"
