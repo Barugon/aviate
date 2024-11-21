@@ -14,6 +14,7 @@ use std::path;
 struct MainWidget {
   base: Base<Control>,
   config: Option<config::Storage>,
+  airport_reader: Option<nasr::AirportReader>,
   chart_widget: OnReady<Gd<ChartWidget>>,
   chart_info: Option<(String, Vec<path::PathBuf>)>,
 }
@@ -102,15 +103,42 @@ impl MainWidget {
 
   fn open_chart(&mut self, path: &str, file: &str) {
     let result = self.chart_widget.bind_mut().open_raster_reader(path, file);
-    if let Err(err) = result {
-      self.show_alert(err.as_ref());
+    match result {
+      Ok(()) => {
+        if let Some(airport_reader) = &self.airport_reader {
+          if let Some(transformation) = self.chart_widget.bind().transformation() {
+            // Send the chart spatial reference to the airport reader.
+            let proj4 = transformation.get_proj4();
+            let bounds = transformation.bounds().clone();
+            airport_reader.set_spatial_ref(proj4, bounds);
+          }
+        }
+      }
+      Err(err) => {
+        self.show_alert(err.as_ref());
+      }
     }
   }
 
   fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
-    let result = self.chart_widget.bind_mut().open_airport_reader(path, csv);
-    if let Err(err) = result {
-      self.show_alert(err.as_ref());
+    // Concatenate the VSI prefix and the airport csv path.
+    let path = ["/vsizip//vsizip/", path].concat();
+    let path = path::Path::new(path.as_str());
+    let path = path.join(csv).join("APT_BASE.csv");
+
+    match nasr::AirportReader::new(path) {
+      Ok(airport_reader) => {
+        if let Some(transformation) = self.chart_widget.bind().transformation() {
+          // Send the chart spatial reference to the airport reader.
+          let proj4 = transformation.get_proj4();
+          let bounds = transformation.bounds().clone();
+          airport_reader.set_spatial_ref(proj4, bounds);
+        }
+        self.airport_reader = Some(airport_reader);
+      }
+      Err(err) => {
+        self.show_alert(err.as_ref());
+      }
     }
   }
 
@@ -161,6 +189,7 @@ impl IControl for MainWidget {
     Self {
       base,
       config: config::Storage::new(false),
+      airport_reader: None,
       chart_widget: OnReady::manual(),
       chart_info: None,
     }
@@ -203,8 +232,7 @@ impl IControl for MainWidget {
   }
 
   fn process(&mut self, _delta: f64) {
-    let chart_widget = self.chart_widget.bind();
-    let Some(airport_reader) = chart_widget.airport_reader() else {
+    let Some(airport_reader) = &self.airport_reader else {
       return;
     };
 

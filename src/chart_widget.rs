@@ -1,4 +1,4 @@
-use crate::{chart, nasr, util};
+use crate::{chart, util};
 use std::path;
 
 use godot::{
@@ -15,7 +15,6 @@ use godot::{
 pub struct ChartWidget {
   base: Base<Control>,
   raster_reader: Option<chart::RasterReader>,
-  airport_reader: Option<nasr::AirportReader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
 }
@@ -26,15 +25,8 @@ impl ChartWidget {
     let path = ["/vsizip/", path].concat();
     let path = path::Path::new(path.as_str()).join(file);
 
-    // Create a new chart reader.
+    // Create a new raster reader.
     let raster_reader = chart::RasterReader::new(path)?;
-    if let Some(airport_reader) = &self.airport_reader {
-      // Send the chart spatial reference to the airport reader.
-      let proj4 = raster_reader.transformation().get_proj4();
-      let bounds = raster_reader.transformation().bounds().clone();
-      airport_reader.set_spatial_ref(proj4, bounds);
-    }
-
     self.raster_reader = Some(raster_reader);
     self.display_info.origin = util::Pos::default();
     self.display_info.zoom = 1.0;
@@ -42,26 +34,8 @@ impl ChartWidget {
     Ok(())
   }
 
-  pub fn open_airport_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
-    // Concatenate the VSI prefix and the file path.
-    let path = ["/vsizip//vsizip/", path].concat();
-    let path = path::Path::new(path.as_str());
-    let path = path.join(file).join("APT_BASE.csv");
-
-    let airport_reader = nasr::AirportReader::new(path)?;
-    if let Some(raster_reader) = &self.raster_reader {
-      // Send the chart spatial reference to the airport reader.
-      let proj4 = raster_reader.transformation().get_proj4();
-      let bounds = raster_reader.transformation().bounds().clone();
-      airport_reader.set_spatial_ref(proj4, bounds);
-    }
-
-    self.airport_reader = Some(airport_reader);
-    Ok(())
-  }
-
-  pub fn airport_reader(&self) -> Option<&nasr::AirportReader> {
-    self.airport_reader.as_ref()
+  pub fn transformation(&self) -> Option<&chart::Transformation> {
+    Some(self.raster_reader.as_ref()?.transformation())
   }
 
   pub fn set_night_mode(&mut self, dark: bool) {
@@ -244,7 +218,6 @@ impl IControl for ChartWidget {
     Self {
       base,
       raster_reader: None,
-      airport_reader: None,
       chart_image: None,
       display_info: DisplayInfo::new(),
     }
