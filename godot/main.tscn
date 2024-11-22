@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://b1gmyyw2nkaa6"]
+[gd_scene load_steps=6 format=3 uid="uid://b1gmyyw2nkaa6"]
 
 [ext_resource type="Texture2D" uid="uid://ny1dhvy8sd2o" path="res://find_icon.png" id="1_jifnu"]
 
@@ -9,6 +9,13 @@ default_font_size = 14
 bg_color = Color(0.301961, 0.301961, 0.301961, 1)
 border_width_bottom = 1
 border_color = Color(0.301961, 0.301961, 0.301961, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_25hkl"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.25098, 0.25098, 0.25098, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2gqu5"]
 content_margin_top = 11.0
@@ -116,6 +123,52 @@ initial_position = 2
 size = Vector2i(150, 100)
 unresizable = true
 min_size = Vector2i(150, 0)
+
+[node name="FindDialog" type="FindDialog" parent="."]
+title = "Find..."
+initial_position = 2
+size = Vector2i(200, 76)
+visible = false
+wrap_controls = true
+transient = true
+exclusive = true
+unresizable = true
+
+[node name="VBoxContainer" type="VBoxContainer" parent="FindDialog"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="EditContainer" type="PanelContainer" parent="FindDialog/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_25hkl")
+
+[node name="LineEdit" type="LineEdit" parent="FindDialog/VBoxContainer/EditContainer"]
+layout_mode = 2
+
+[node name="ButtonsContainer" type="PanelContainer" parent="FindDialog/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_2gqu5")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="FindDialog/VBoxContainer/ButtonsContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="CancelButton" type="Button" parent="FindDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="Filler" type="Control" parent="FindDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+
+[node name="OkButton" type="Button" parent="FindDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+layout_mode = 2
+disabled = true
+text = "Ok"
 
 [node name="SelectDialog" type="SelectDialog" parent="."]
 title = "Select"

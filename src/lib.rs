@@ -1,6 +1,7 @@
 mod chart;
 mod chart_widget;
 mod config;
+mod find_dialog;
 mod main_widget;
 mod nasr;
 mod select_dialog;

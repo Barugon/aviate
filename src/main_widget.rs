@@ -1,4 +1,7 @@
-use crate::{chart_widget::ChartWidget, config, nasr, select_dialog::SelectDialog, util};
+use crate::{
+  chart_widget::ChartWidget, config, find_dialog::FindDialog, nasr, select_dialog::SelectDialog,
+  util,
+};
 use godot::{
   classes::{
     AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl,
@@ -41,6 +44,20 @@ impl MainWidget {
     self.chart_widget.bind_mut().set_night_mode(night_mode);
     if let Some(config) = &mut self.config {
       config.set_night_mode(night_mode);
+    }
+  }
+
+  #[func]
+  fn find(&self) {
+    let mut child = self.get_child::<FindDialog>("FindDialog");
+    child.show();
+  }
+
+  #[func]
+  fn find_confirmed(&self, text: GString) {
+    if let Some(airport_reader) = &self.airport_reader {
+      let helicopter = self.chart_widget.bind().helicopter();
+      airport_reader.search(text.to_string(), helicopter);
     }
   }
 
@@ -204,14 +221,18 @@ impl IControl for MainWidget {
   fn ready(&mut self) {
     DisplayServer::singleton().window_set_min_size(Vector2i { x: 600, y: 400 });
 
+    // Get the chart widget.
+    self.chart_widget.init(self.get_child("ChartWidget"));
+
     // Get the airport label.
     self.airport_label.init(self.get_child("AirportLabel"));
 
     // Get the find button.
     self.find_button.init(self.get_child("FindButton"));
 
-    // Get the chart widget.
-    self.chart_widget.init(self.get_child("ChartWidget"));
+    // Connect the find button.
+    let callable = self.base().callable("find");
+    self.find_button.connect("pressed", &callable);
 
     // Read nite mode from the config.
     let night_mode = self.config.as_ref().and_then(|c| c.get_night_mode());
@@ -239,6 +260,10 @@ impl IControl for MainWidget {
     // Connect the select dialog.
     let mut child = self.get_child::<SelectDialog>("SelectDialog");
     child.connect("selected", &self.base().callable("chart_selected"));
+
+    // Connect the find dialog.
+    let mut child = self.get_child::<FindDialog>("FindDialog");
+    child.connect("confirmed", &self.base().callable("find_confirmed"));
   }
 
   fn process(&mut self, _delta: f64) {
@@ -265,9 +290,17 @@ impl IControl for MainWidget {
 
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
-        nasr::AirportReply::Airport(_info) => (),
+        nasr::AirportReply::Airport(info) => {
+          self.chart_widget.bind_mut().goto_coord(info.coord);
+        }
         nasr::AirportReply::Nearby(_infos) => (),
-        nasr::AirportReply::Search(_infos) => (),
+        nasr::AirportReply::Search(infos) => {
+          if infos.len() > 1 {
+          } else {
+            let coord = infos.first().unwrap().coord;
+            self.chart_widget.bind_mut().goto_coord(coord);
+          }
+        }
         nasr::AirportReply::Error(err) => godot_error!("{err}"),
       }
     }

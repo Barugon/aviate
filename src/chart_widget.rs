@@ -17,10 +17,14 @@ pub struct ChartWidget {
   raster_reader: Option<chart::RasterReader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
+  helicopter: bool,
 }
 
 impl ChartWidget {
   pub fn open_raster_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
+    let file = path::Path::new(file);
+    self.helicopter = util::stem_str(file).unwrap().ends_with(" HEL");
+
     // Concatenate the VSI prefix and the file path.
     let path = ["/vsizip/", path].concat();
     let path = path::Path::new(path.as_str()).join(file);
@@ -32,6 +36,11 @@ impl ChartWidget {
     self.display_info.zoom = 1.0;
     self.request_image();
     Ok(())
+  }
+
+  /// True if a helicopter chart is currently open.
+  pub fn helicopter(&self) -> bool {
+    self.helicopter
   }
 
   pub fn transformation(&self) -> Option<&chart::Transformation> {
@@ -220,6 +229,7 @@ impl IControl for ChartWidget {
       raster_reader: None,
       chart_image: None,
       display_info: DisplayInfo::new(),
+      helicopter: false,
     }
   }
 
