@@ -4,8 +4,8 @@ use crate::{
 };
 use godot::{
   classes::{
-    AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl,
-    Label, PanelContainer,
+    notify::ControlNotification, AcceptDialog, Button, CheckButton, Control, DisplayServer,
+    FileDialog, HBoxContainer, IControl, Label, PanelContainer,
   },
   global::HorizontalAlignment,
   prelude::*,
@@ -16,12 +16,13 @@ use std::path;
 #[class(base=Control)]
 struct MainWidget {
   base: Base<Control>,
-  config: Option<config::Storage>,
-  airport_reader: Option<nasr::AirportReader>,
+  chart_widget: OnReady<Gd<ChartWidget>>,
   airport_label: OnReady<Gd<Label>>,
   find_button: OnReady<Gd<Button>>,
-  chart_widget: OnReady<Gd<ChartWidget>>,
+  airport_reader: Option<nasr::AirportReader>,
+  airport_infos: Option<Vec<nasr::AirportInfo>>,
   chart_info: Option<(String, Vec<path::PathBuf>)>,
+  config: Option<config::Storage>,
 }
 
 #[godot_api]
@@ -50,7 +51,7 @@ impl MainWidget {
   #[func]
   fn find(&self) {
     let mut child = self.get_child::<FindDialog>("FindDialog");
-    child.show();
+    child.call_deferred("show", &[]);
   }
 
   #[func]
@@ -71,14 +72,11 @@ impl MainWidget {
       file_dialog.set_current_dir(&folder);
     }
 
-    file_dialog.show();
+    file_dialog.call_deferred("show", &[]);
   }
 
   #[func]
   fn zip_file_selected(&mut self, path: String) {
-    // The file dialog needs to be hidden first or it will generate an error if the alert dialog is shown.
-    self.get_child::<FileDialog>("FileDialog").hide();
-
     match util::get_zip_info(&path) {
       Ok(info) => match info {
         util::ZipInfo::Chart(files) => {
@@ -106,9 +104,12 @@ impl MainWidget {
   }
 
   #[func]
-  fn chart_selected(&mut self, index: u32) {
+  fn item_selected(&mut self, index: u32) {
     if let Some((path, files)) = self.chart_info.take() {
       self.open_chart(&path, files[index as usize].to_str().unwrap());
+    } else if let Some(infos) = self.airport_infos.take() {
+      let coord = infos[index as usize].coord;
+      self.chart_widget.bind_mut().goto_coord(coord);
     }
   }
 
@@ -117,6 +118,14 @@ impl MainWidget {
     select_dialog.set_title("Select Chart");
 
     let choices = files.iter().map(|f| util::stem_str(f).unwrap());
+    select_dialog.bind_mut().show_choices(choices);
+  }
+
+  fn select_airport(&self, airports: &[nasr::AirportInfo]) {
+    let mut select_dialog = self.get_child::<SelectDialog>("SelectDialog");
+    select_dialog.set_title("Select Airport");
+
+    let choices = airports.iter().map(|a| a.desc.as_str());
     select_dialog.bind_mut().show_choices(choices);
   }
 
@@ -175,7 +184,7 @@ impl MainWidget {
 
     alert_dialog.set_text(text);
     alert_dialog.reset_size();
-    alert_dialog.show();
+    alert_dialog.call_deferred("show", &[]);
   }
 
   fn get_asset_folder(&self) -> Option<String> {
@@ -207,19 +216,27 @@ impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
     Self {
       base,
-      config: config::Storage::new(false),
-      airport_reader: None,
+      chart_widget: OnReady::manual(),
       airport_label: OnReady::manual(),
       find_button: OnReady::manual(),
-      chart_widget: OnReady::manual(),
+      airport_reader: None,
+      airport_infos: None,
       chart_info: None,
+      config: config::Storage::new(true),
     }
   }
 
-  // fn on_notification(&mut self, _what: ControlNotification) {}
+  fn on_notification(&mut self, what: ControlNotification) {
+    if what == ControlNotification::WM_CLOSE_REQUEST {
+      if let Some(config) = &mut self.config {
+        let win_info = util::WinInfo::from_display(&DisplayServer::singleton());
+        config.set_win_info(&win_info);
+      }
+    }
+  }
 
   fn ready(&mut self) {
-    DisplayServer::singleton().window_set_min_size(Vector2i { x: 600, y: 400 });
+    DisplayServer::singleton().window_set_min_size(Vector2i { x: 800, y: 600 });
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
@@ -259,7 +276,7 @@ impl IControl for MainWidget {
 
     // Connect the select dialog.
     let mut child = self.get_child::<SelectDialog>("SelectDialog");
-    child.connect("selected", &self.base().callable("chart_selected"));
+    child.connect("selected", &self.base().callable("item_selected"));
 
     // Connect the find dialog.
     let mut child = self.get_child::<FindDialog>("FindDialog");
@@ -296,6 +313,8 @@ impl IControl for MainWidget {
         nasr::AirportReply::Nearby(_infos) => (),
         nasr::AirportReply::Search(infos) => {
           if infos.len() > 1 {
+            self.select_airport(&infos);
+            self.airport_infos = Some(infos);
           } else {
             let coord = infos.first().unwrap().coord;
             self.chart_widget.bind_mut().goto_coord(coord);

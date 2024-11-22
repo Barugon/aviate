@@ -1,5 +1,8 @@
 use godot::{
-  classes::{Button, ButtonGroup, IWindow, InputEvent, InputEventKey, VBoxContainer, Window},
+  classes::{
+    scroll_container::ScrollMode, Button, ButtonGroup, IWindow, InputEvent, InputEventKey,
+    ScrollContainer, VBoxContainer, Window,
+  },
   global::{Key, KeyModifierMask},
   obj::Base,
   prelude::*,
@@ -50,10 +53,18 @@ impl SelectDialog {
       self.items.add_child(&button);
     }
 
-    // Update the size and show.
-    let mut this = self.base_mut();
-    this.reset_size();
-    this.show();
+    let mut scroller = self.get_child::<ScrollContainer>("ScrollContainer");
+    scroller.set_vertical_scroll_mode(ScrollMode::DISABLED);
+
+    // Update the size.
+    self.base_mut().reset_size();
+
+    if self.items.get_size().y > scroller.get_size().y {
+      scroller.set_vertical_scroll_mode(ScrollMode::AUTO);
+      scroller.reset_size();
+    }
+
+    self.base_mut().call_deferred("show", &[]);
   }
 
   fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {

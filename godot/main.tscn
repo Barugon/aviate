@@ -180,6 +180,7 @@ transient = true
 exclusive = true
 unresizable = true
 min_size = Vector2i(250, 0)
+max_size = Vector2i(1000, 400)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="SelectDialog"]
 anchors_preset = 15
@@ -191,13 +192,20 @@ theme_override_constants/separation = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="SelectDialog/VBoxContainer"]
 layout_mode = 2
+size_flags_vertical = 3
 theme_override_constants/margin_left = 4
 theme_override_constants/margin_top = 4
 theme_override_constants/margin_right = 4
 theme_override_constants/margin_bottom = 4
 
-[node name="Items" type="VBoxContainer" parent="SelectDialog/VBoxContainer/MarginContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="SelectDialog/VBoxContainer/MarginContainer"]
 layout_mode = 2
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 0
+
+[node name="Items" type="VBoxContainer" parent="SelectDialog/VBoxContainer/MarginContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="PanelContainer" type="PanelContainer" parent="SelectDialog/VBoxContainer"]
 layout_mode = 2
