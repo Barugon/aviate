@@ -83,8 +83,7 @@ impl MainWidget {
           self.save_asset_folder(&path);
 
           if files.len() > 1 {
-            self.select_chart(&files);
-            self.chart_info = Some((path, files));
+            self.select_chart(path, files);
           } else {
             self.open_chart(&path, files.first().and_then(|f| f.to_str()).unwrap());
           }
@@ -113,20 +112,26 @@ impl MainWidget {
     }
   }
 
-  fn select_chart(&self, files: &[path::PathBuf]) {
+  fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
     let mut select_dialog = self.get_child::<SelectDialog>("SelectDialog");
     select_dialog.set_title("Select Chart");
 
     let choices = files.iter().map(|f| util::stem_str(f).unwrap());
     select_dialog.bind_mut().show_choices(choices);
+
+    self.chart_info = Some((path, files));
+    self.airport_infos = None;
   }
 
-  fn select_airport(&self, airports: &[nasr::AirportInfo]) {
+  fn select_airport(&mut self, airports: Vec<nasr::AirportInfo>) {
     let mut select_dialog = self.get_child::<SelectDialog>("SelectDialog");
     select_dialog.set_title("Select Airport");
 
     let choices = airports.iter().map(|a| a.desc.as_str());
     select_dialog.bind_mut().show_choices(choices);
+
+    self.airport_infos = Some(airports);
+    self.chart_info = None;
   }
 
   fn open_chart(&mut self, path: &str, file: &str) {
@@ -305,6 +310,7 @@ impl IControl for MainWidget {
     let spatial_idx = airport_reader.has_spatial_idx();
     self.find_button.set_visible(spatial_idx);
 
+    let mut airport_infos = None;
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
         nasr::AirportReply::Airport(info) => {
@@ -313,15 +319,20 @@ impl IControl for MainWidget {
         nasr::AirportReply::Nearby(_infos) => (),
         nasr::AirportReply::Search(infos) => {
           if infos.len() > 1 {
-            self.select_airport(&infos);
-            self.airport_infos = Some(infos);
+            airport_infos = Some(infos);
           } else {
             let coord = infos.first().unwrap().coord;
             self.chart_widget.bind_mut().goto_coord(coord);
           }
         }
-        nasr::AirportReply::Error(err) => godot_error!("{err}"),
+        nasr::AirportReply::Error(err) => {
+          self.show_alert(err.as_ref());
+        }
       }
+    }
+
+    if let Some(airport_infos) = airport_infos {
+      self.select_airport(airport_infos);
     }
   }
 }
