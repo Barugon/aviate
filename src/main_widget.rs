@@ -2,7 +2,7 @@ use crate::{chart_widget::ChartWidget, config, nasr, select_dialog::SelectDialog
 use godot::{
   classes::{
     AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl,
-    PanelContainer,
+    Label, PanelContainer,
   },
   global::HorizontalAlignment,
   prelude::*,
@@ -15,6 +15,8 @@ struct MainWidget {
   base: Base<Control>,
   config: Option<config::Storage>,
   airport_reader: Option<nasr::AirportReader>,
+  airport_label: OnReady<Gd<Label>>,
+  find_button: OnReady<Gd<Button>>,
   chart_widget: OnReady<Gd<ChartWidget>>,
   chart_info: Option<(String, Vec<path::PathBuf>)>,
 }
@@ -190,6 +192,8 @@ impl IControl for MainWidget {
       base,
       config: config::Storage::new(false),
       airport_reader: None,
+      airport_label: OnReady::manual(),
+      find_button: OnReady::manual(),
       chart_widget: OnReady::manual(),
       chart_info: None,
     }
@@ -199,6 +203,12 @@ impl IControl for MainWidget {
 
   fn ready(&mut self) {
     DisplayServer::singleton().window_set_min_size(Vector2i { x: 600, y: 400 });
+
+    // Get the airport label.
+    self.airport_label.init(self.get_child("AirportLabel"));
+
+    // Get the find button.
+    self.find_button.init(self.get_child("FindButton"));
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
@@ -235,6 +245,23 @@ impl IControl for MainWidget {
     let Some(airport_reader) = &self.airport_reader else {
       return;
     };
+
+    // Show the airport label if the airport reader has the basic indexes.
+    let basic_idx = airport_reader.has_basic_idx();
+    self.airport_label.set_visible(basic_idx);
+
+    // Set the airport label's color to indicate if its busy.
+    let property = "theme_override_colors/font_color";
+    let color = if airport_reader.request_count() > 0 {
+      Color::from_rgb(1.0, 1.0, 1.0)
+    } else {
+      Color::from_rgb(0.5, 0.5, 0.5)
+    };
+    self.airport_label.set(property, &Variant::from(color));
+
+    // Show the find button if the airport reader has a spatial index.
+    let spatial_idx = airport_reader.has_spatial_idx();
+    self.find_button.set_visible(spatial_idx);
 
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
