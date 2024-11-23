@@ -93,8 +93,8 @@ impl IWindow for SelectDialog {
     self.base_mut().connect("close_requested", &callable);
 
     // Connect the cancel button.
-    let mut child = self.get_child::<Button>("CancelButton");
-    child.connect("pressed", &callable);
+    let mut button = self.get_child::<Button>("CancelButton");
+    button.connect("pressed", &callable);
   }
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {

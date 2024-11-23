@@ -22,7 +22,7 @@ pub struct ChartWidget {
 impl ChartWidget {
   pub fn open_raster_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
     let file = path::Path::new(file);
-    self.helicopter = util::stem_str(file).unwrap().ends_with(" HEL");
+    let helicopter = util::stem_str(file).unwrap().ends_with(" HEL");
 
     // Concatenate the VSI prefix and the file path.
     let path = ["/vsizip/", path].concat();
@@ -33,6 +33,7 @@ impl ChartWidget {
     self.raster_reader = Some(raster_reader);
     self.display_info.origin = geom::Pos::default();
     self.display_info.zoom = 1.0;
+    self.helicopter = helicopter;
     self.request_image();
     Ok(())
   }
