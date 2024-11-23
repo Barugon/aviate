@@ -1,5 +1,5 @@
 #![allow(unused)]
-use crate::util;
+use crate::{geom, util};
 use gdal::{raster, spatial_ref};
 use std::{any, hash, hash::Hash, path, sync::mpsc, thread};
 
@@ -108,18 +108,18 @@ pub enum RasterReply {
 
 /// Transformations between pixel, chart (LCC) and NAD83 coordinates.
 pub struct Transformation {
-  px_size: util::Size,
+  px_size: geom::Size,
   spatial_ref: spatial_ref::SpatialRef,
   to_px: gdal::GeoTransform,
   from_px: gdal::GeoTransform,
   to_nad83: spatial_ref::CoordTransform,
   from_nad83: spatial_ref::CoordTransform,
-  bounds: util::Bounds,
+  bounds: geom::Bounds,
 }
 
 impl Transformation {
   fn new(
-    px_size: util::Size,
+    px_size: geom::Size,
     spatial_ref: spatial_ref::SpatialRef,
     geo_transform: gdal::GeoTransform,
   ) -> Result<Self, gdal::errors::GdalError> {
@@ -132,7 +132,7 @@ impl Transformation {
     let to_nad83 = spatial_ref::CoordTransform::new(&spatial_ref, &nad83)?;
     let from_nad83 = spatial_ref::CoordTransform::new(&nad83, &spatial_ref)?;
     let to_px = gdal::GeoTransformEx::invert(&geo_transform)?;
-    let bounds = util::Bounds {
+    let bounds = geom::Bounds {
       min: gdal::GeoTransformEx::apply(&geo_transform, 0.0, px_size.h as f64).into(),
       max: gdal::GeoTransformEx::apply(&geo_transform, px_size.w as f64, 0.0).into(),
     };
@@ -154,54 +154,54 @@ impl Transformation {
   }
 
   /// Get the full size of the chart in pixels.
-  pub fn px_size(&self) -> util::Size {
+  pub fn px_size(&self) -> geom::Size {
     self.px_size
   }
 
   /// Get the bounds as chart (LCC) coordinates.
-  pub fn bounds(&self) -> &util::Bounds {
+  pub fn bounds(&self) -> &geom::Bounds {
     &self.bounds
   }
 
   /// Convert a pixel coordinate to a chart coordinate.
   /// - `coord`: pixel coordinate
-  pub fn px_to_chart(&self, coord: util::Coord) -> util::Coord {
+  pub fn px_to_chart(&self, coord: geom::Coord) -> geom::Coord {
     gdal::GeoTransformEx::apply(&self.from_px, coord.x, coord.y).into()
   }
 
   /// Convert a chart coordinate to a pixel coordinate.
   /// - `coord`: chart coordinate
-  pub fn chart_to_px(&self, coord: util::Coord) -> util::Coord {
+  pub fn chart_to_px(&self, coord: geom::Coord) -> geom::Coord {
     gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into()
   }
 
   /// Convert a chart coordinate to a NAD83 coordinate.
   /// - `coord`: chart coordinate
-  pub fn chart_to_nad83(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
+  pub fn chart_to_nad83(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     let mut x = [coord.x];
     let mut y = [coord.y];
     self.to_nad83.transform_coords(&mut x, &mut y, &mut [])?;
-    Ok(util::Coord { x: x[0], y: y[0] })
+    Ok(geom::Coord { x: x[0], y: y[0] })
   }
 
   /// Convert a NAD83 coordinate to a chart coordinate.
   /// - `coord`: NAD83 coordinate
-  pub fn nad83_to_chart(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
+  pub fn nad83_to_chart(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     let mut x = [coord.x];
     let mut y = [coord.y];
     self.from_nad83.transform_coords(&mut x, &mut y, &mut [])?;
-    Ok(util::Coord { x: x[0], y: y[0] })
+    Ok(geom::Coord { x: x[0], y: y[0] })
   }
 
   /// Convert a pixel coordinate to a NAD83 coordinate.
   /// - `coord`: pixel coordinate
-  pub fn px_to_nad83(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
+  pub fn px_to_nad83(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     self.chart_to_nad83(self.px_to_chart(coord))
   }
 
   /// Convert a NAD83 coordinate to a pixel coordinate.
   /// - `coord`: NAD83 coordinate
-  pub fn nad83_to_px(&self, coord: util::Coord) -> Result<util::Coord, gdal::errors::GdalError> {
+  pub fn nad83_to_px(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     let coord = self.nad83_to_chart(coord);
     coord.map(|coord| self.chart_to_px(coord))
   }
@@ -210,13 +210,13 @@ impl Transformation {
 /// The part of the image needed for display.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ImagePart {
-  pub rect: util::Rect,
+  pub rect: geom::Rect,
   pub zoom: util::Hashable,
   pub dark: bool,
 }
 
 impl ImagePart {
-  pub fn new(rect: util::Rect, zoom: f32, dark: bool) -> Self {
+  pub fn new(rect: geom::Rect, zoom: f32, dark: bool) -> Self {
     // A zoom value of zero is not valid.
     assert!(zoom > 0.0);
     Self {
@@ -231,7 +231,7 @@ impl ImagePart {
 struct RasterSource {
   dataset: gdal::Dataset,
   band_idx: usize,
-  px_size: util::Size,
+  px_size: geom::Size,
 }
 
 impl RasterSource {
@@ -274,7 +274,7 @@ impl RasterSource {
           Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
         };
 
-        let px_size: util::Size = dataset.raster_size().into();
+        let px_size: geom::Size = dataset.raster_size().into();
         if !px_size.is_valid() {
           return Err("Unable to open chart:\ninvalid pixel size".into());
         }

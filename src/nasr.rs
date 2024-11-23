@@ -1,5 +1,5 @@
 #![allow(unused)]
-use crate::util;
+use crate::{geom, util};
 use gdal::{errors, spatial_ref, vector};
 use godot::global::godot_error;
 use std::{any, collections, path, sync, thread};
@@ -171,7 +171,7 @@ impl AirportReader {
   /// > **NOTE**: this is required for all queries other than `airport`.
   /// - `proj4`: PROJ4 text
   /// - `bounds`: Chart bounds in LCC coordinates.
-  pub fn set_spatial_ref(&self, proj4: String, bounds: util::Bounds) {
+  pub fn set_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
     let request = AirportRequest::SpatialRef(Some((proj4, bounds)));
     self.tx.send(request).unwrap();
   }
@@ -198,7 +198,7 @@ impl AirportReader {
   /// - `coord`: chart coordinate (LCC)
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
-  pub fn nearby(&self, coord: util::Coord, dist: f64, nph: bool) {
+  pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
     if dist >= 0.0 {
       self
         .tx
@@ -231,9 +231,9 @@ impl AirportReader {
 }
 
 enum AirportRequest {
-  SpatialRef(Option<(String, util::Bounds)>),
+  SpatialRef(Option<(String, geom::Bounds)>),
   Airport(String),
-  Nearby(util::Coord, f64, bool),
+  Nearby(geom::Coord, f64, bool),
   Search(String, bool),
 }
 
@@ -256,13 +256,13 @@ struct ToChart {
   trans: spatial_ref::CoordTransform,
 
   /// Chart bounds in LCC coordinates.
-  bounds: util::Bounds,
+  bounds: geom::Bounds,
 }
 
 impl ToChart {
   /// Test if a NAD83 coordinate is contained within the chart bounds.
-  fn contains(&self, nad83: util::Coord) -> bool {
-    use util::Transform;
+  fn contains(&self, nad83: geom::Coord) -> bool {
+    use geom::Transform;
     match self.trans.transform(nad83) {
       Ok(lcc) => return self.bounds.contains(lcc),
       Err(err) => godot_error!("{err}"),
@@ -395,7 +395,7 @@ impl AirportSource {
     let mut loc_vec = Vec::with_capacity(self.count as usize);
     for feature in self.layer().features() {
       if let Some(fid) = feature.fid() {
-        use util::Transform;
+        use geom::Transform;
         if let Some(coord) = feature
           .get_coord()
           .and_then(|nad83| to_chart.trans.transform(nad83).ok())
@@ -426,7 +426,7 @@ impl AirportSource {
   /// - `coord`: chart coordinate (LCC)
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
-  fn nearby(&self, coord: util::Coord, dist: f64, nph: bool) -> Vec<AirportInfo> {
+  fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) -> Vec<AirportInfo> {
     use vector::LayerAccess;
     let layer = self.layer();
     let coord = [coord.x, coord.y];
@@ -484,7 +484,7 @@ impl AirportSource {
 
 /// Location spatial index item.
 struct LocIdx {
-  coord: util::Coord,
+  coord: geom::Coord,
   fid: u64,
 }
 
@@ -518,7 +518,7 @@ pub struct AirportInfo {
   pub name: String,
 
   /// Coordinate in decimal degrees (NAD 83).
-  pub coord: util::Coord,
+  pub coord: geom::Coord,
 
   /// Airport type.
   pub airport_type: AirportType,
@@ -691,12 +691,12 @@ impl GetAirportUse for vector::Feature<'_> {
 }
 
 trait GetCoord {
-  fn get_coord(&self) -> Option<util::Coord>;
+  fn get_coord(&self) -> Option<geom::Coord>;
 }
 
 impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self) -> Option<util::Coord> {
-    Some(util::Coord {
+  fn get_coord(&self) -> Option<geom::Coord> {
+    Some(geom::Coord {
       x: self.get_f64("LONG_DECIMAL")?,
       y: self.get_f64("LAT_DECIMAL")?,
     })

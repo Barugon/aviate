@@ -88,7 +88,7 @@ struct Items {
 }
 
 impl Items {
-  pub fn load(path: path::PathBuf) -> Self {
+  fn load(path: path::PathBuf) -> Self {
     let items = Self::load_items(&path);
     let changed = atomic::AtomicBool::new(false);
     Self {

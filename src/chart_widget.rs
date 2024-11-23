@@ -1,4 +1,4 @@
-use crate::{chart, util};
+use crate::{chart, geom, util};
 use std::path;
 
 use godot::{
@@ -32,7 +32,7 @@ impl ChartWidget {
     // Create a new raster reader.
     let raster_reader = chart::RasterReader::new(path)?;
     self.raster_reader = Some(raster_reader);
-    self.display_info.origin = util::Pos::default();
+    self.display_info.origin = geom::Pos::default();
     self.display_info.zoom = 1.0;
     self.request_image();
     Ok(())
@@ -55,7 +55,7 @@ impl ChartWidget {
   }
 
   #[allow(unused)]
-  pub fn goto_coord(&mut self, coord: util::Coord) {
+  pub fn goto_coord(&mut self, coord: geom::Coord) {
     let Some(raster_reader) = &self.raster_reader else {
       return;
     };
@@ -76,7 +76,7 @@ impl ChartWidget {
     }
   }
 
-  pub fn set_pos(&mut self, pos: util::Pos) {
+  pub fn set_pos(&mut self, pos: geom::Pos) {
     let Some(pos) = self.correct_pos(pos) else {
       return;
     };
@@ -108,7 +108,7 @@ impl ChartWidget {
 
     let pos = self.display_info.origin;
     let size = self.base().get_size().into();
-    let rect = util::Rect { pos, size };
+    let rect = geom::Rect { pos, size };
     let part = chart::ImagePart::new(rect, self.display_info.zoom, self.display_info.dark);
     raster_reader.read_image(part);
   }
@@ -145,15 +145,15 @@ impl ChartWidget {
     Some((texture, rect))
   }
 
-  fn get_chart_size(&self) -> Option<util::Size> {
+  fn get_chart_size(&self) -> Option<geom::Size> {
     let raster_reader = self.raster_reader.as_ref()?;
     Some(raster_reader.transformation().px_size())
   }
 
-  fn correct_pos(&mut self, mut pos: util::Pos) -> Option<util::Pos> {
+  fn correct_pos(&mut self, mut pos: geom::Pos) -> Option<geom::Pos> {
     let chart_size = self.get_chart_size()?;
     let max_size = chart_size * f64::from(self.display_info.zoom);
-    let widget_size: util::Size = self.base().get_size().into();
+    let widget_size: geom::Size = self.base().get_size().into();
 
     // Make sure its within the horizontal limits.
     if pos.x < 0 {
@@ -172,14 +172,14 @@ impl ChartWidget {
     Some(pos)
   }
 
-  fn correct_zoom(&mut self, zoom: f32, offset: Vector2) -> Option<(f32, util::Pos)> {
+  fn correct_zoom(&mut self, zoom: f32, offset: Vector2) -> Option<(f32, geom::Pos)> {
     let chart_size = self.get_chart_size()?;
 
     // Clamp the zoom value.
     let mut zoom = zoom.clamp(ChartWidget::MIN_ZOOM, ChartWidget::MAX_ZOOM);
 
     let mut max_size = chart_size * f64::from(zoom);
-    let widget_size: util::Size = self.base().get_size().into();
+    let widget_size: geom::Size = self.base().get_size().into();
 
     // Make sure the maximum chart size is not smaller than the widget.
     if max_size.w < widget_size.w {
@@ -195,7 +195,7 @@ impl ChartWidget {
     // Keep the zoom position at the offset.
     let pos = Vector2::from(self.display_info.origin) + offset;
     let pos = pos * zoom / self.display_info.zoom - offset;
-    let mut pos = util::Pos {
+    let mut pos = geom::Pos {
       x: pos.x.round() as i32,
       y: pos.y.round() as i32,
     };
@@ -235,7 +235,7 @@ impl IControl for ChartWidget {
 
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::RESIZED {
-      let rect: util::Rect = self.base().get_rect().into();
+      let rect: geom::Rect = self.base().get_rect().into();
       if self.chart_image.is_some() {
         // Correct the current zoom (may change based on widget size).
         if let Some((zoom, _)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
@@ -311,8 +311,8 @@ struct ChartImage {
 }
 
 struct DisplayInfo {
-  origin: util::Pos,
-  rect: util::Rect,
+  origin: geom::Pos,
+  rect: geom::Rect,
   zoom: f32,
   dark: bool,
 }
@@ -320,8 +320,8 @@ struct DisplayInfo {
 impl DisplayInfo {
   fn new() -> Self {
     Self {
-      origin: util::Pos::default(),
-      rect: util::Rect::default(),
+      origin: geom::Pos::default(),
+      rect: geom::Rect::default(),
       zoom: 1.0,
       dark: false,
     }

@@ -2,6 +2,7 @@ mod chart;
 mod chart_widget;
 mod config;
 mod find_dialog;
+mod geom;
 mod main_widget;
 mod nasr;
 mod select_dialog;
