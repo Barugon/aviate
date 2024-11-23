@@ -33,13 +33,17 @@ impl SelectDialog {
   }
 
   pub fn show_choices<'a, I: Iterator<Item = &'a str>>(&mut self, choices: I) {
-    // Remove any existing buttons.
+    // Remove existing buttons.
     for child in self.items.get_children().iter_shared() {
       self.items.remove_child(&child);
 
       // Once removed from the tree, the node must be manually freed.
       child.free();
     }
+
+    // Disable vertical scrolling.
+    let mut scroller = self.get_child::<ScrollContainer>("ScrollContainer");
+    scroller.set_vertical_scroll_mode(ScrollMode::DISABLED);
 
     // Populate with new buttons.
     let group = ButtonGroup::new_gd();
@@ -53,16 +57,12 @@ impl SelectDialog {
       self.items.add_child(&button);
     }
 
-    let mut scroller = self.get_child::<ScrollContainer>("ScrollContainer");
-    scroller.set_vertical_scroll_mode(ScrollMode::DISABLED);
-
     // Update the size.
     self.base_mut().reset_size();
 
-    if self.items.get_size().y > scroller.get_size().y {
-      scroller.set_vertical_scroll_mode(ScrollMode::AUTO);
-      scroller.reset_size();
-    }
+    // Set vertical scrolling to auto.
+    scroller.set_vertical_scroll_mode(ScrollMode::AUTO);
+    scroller.set_v_scroll(0);
 
     self.base_mut().call_deferred("show", &[]);
   }
