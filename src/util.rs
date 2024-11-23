@@ -1,6 +1,6 @@
 use gdal::{raster, spatial_ref};
 use godot::{
-  classes::{display_server::WindowMode, DisplayServer},
+  classes::{display_server::WindowMode, os::SystemDir, DisplayServer, Os},
   prelude::*,
 };
 use std::{borrow, cmp, collections, ops, path};
@@ -611,4 +611,14 @@ pub fn folder_string<P: AsRef<path::Path>>(path: P) -> Option<String> {
 /// Return the folder of a path as a `&str`.
 pub fn folder_str(path: &path::Path) -> Option<&str> {
   path.parent()?.to_str()
+}
+
+/// Get the OS specific config folder.
+pub fn get_config_folder() -> String {
+  Os::singleton().get_config_dir().into()
+}
+
+/// Get the OS specific downloads folder.
+pub fn get_downloads_folder() -> String {
+  Os::singleton().get_system_dir(SystemDir::DOWNLOADS).into()
 }

@@ -1,5 +1,6 @@
 #![allow(unused)]
 use crate::util;
+use godot::classes::{os::SystemDir, Os};
 use std::{path, sync};
 
 /// Storage for configuration items, persisted as JSON.
@@ -11,15 +12,15 @@ pub struct Storage {
 }
 
 impl Storage {
-  pub fn new(store_win: bool) -> Option<Self> {
-    let path = Storage::path()?;
+  pub fn new(store_win: bool) -> Self {
+    let path = Storage::path();
     let items = sync::Arc::new(sync::RwLock::new(inner::Items::load(path)));
     let thread = sync::Arc::new(inner::PersistThread::new(items.clone()));
-    Some(Self {
+    Self {
       items,
       thread,
       store_win,
-    })
+    }
   }
 
   pub fn set_win_info(&mut self, win_info: &util::WinInfo) {
@@ -59,8 +60,9 @@ impl Storage {
     Some(items.get(Storage::ASSET_FOLDER_KEY)?.as_str()?.into())
   }
 
-  fn path() -> Option<path::PathBuf> {
-    dirs::config_dir().map(|path| path.join(util::APP_NAME).with_extension("json"))
+  fn path() -> path::PathBuf {
+    let folder = path::PathBuf::from(util::get_config_folder());
+    folder.join(util::APP_NAME).with_extension("json")
   }
 
   const WIN_INFO_KEY: &'static str = "win_info";

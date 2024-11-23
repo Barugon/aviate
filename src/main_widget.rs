@@ -16,13 +16,13 @@ use std::path;
 #[class(base=Control)]
 struct MainWidget {
   base: Base<Control>,
+  config: config::Storage,
   chart_widget: OnReady<Gd<ChartWidget>>,
   airport_label: OnReady<Gd<Label>>,
   find_button: OnReady<Gd<Button>>,
   airport_reader: Option<nasr::AirportReader>,
   airport_infos: Option<Vec<nasr::AirportInfo>>,
   chart_info: Option<(String, Vec<path::PathBuf>)>,
-  config: Option<config::Storage>,
 }
 
 #[godot_api]
@@ -43,9 +43,7 @@ impl MainWidget {
   #[func]
   fn toggle_night_mode(&mut self, night_mode: bool) {
     self.chart_widget.bind_mut().set_night_mode(night_mode);
-    if let Some(config) = &mut self.config {
-      config.set_night_mode(night_mode);
-    }
+    self.config.set_night_mode(night_mode);
   }
 
   #[func]
@@ -193,21 +191,17 @@ impl MainWidget {
   }
 
   fn get_asset_folder(&self) -> Option<String> {
-    if let Some(config) = &self.config {
-      let folder = config.get_asset_folder();
-      if folder.is_some() {
-        return folder;
-      }
+    let folder = self.config.get_asset_folder();
+    if folder.is_some() {
+      return folder;
     }
 
-    Some(dirs::download_dir()?.to_str()?.to_owned())
+    Some(util::get_downloads_folder())
   }
 
   fn save_asset_folder(&mut self, path: &str) {
-    if let Some(config) = &mut self.config {
-      if let Some(folder) = util::folder_string(path) {
-        config.set_asset_folder(folder);
-      }
+    if let Some(folder) = util::folder_string(path) {
+      self.config.set_asset_folder(folder);
     }
   }
 
@@ -221,22 +215,20 @@ impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
     Self {
       base,
+      config: config::Storage::new(true),
       chart_widget: OnReady::manual(),
       airport_label: OnReady::manual(),
       find_button: OnReady::manual(),
       airport_reader: None,
       airport_infos: None,
       chart_info: None,
-      config: config::Storage::new(true),
     }
   }
 
   fn on_notification(&mut self, what: ControlNotification) {
     if what == ControlNotification::WM_CLOSE_REQUEST {
-      if let Some(config) = &mut self.config {
-        let win_info = util::WinInfo::from_display(&DisplayServer::singleton());
-        config.set_win_info(&win_info);
-      }
+      let win_info = util::WinInfo::from_display(&DisplayServer::singleton());
+      self.config.set_win_info(&win_info);
     }
   }
 
@@ -257,8 +249,7 @@ impl IControl for MainWidget {
     self.find_button.connect("pressed", &callable);
 
     // Read nite mode from the config.
-    let night_mode = self.config.as_ref().and_then(|c| c.get_night_mode());
-    let night_mode = night_mode.unwrap_or(false);
+    let night_mode = self.config.get_night_mode().unwrap_or(false);
     self.chart_widget.bind_mut().set_night_mode(night_mode);
 
     // Connect the sidebar button.
