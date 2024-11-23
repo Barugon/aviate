@@ -2,9 +2,9 @@ use crate::{chart_widget, config, find_dialog, nasr, select_dialog, util};
 use godot::{
   classes::{
     notify::ControlNotification, AcceptDialog, Button, CheckButton, Control, DisplayServer,
-    FileDialog, HBoxContainer, IControl, Label, PanelContainer,
+    FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label, PanelContainer,
   },
-  global::HorizontalAlignment,
+  global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
 };
 use std::path;
@@ -26,11 +26,11 @@ struct MainWidget {
 impl MainWidget {
   #[func]
   fn toggle_sidebar(&self, toggle: bool) {
-    let mut child = self.get_child::<PanelContainer>("SidebarPanel");
-    child.set_visible(toggle);
+    let mut panel = self.get_child::<PanelContainer>("SidebarPanel");
+    panel.set_visible(toggle);
 
-    let mut child = self.get_child::<CheckButton>("SidebarButton");
-    child.set_tooltip_text(if toggle {
+    let mut button = self.get_child::<CheckButton>("SidebarButton");
+    button.set_tooltip_text(if toggle {
       "Hide side panel"
     } else {
       "Show side panel"
@@ -45,8 +45,16 @@ impl MainWidget {
 
   #[func]
   fn find(&self) {
-    let mut child = self.get_child::<find_dialog::FindDialog>("FindDialog");
-    child.call_deferred("show", &[]);
+    if !self.find_button.is_visible() {
+      return;
+    }
+
+    let mut dialog = self.get_child::<find_dialog::FindDialog>("FindDialog");
+    if dialog.is_visible() {
+      return;
+    }
+
+    dialog.call_deferred("show", &[]);
   }
 
   #[func]
@@ -59,15 +67,15 @@ impl MainWidget {
 
   #[func]
   fn open_zip_file(&self) {
-    let mut file_dialog = self.get_child::<FileDialog>("FileDialog");
+    let mut dialog = self.get_child::<FileDialog>("FileDialog");
     let property = "theme_override_font_sizes/title_font_size";
-    file_dialog.set(property, &Variant::from(16.0));
+    dialog.set(property, &Variant::from(16.0));
 
     if let Some(folder) = self.get_asset_folder() {
-      file_dialog.set_current_dir(&folder);
+      dialog.set_current_dir(&folder);
     }
 
-    file_dialog.call_deferred("show", &[]);
+    dialog.call_deferred("show", &[]);
   }
 
   #[func]
@@ -108,22 +116,22 @@ impl MainWidget {
   }
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
-    let mut select_dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    select_dialog.set_title("Select Chart");
+    let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
+    dialog.set_title("Select Chart");
 
     let choices = files.iter().map(|f| util::stem_str(f).unwrap());
-    select_dialog.bind_mut().show_choices(choices);
+    dialog.bind_mut().show_choices(choices);
 
     self.chart_info = Some((path, files));
     self.airport_infos = None;
   }
 
   fn select_airport(&mut self, airports: Vec<nasr::AirportInfo>) {
-    let mut select_dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    select_dialog.set_title("Select Airport");
+    let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
+    dialog.set_title("Select Airport");
 
     let choices = airports.iter().map(|a| a.desc.as_str());
-    select_dialog.bind_mut().show_choices(choices);
+    dialog.bind_mut().show_choices(choices);
 
     self.airport_infos = Some(airports);
     self.chart_info = None;
@@ -171,20 +179,20 @@ impl MainWidget {
   }
 
   fn show_alert(&self, text: &str) {
-    let mut alert_dialog = self.get_child::<AcceptDialog>("AlertDialog");
+    let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
     let property = "theme_override_font_sizes/title_font_size";
-    alert_dialog.set(property, &Variant::from(16.0));
+    dialog.set(property, &Variant::from(16.0));
 
-    if let Some(label) = alert_dialog.get_label() {
+    if let Some(label) = dialog.get_label() {
       let mut label = label;
       let property = "theme_override_colors/font_color";
       label.set(property, &Variant::from(Color::from_rgb(1.0, 0.4, 0.4)));
       label.set_horizontal_alignment(HorizontalAlignment::CENTER);
     }
 
-    alert_dialog.set_text(text);
-    alert_dialog.reset_size();
-    alert_dialog.call_deferred("show", &[]);
+    dialog.set_text(text);
+    dialog.reset_size();
+    dialog.call_deferred("show", &[]);
   }
 
   fn get_asset_folder(&self) -> Option<GString> {
@@ -250,30 +258,30 @@ impl IControl for MainWidget {
     self.chart_widget.bind_mut().set_night_mode(night_mode);
 
     // Connect the sidebar button.
-    let mut child = self.get_child::<CheckButton>("SidebarButton");
-    child.connect("toggled", &self.base().callable("toggle_sidebar"));
+    let mut button = self.get_child::<CheckButton>("SidebarButton");
+    button.connect("toggled", &self.base().callable("toggle_sidebar"));
 
     // Connect the open button.
-    let mut child = self.get_child::<Button>("OpenButton");
-    child.connect("pressed", &self.base().callable("open_zip_file"));
+    let mut button = self.get_child::<Button>("OpenButton");
+    button.connect("pressed", &self.base().callable("open_zip_file"));
 
     // Setup the file dialog.
-    let mut child = self.get_child::<FileDialog>("FileDialog");
-    child.connect("file_selected", &self.base().callable("zip_file_selected"));
-    hide_buttons(child.get_vbox().unwrap().upcast());
+    let mut dialog = self.get_child::<FileDialog>("FileDialog");
+    dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
+    hide_buttons(dialog.get_vbox().unwrap().upcast());
 
     // Connect the night mode button
-    let mut child = self.get_child::<CheckButton>("NightModeButton");
-    child.set_pressed(night_mode);
-    child.connect("toggled", &self.base().callable("toggle_night_mode"));
+    let mut button = self.get_child::<CheckButton>("NightModeButton");
+    button.set_pressed(night_mode);
+    button.connect("toggled", &self.base().callable("toggle_night_mode"));
 
     // Connect the select dialog.
-    let mut child = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    child.connect("selected", &self.base().callable("item_selected"));
+    let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
+    dialog.connect("selected", &self.base().callable("item_selected"));
 
     // Connect the find dialog.
-    let mut child = self.get_child::<find_dialog::FindDialog>("FindDialog");
-    child.connect("confirmed", &self.base().callable("find_confirmed"));
+    let mut dialog = self.get_child::<find_dialog::FindDialog>("FindDialog");
+    dialog.connect("confirmed", &self.base().callable("find_confirmed"));
   }
 
   fn process(&mut self, _delta: f64) {
@@ -323,6 +331,13 @@ impl IControl for MainWidget {
       self.select_airport(airport_infos);
     }
   }
+
+  fn shortcut_input(&mut self, event: Gd<InputEvent>) {
+    let event_key = event.cast::<InputEventKey>();
+    if event_key.get_keycode() == Key::F && cmd_or_ctrl(&event_key) {
+      self.find();
+    }
+  }
 }
 
 /// Hide the forward and back buttons.
@@ -342,4 +357,9 @@ fn hide_buttons(node: Gd<Node>) {
       button.set_visible(false);
     }
   }
+}
+
+fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
+  event.get_modifiers_mask() == KeyModifierMask::CTRL
+    || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
 }
