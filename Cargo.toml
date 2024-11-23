@@ -10,7 +10,6 @@ crate-type = ["cdylib"]
 gdal = {version = "0.17", features = ["bindgen"]}
 godot = "0.2"
 rstar = "0.12"
-serde_json = "1.0"
 
 [profile.release]
 strip = "symbols"
