@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://b1gmyyw2nkaa6"]
 
-[ext_resource type="Texture2D" uid="uid://ny1dhvy8sd2o" path="res://find_icon.png" id="1_jifnu"]
+[ext_resource type="Texture2D" uid="uid://cgyovs1e1fkm8" path="res://find_icon.svg" id="1_lhk6r"]
 
 [sub_resource type="Theme" id="Theme_se57b"]
 default_font_size = 14
@@ -67,7 +67,7 @@ text = "APT"
 visible = false
 layout_mode = 2
 tooltip_text = "Find airports on this chart"
-icon = ExtResource("1_jifnu")
+icon = ExtResource("1_lhk6r")
 flat = true
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
