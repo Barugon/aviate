@@ -112,10 +112,26 @@ pub trait ToI32 {
 impl ToI32 for i64 {
   fn to_i32(self) -> Option<i32> {
     let cast = self as i32;
-    if cast as i64 == self {
+    if cast as Self == self {
       return Some(cast);
     }
     None
+  }
+}
+
+impl ToI32 for f64 {
+  fn to_i32(self) -> Option<i32> {
+    let cast = self as i32;
+    if cast as Self == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
+impl ToI32 for Variant {
+  fn to_i32(self) -> Option<i32> {
+    self.try_to::<f64>().ok()?.to_i32()
   }
 }
 
@@ -126,10 +142,26 @@ pub trait ToU32 {
 impl ToU32 for i64 {
   fn to_u32(self) -> Option<u32> {
     let cast = self as u32;
-    if cast as i64 == self {
+    if cast as Self == self {
       return Some(cast);
     }
     None
+  }
+}
+
+impl ToU32 for f64 {
+  fn to_u32(self) -> Option<u32> {
+    let cast = self as u32;
+    if cast as Self == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
+impl ToU32 for Variant {
+  fn to_u32(self) -> Option<u32> {
+    self.try_to::<f64>().ok()?.to_u32()
   }
 }
 
@@ -150,13 +182,13 @@ impl WinInfo {
   }
 
   #[allow(unused)]
-  pub fn from_value(value: Option<&serde_json::Value>) -> Self {
-    if let Some(value) = value {
-      let pos = value.get(WinInfo::POS_KEY).and_then(Pos::from_value);
-      let size = value.get(WinInfo::SIZE_KEY).and_then(Size::from_value);
+  pub fn from_variant(value: Option<Variant>) -> Self {
+    if let Some(value) = value.and_then(|v| v.try_to::<Dictionary>().ok()) {
+      let pos = value.get(WinInfo::POS_KEY).and_then(Pos::from_variant);
+      let size = value.get(WinInfo::SIZE_KEY).and_then(Size::from_variant);
       let maxed = value
         .get(WinInfo::MAXED_KEY)
-        .and_then(|v| v.as_bool())
+        .and_then(|v| v.try_to::<bool>().ok())
         .unwrap_or(false);
       return Self { pos, size, maxed };
     }
@@ -164,19 +196,19 @@ impl WinInfo {
   }
 
   #[allow(unused)]
-  pub fn to_value(&self) -> serde_json::Value {
-    let mut value = serde_json::json!({});
+  pub fn to_variant(&self) -> Variant {
+    let mut dict = Dictionary::new();
 
     if let Some(pos) = &self.pos {
-      value[WinInfo::POS_KEY] = pos.to_value();
+      dict.set(WinInfo::POS_KEY, pos.to_variant());
     }
 
     if let Some(size) = &self.size {
-      value[WinInfo::SIZE_KEY] = size.to_value();
+      dict.set(WinInfo::SIZE_KEY, size.to_variant());
     }
 
-    value[WinInfo::MAXED_KEY] = serde_json::Value::Bool(self.maxed);
-    value
+    dict.set(WinInfo::MAXED_KEY, Variant::from(self.maxed));
+    Variant::from(dict)
   }
 
   const POS_KEY: &'static str = "pos";
@@ -239,14 +271,15 @@ pub struct Pos {
 }
 
 impl Pos {
-  pub fn from_value(value: &serde_json::Value) -> Option<Self> {
-    let x = value.get(0)?.as_i64()?.to_i32()?;
-    let y = value.get(1)?.as_i64()?.to_i32()?;
+  pub fn from_variant(value: Variant) -> Option<Self> {
+    let value = value.try_to::<Array<Variant>>().ok()?;
+    let x = value.get(0)?.to_i32()?;
+    let y = value.get(1)?.to_i32()?;
     Some(Self { x, y })
   }
 
-  pub fn to_value(self) -> serde_json::Value {
-    serde_json::json!([self.x, self.y])
+  pub fn to_variant(self) -> Variant {
+    Variant::from([self.x, self.y])
   }
 }
 
@@ -328,14 +361,15 @@ pub struct Size {
 }
 
 impl Size {
-  pub fn from_value(value: &serde_json::Value) -> Option<Self> {
-    let w = value.get(0)?.as_i64()?.to_u32()?;
-    let h = value.get(1)?.as_i64()?.to_u32()?;
+  pub fn from_variant(value: Variant) -> Option<Self> {
+    let value = value.try_to::<Array<Variant>>().ok()?;
+    let w = value.get(0)?.to_u32()?;
+    let h = value.get(1)?.to_u32()?;
     Some(Self { w, h })
   }
 
-  pub fn to_value(self) -> serde_json::Value {
-    serde_json::json!([self.w, self.h])
+  pub fn to_variant(self) -> Variant {
+    Variant::from([self.w, self.h])
   }
 
   pub fn is_valid(&self) -> bool {
