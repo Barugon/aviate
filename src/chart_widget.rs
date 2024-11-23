@@ -1,6 +1,4 @@
 use crate::{chart, geom, util};
-use std::path;
-
 use godot::{
   classes::{
     image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, InputEvent,
@@ -9,6 +7,7 @@ use godot::{
   global::{MouseButton, MouseButtonMask},
   prelude::*,
 };
+use std::path;
 
 #[derive(GodotClass)]
 #[class(base=Control)]

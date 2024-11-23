@@ -1,7 +1,4 @@
-use crate::{
-  chart_widget::ChartWidget, config, find_dialog::FindDialog, nasr, select_dialog::SelectDialog,
-  util,
-};
+use crate::{chart_widget, config, find_dialog, nasr, select_dialog, util};
 use godot::{
   classes::{
     notify::ControlNotification, AcceptDialog, Button, CheckButton, Control, DisplayServer,
@@ -17,7 +14,7 @@ use std::path;
 struct MainWidget {
   base: Base<Control>,
   config: config::Storage,
-  chart_widget: OnReady<Gd<ChartWidget>>,
+  chart_widget: OnReady<Gd<chart_widget::ChartWidget>>,
   airport_label: OnReady<Gd<Label>>,
   find_button: OnReady<Gd<Button>>,
   airport_reader: Option<nasr::AirportReader>,
@@ -48,7 +45,7 @@ impl MainWidget {
 
   #[func]
   fn find(&self) {
-    let mut child = self.get_child::<FindDialog>("FindDialog");
+    let mut child = self.get_child::<find_dialog::FindDialog>("FindDialog");
     child.call_deferred("show", &[]);
   }
 
@@ -111,7 +108,7 @@ impl MainWidget {
   }
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
-    let mut select_dialog = self.get_child::<SelectDialog>("SelectDialog");
+    let mut select_dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     select_dialog.set_title("Select Chart");
 
     let choices = files.iter().map(|f| util::stem_str(f).unwrap());
@@ -122,7 +119,7 @@ impl MainWidget {
   }
 
   fn select_airport(&mut self, airports: Vec<nasr::AirportInfo>) {
-    let mut select_dialog = self.get_child::<SelectDialog>("SelectDialog");
+    let mut select_dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     select_dialog.set_title("Select Airport");
 
     let choices = airports.iter().map(|a| a.desc.as_str());
@@ -271,11 +268,11 @@ impl IControl for MainWidget {
     child.connect("toggled", &self.base().callable("toggle_night_mode"));
 
     // Connect the select dialog.
-    let mut child = self.get_child::<SelectDialog>("SelectDialog");
+    let mut child = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     child.connect("selected", &self.base().callable("item_selected"));
 
     // Connect the find dialog.
-    let mut child = self.get_child::<FindDialog>("FindDialog");
+    let mut child = self.get_child::<find_dialog::FindDialog>("FindDialog");
     child.connect("confirmed", &self.base().callable("find_confirmed"));
   }
 

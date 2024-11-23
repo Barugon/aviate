@@ -1,5 +1,5 @@
 use gdal::spatial_ref;
-use godot::builtin::{Array, Rect2, Variant, Vector2, Vector2i};
+use godot::prelude::*;
 use std::{cmp, ops};
 
 pub trait Transform {

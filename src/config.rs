@@ -1,15 +1,7 @@
 #![allow(unused)]
 use crate::util;
-use godot::{
-  builtin::{Dictionary, GString, Variant},
-  classes::{os::SystemDir, FileAccess, Json, Os},
-  global::godot_error,
-};
-use std::{
-  borrow::BorrowMut,
-  cell, path, rc,
-  sync::{self, atomic},
-};
+use godot::{classes::Json, global::godot_error, prelude::*};
+use std::{borrow::BorrowMut, cell, path, rc, sync::atomic};
 
 /// Storage for configuration items, persisted as JSON.
 #[derive(Clone)]

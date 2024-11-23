@@ -4,7 +4,6 @@ use godot::{
     ScrollContainer, VBoxContainer, Window,
   },
   global::{Key, KeyModifierMask},
-  obj::Base,
   prelude::*,
 };
 
