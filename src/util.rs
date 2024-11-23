@@ -1,6 +1,9 @@
 use gdal::{raster, spatial_ref};
 use godot::{
-  classes::{display_server::WindowMode, os::SystemDir, DisplayServer, Os},
+  classes::{
+    display_server::WindowMode, file_access::ModeFlags, os::SystemDir, DisplayServer, FileAccess,
+    Os,
+  },
   prelude::*,
 };
 use std::{borrow, cmp, collections, ops, path};
@@ -109,16 +112,6 @@ pub trait ToI32 {
   fn to_i32(self) -> Option<i32>;
 }
 
-impl ToI32 for i64 {
-  fn to_i32(self) -> Option<i32> {
-    let cast = self as i32;
-    if cast as Self == self {
-      return Some(cast);
-    }
-    None
-  }
-}
-
 impl ToI32 for f64 {
   fn to_i32(self) -> Option<i32> {
     let cast = self as i32;
@@ -137,16 +130,6 @@ impl ToI32 for Variant {
 
 pub trait ToU32 {
   fn to_u32(self) -> Option<u32>;
-}
-
-impl ToU32 for i64 {
-  fn to_u32(self) -> Option<u32> {
-    let cast = self as u32;
-    if cast as Self == self {
-      return Some(cast);
-    }
-    None
-  }
 }
 
 impl ToU32 for f64 {
@@ -173,7 +156,6 @@ pub struct WinInfo {
 }
 
 impl WinInfo {
-  #[allow(unused)]
   pub fn from_display(display_server: &Gd<DisplayServer>) -> Self {
     let pos = Some(display_server.window_get_position().into());
     let size = Some(display_server.window_get_size().into());
@@ -181,7 +163,6 @@ impl WinInfo {
     Self { pos, size, maxed }
   }
 
-  #[allow(unused)]
   pub fn from_variant(value: Option<Variant>) -> Self {
     if let Some(value) = value.and_then(|v| v.try_to::<Dictionary>().ok()) {
       let pos = value.get(WinInfo::POS_KEY).and_then(Pos::from_variant);
@@ -195,7 +176,6 @@ impl WinInfo {
     WinInfo::default()
   }
 
-  #[allow(unused)]
   pub fn to_variant(&self) -> Variant {
     let mut dict = Dictionary::new();
 
@@ -628,8 +608,8 @@ pub fn inverted_color(color: &raster::RgbaEntry) -> Color {
 
 #[allow(unused)]
 /// Return the file stem portion of a path as a `String`.
-pub fn stem_string<P: AsRef<path::Path>>(path: P) -> Option<String> {
-  stem_str(path.as_ref()).map(|stem| stem.to_owned())
+pub fn stem_string<P: AsRef<path::Path>>(path: P) -> Option<GString> {
+  stem_str(path.as_ref()).map(|stem| stem.into())
 }
 
 /// Return the file stem portion of a path as a `&str`.
@@ -638,8 +618,8 @@ pub fn stem_str(path: &path::Path) -> Option<&str> {
 }
 
 /// Return the folder of a path as a `String`.
-pub fn folder_string<P: AsRef<path::Path>>(path: P) -> Option<String> {
-  folder_str(path.as_ref()).map(|stem| stem.to_owned())
+pub fn folder_string<P: AsRef<path::Path>>(path: P) -> Option<GString> {
+  folder_str(path.as_ref()).map(|stem| stem.into())
 }
 
 /// Return the folder of a path as a `&str`.
@@ -648,11 +628,26 @@ pub fn folder_str(path: &path::Path) -> Option<&str> {
 }
 
 /// Get the OS specific config folder.
-pub fn get_config_folder() -> String {
-  Os::singleton().get_config_dir().into()
+pub fn get_config_folder() -> GString {
+  Os::singleton().get_config_dir()
 }
 
 /// Get the OS specific downloads folder.
-pub fn get_downloads_folder() -> String {
-  Os::singleton().get_system_dir(SystemDir::DOWNLOADS).into()
+pub fn get_downloads_folder() -> GString {
+  Os::singleton().get_system_dir(SystemDir::DOWNLOADS)
+}
+
+/// Load a text file.
+pub fn load_text(path: &path::Path) -> Option<GString> {
+  let file = FileAccess::open(path.to_str().unwrap(), ModeFlags::READ)?;
+  Some(file.get_as_text())
+}
+
+/// Store a text file.
+pub fn store_text(path: &path::Path, text: &GString) {
+  let Some(mut file) = FileAccess::open(path.to_str().unwrap(), ModeFlags::WRITE) else {
+    return;
+  };
+
+  file.store_string(text);
 }

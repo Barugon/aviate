@@ -190,7 +190,7 @@ impl MainWidget {
     alert_dialog.call_deferred("show", &[]);
   }
 
-  fn get_asset_folder(&self) -> Option<String> {
+  fn get_asset_folder(&self) -> Option<GString> {
     let folder = self.config.get_asset_folder();
     if folder.is_some() {
       return folder;
