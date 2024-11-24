@@ -221,7 +221,7 @@ impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
     Self {
       base,
-      config: config::Storage::new(true),
+      config: config::Storage::new(),
       chart_widget: OnReady::manual(),
       airport_label: OnReady::manual(),
       find_button: OnReady::manual(),

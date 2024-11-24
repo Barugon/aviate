@@ -6,22 +6,19 @@ use std::{cell, path, rc, sync::atomic};
 #[derive(Clone)]
 pub struct Storage {
   items: rc::Rc<cell::RefCell<Items>>,
-  store_win: bool,
 }
 
 impl Storage {
-  pub fn new(store_win: bool) -> Self {
+  pub fn new() -> Self {
     let items = rc::Rc::new(cell::RefCell::new(Items::load(Storage::path())));
-    Self { items, store_win }
+    Self { items }
   }
 
   pub fn set_win_info(&mut self, win_info: &util::WinInfo) {
-    if self.store_win {
-      let value = win_info.to_variant();
-      let mut items = (*self.items).borrow_mut();
-      items.set(Storage::WIN_INFO_KEY, value);
-      items.store();
-    }
+    let value = win_info.to_variant();
+    let mut items = (*self.items).borrow_mut();
+    items.set(Storage::WIN_INFO_KEY, value);
+    items.store();
   }
 
   #[allow(unused)]
