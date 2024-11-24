@@ -1,5 +1,5 @@
 use crate::util;
-use godot::{classes::Json, global::godot_error, prelude::*};
+use godot::{classes::Json, prelude::*};
 use std::{cell, path, rc, sync::atomic};
 
 /// Storage for configuration items, persisted as JSON.
@@ -92,9 +92,15 @@ impl Items {
   }
 
   fn set(&mut self, key: &str, item: Variant) {
-    if self.items.get_or_nil(key) == item {
+    let existing = self.items.get_or_nil(key);
+    if item.try_to::<Dictionary>().is_ok() {
+      if Json::stringify(&existing) == Json::stringify(&item) {
+        return;
+      }
+    } else if existing == item {
       return;
     }
+
     self.items.set(key, item);
     self.changed.store(true, atomic::Ordering::Relaxed);
   }
