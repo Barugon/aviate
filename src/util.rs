@@ -225,22 +225,9 @@ impl From<f32> for Hashable {
   }
 }
 
-impl From<f64> for Hashable {
-  fn from(val: f64) -> Self {
-    assert!((0.0..=1.0).contains(&val));
-    Hashable((val as f32 * HASHABLE32_SCALE) as u32)
-  }
-}
-
 impl From<Hashable> for f32 {
   fn from(hashable: Hashable) -> Self {
     hashable.value()
-  }
-}
-
-impl From<Hashable> for f64 {
-  fn from(hashable: Hashable) -> Self {
-    hashable.value() as f64
   }
 }
 
