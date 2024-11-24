@@ -1,8 +1,9 @@
 use crate::{chart_widget, config, find_dialog, nasr, select_dialog, util};
 use godot::{
   classes::{
-    notify::ControlNotification, AcceptDialog, Button, CheckButton, Control, DisplayServer,
-    FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label, PanelContainer,
+    display_server::WindowMode, notify::ControlNotification, AcceptDialog, Button, CheckButton,
+    Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label,
+    PanelContainer,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -238,7 +239,7 @@ impl IControl for MainWidget {
   }
 
   fn ready(&mut self) {
-    DisplayServer::singleton().window_set_min_size(Vector2i { x: 800, y: 600 });
+    setup_window(DisplayServer::singleton(), self.config.get_win_info());
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
@@ -362,4 +363,21 @@ fn hide_buttons(node: Gd<Node>) {
 fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
   event.get_modifiers_mask() == KeyModifierMask::CTRL
     || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
+}
+
+fn setup_window(mut display_server: Gd<DisplayServer>, win_info: util::WinInfo) {
+  display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
+
+  if win_info.maxed {
+    display_server.window_set_mode(WindowMode::MAXIMIZED);
+    return;
+  }
+
+  if let Some(pos) = win_info.pos {
+    display_server.window_set_position(pos.into());
+  }
+
+  if let Some(size) = win_info.size {
+    display_server.window_set_size(size.into());
+  }
 }
