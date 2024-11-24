@@ -1,7 +1,6 @@
-#![allow(unused)]
 use crate::util;
 use godot::{classes::Json, global::godot_error, prelude::*};
-use std::{borrow::BorrowMut, cell, path, rc, sync::atomic};
+use std::{cell, path, rc, sync::atomic};
 
 /// Storage for configuration items, persisted as JSON.
 #[derive(Clone)]
@@ -25,6 +24,7 @@ impl Storage {
     }
   }
 
+  #[allow(unused)]
   pub fn get_win_info(&self) -> util::WinInfo {
     let items = (*self.items).borrow();
     util::WinInfo::from_variant(items.get(Storage::WIN_INFO_KEY))

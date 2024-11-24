@@ -1,7 +1,6 @@
-#![allow(unused)]
 use crate::{geom, util};
 use gdal::{raster, spatial_ref};
-use std::{any, hash, hash::Hash, path, sync::mpsc, thread};
+use std::{any, hash::Hash, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
 pub struct RasterReader {
@@ -111,7 +110,9 @@ pub struct Transformation {
   px_size: geom::Size,
   spatial_ref: spatial_ref::SpatialRef,
   to_px: gdal::GeoTransform,
+  #[allow(unused)]
   from_px: gdal::GeoTransform,
+  #[allow(unused)]
   to_nad83: spatial_ref::CoordTransform,
   from_nad83: spatial_ref::CoordTransform,
   bounds: geom::Bounds,
@@ -163,6 +164,7 @@ impl Transformation {
     &self.bounds
   }
 
+  #[allow(unused)]
   /// Convert a pixel coordinate to a chart coordinate.
   /// - `coord`: pixel coordinate
   pub fn px_to_chart(&self, coord: geom::Coord) -> geom::Coord {
@@ -175,6 +177,7 @@ impl Transformation {
     gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into()
   }
 
+  #[allow(unused)]
   /// Convert a chart coordinate to a NAD83 coordinate.
   /// - `coord`: chart coordinate
   pub fn chart_to_nad83(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
@@ -193,6 +196,7 @@ impl Transformation {
     Ok(geom::Coord { x: x[0], y: y[0] })
   }
 
+  #[allow(unused)]
   /// Convert a pixel coordinate to a NAD83 coordinate.
   /// - `coord`: pixel coordinate
   pub fn px_to_nad83(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
