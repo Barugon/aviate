@@ -64,7 +64,7 @@ impl Storage {
 
   fn path() -> path::PathBuf {
     let folder = util::get_config_folder().to_string();
-    let folder = path::PathBuf::from(&folder);
+    let folder = path::PathBuf::from(folder);
     folder.join(util::APP_NAME).with_extension("json")
   }
 
