@@ -70,7 +70,7 @@ impl AirportReader {
           while let Ok(request) = trx.recv() {
             match request {
               AirportRequest::SpatialRef(spatial_info) => {
-                if airport_status.get() >= AirportStatus::BasicIdx {
+                if airport_status.get() >= AirportIndex::Basic {
                   airport_status.set_has_basic_idx();
                   to_chart = None;
 
@@ -157,13 +157,20 @@ impl AirportReader {
   }
 
   /// True if the airport source has ID and name indexes.
+  #[allow(unused)]
   pub fn has_basic_idx(&self) -> bool {
-    self.airport_status.get() >= AirportStatus::BasicIdx
+    self.airport_status.get() >= AirportIndex::Basic
   }
 
   /// True if the airport source has a spatial index.
+  #[allow(unused)]
   pub fn has_spatial_idx(&self) -> bool {
-    self.airport_status.get() >= AirportStatus::SpatialIdx
+    self.airport_status.get() >= AirportIndex::Spatial
+  }
+
+  /// Get the airport index level.
+  pub fn get_index_level(&self) -> AirportIndex {
+    self.airport_status.get()
   }
 
   /// Set the chart spatial reference using a PROJ4 string.
@@ -273,25 +280,25 @@ impl ToChart {
 }
 
 #[derive(Eq, Ord, PartialEq, PartialOrd)]
-enum AirportStatus {
+pub enum AirportIndex {
   None,
 
   /// ID and name indexes are ready.
-  BasicIdx,
+  Basic,
 
   /// Spatial index is ready.
-  SpatialIdx,
+  Spatial,
 }
 
-impl From<u8> for AirportStatus {
+impl From<u8> for AirportIndex {
   fn from(value: u8) -> Self {
-    const NONE: u8 = AirportStatus::None as u8;
-    const BASIC: u8 = AirportStatus::BasicIdx as u8;
-    const SPATIAL: u8 = AirportStatus::SpatialIdx as u8;
+    const NONE: u8 = AirportIndex::None as u8;
+    const BASIC: u8 = AirportIndex::Basic as u8;
+    const SPATIAL: u8 = AirportIndex::Spatial as u8;
     match value {
-      NONE => AirportStatus::None,
-      BASIC => AirportStatus::BasicIdx,
-      SPATIAL => AirportStatus::SpatialIdx,
+      NONE => AirportIndex::None,
+      BASIC => AirportIndex::Basic,
+      SPATIAL => AirportIndex::Spatial,
       _ => unreachable!(),
     }
   }
@@ -304,25 +311,25 @@ struct AirportStatusSync {
 
 impl AirportStatusSync {
   fn new() -> Self {
-    let status = atomic::AtomicU8::new(AirportStatus::None as u8);
+    let status = atomic::AtomicU8::new(AirportIndex::None as u8);
     Self {
       status: sync::Arc::new(status),
     }
   }
 
   fn set_has_basic_idx(&mut self) {
-    self.set(AirportStatus::BasicIdx);
+    self.set(AirportIndex::Basic);
   }
 
   fn set_has_spatial_idx(&mut self) {
-    self.set(AirportStatus::SpatialIdx);
+    self.set(AirportIndex::Spatial);
   }
 
-  fn set(&mut self, status: AirportStatus) {
+  fn set(&mut self, status: AirportIndex) {
     self.status.store(status as u8, atomic::Ordering::Relaxed);
   }
 
-  fn get(&self) -> AirportStatus {
+  fn get(&self) -> AirportIndex {
     self.status.load(atomic::Ordering::Relaxed).into()
   }
 }
