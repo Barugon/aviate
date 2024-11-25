@@ -69,9 +69,6 @@ impl MainWidget {
   #[func]
   fn open_zip_file(&self) {
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
-    let property = "theme_override_font_sizes/title_font_size";
-    dialog.set(property, &Variant::from(16.0));
-
     if let Some(folder) = self.get_asset_folder() {
       dialog.set_current_dir(&folder);
     }
@@ -181,16 +178,6 @@ impl MainWidget {
 
   fn show_alert(&self, text: &str) {
     let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
-    let property = "theme_override_font_sizes/title_font_size";
-    dialog.set(property, &Variant::from(16.0));
-
-    if let Some(label) = dialog.get_label() {
-      let mut label = label;
-      let property = "theme_override_colors/font_color";
-      label.set(property, &Variant::from(Color::from_rgb(1.0, 0.4, 0.4)));
-      label.set_horizontal_alignment(HorizontalAlignment::CENTER);
-    }
-
     dialog.set_text(text);
     dialog.reset_size();
     dialog.call_deferred("show", &[]);
@@ -266,23 +253,40 @@ impl IControl for MainWidget {
     let mut button = self.get_child::<Button>("OpenButton");
     button.connect("pressed", &self.base().callable("open_zip_file"));
 
-    // Setup the file dialog.
-    let mut dialog = self.get_child::<FileDialog>("FileDialog");
-    dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
-    hide_buttons(dialog.get_vbox().unwrap().upcast());
-
     // Connect the night mode button
     let mut button = self.get_child::<CheckButton>("NightModeButton");
     button.set_pressed(night_mode);
     button.connect("toggled", &self.base().callable("toggle_night_mode"));
 
-    // Connect the select dialog.
+    let title_property = "theme_override_font_sizes/title_font_size";
+    let title_size = Variant::from(18.0);
+
+    // Setup the file dialog.
+    let mut dialog = self.get_child::<FileDialog>("FileDialog");
+    dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
+    dialog.set(title_property, &title_size);
+    hide_buttons(dialog.get_vbox().unwrap().upcast());
+
+    // Setup the alert dialog.
+    let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
+    dialog.set(title_property, &title_size);
+
+    if let Some(label) = dialog.get_label() {
+      let mut label = label;
+      let property = "theme_override_colors/font_color";
+      label.set(property, &Variant::from(Color::from_rgb(1.0, 0.4, 0.4)));
+      label.set_horizontal_alignment(HorizontalAlignment::CENTER);
+    }
+
+    // Setup and connect the select dialog.
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.connect("selected", &self.base().callable("item_selected"));
+    dialog.set(title_property, &title_size);
 
-    // Connect the find dialog.
+    // Setup and connect the find dialog.
     let mut dialog = self.get_child::<find_dialog::FindDialog>("FindDialog");
     dialog.connect("confirmed", &self.base().callable("find_confirmed"));
+    dialog.set(title_property, &title_size);
   }
 
   fn process(&mut self, _delta: f64) {
