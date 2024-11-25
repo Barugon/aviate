@@ -16,11 +16,12 @@ struct MainWidget {
   base: Base<Control>,
   config: config::Storage,
   chart_widget: OnReady<Gd<chart_widget::ChartWidget>>,
-  airport_label: OnReady<Gd<Label>>,
+  chart_info: Option<(String, Vec<path::PathBuf>)>,
   find_button: OnReady<Gd<Button>>,
+  airport_label: OnReady<Gd<Label>>,
   airport_reader: Option<nasr::AirportReader>,
   airport_infos: Option<Vec<nasr::AirportInfo>>,
-  chart_info: Option<(String, Vec<path::PathBuf>)>,
+  airport_status: AirportStatus,
 }
 
 #[godot_api]
@@ -206,15 +207,21 @@ impl MainWidget {
 #[godot_api]
 impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
+    let airport_status = AirportStatus {
+      index: nasr::AirportIndex::None,
+      pending: false,
+    };
+
     Self {
       base,
       config: config::Storage::new(),
       chart_widget: OnReady::manual(),
-      airport_label: OnReady::manual(),
+      chart_info: None,
       find_button: OnReady::manual(),
+      airport_label: OnReady::manual(),
       airport_reader: None,
       airport_infos: None,
-      chart_info: None,
+      airport_status,
     }
   }
 
@@ -294,22 +301,51 @@ impl IControl for MainWidget {
       return;
     };
 
-    // Show the airport label if the airport reader has the basic indexes.
-    let basic_idx = airport_reader.has_basic_idx();
-    self.airport_label.set_visible(basic_idx);
+    let index = airport_reader.get_index_level();
+    match self.airport_status.index {
+      nasr::AirportIndex::None => {
+        if index > nasr::AirportIndex::None {
+          // Show the APT label.
+          self.airport_label.set_visible(true);
+          self.airport_status.index = nasr::AirportIndex::Basic;
+        }
+      }
+      nasr::AirportIndex::Basic => {
+        match index.cmp(&nasr::AirportIndex::Basic) {
+          std::cmp::Ordering::Less => {
+            // Hide the APT label.
+            self.airport_label.set_visible(false);
+            self.airport_status.index = nasr::AirportIndex::None;
+          }
+          std::cmp::Ordering::Greater => {
+            // Show the find button.
+            self.find_button.set_visible(true);
+            self.airport_status.index = nasr::AirportIndex::Spatial;
+          }
+          std::cmp::Ordering::Equal => (),
+        }
+      }
+      nasr::AirportIndex::Spatial => {
+        if index < nasr::AirportIndex::Spatial {
+          // Hide the find button.
+          self.find_button.set_visible(false);
+          self.airport_status.index = nasr::AirportIndex::Basic;
+        }
+      }
+    }
 
-    // Set the airport label's color to indicate if its busy.
-    let property = "theme_override_colors/font_color";
-    let color = if airport_reader.request_count() > 0 {
-      Color::from_rgb(1.0, 1.0, 1.0)
-    } else {
-      Color::from_rgb(0.5, 0.5, 0.5)
-    };
-    self.airport_label.set(property, &Variant::from(color));
-
-    // Show the find button if the airport reader has a spatial index.
-    let spatial_idx = airport_reader.has_spatial_idx();
-    self.find_button.set_visible(spatial_idx);
+    let pending = airport_reader.request_count() > 0;
+    if pending != self.airport_status.pending {
+      // Set the airport label's color to indicate if its busy.
+      let property = "theme_override_colors/font_color";
+      let color = if pending {
+        Color::from_rgb(1.0, 1.0, 0.0)
+      } else {
+        Color::from_rgb(0.5, 0.5, 0.5)
+      };
+      self.airport_label.set(property, &Variant::from(color));
+      self.airport_status.pending = pending;
+    }
 
     let mut airport_infos = None;
     while let Some(reply) = airport_reader.get_reply() {
@@ -362,6 +398,11 @@ fn hide_buttons(node: Gd<Node>) {
       button.set_visible(false);
     }
   }
+}
+
+struct AirportStatus {
+  index: nasr::AirportIndex,
+  pending: bool,
 }
 
 fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
