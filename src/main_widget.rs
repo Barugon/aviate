@@ -233,7 +233,7 @@ impl IControl for MainWidget {
   }
 
   fn ready(&mut self) {
-    setup_window(DisplayServer::singleton(), self.config.get_win_info());
+    setup_window(self.config.get_win_info());
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
@@ -415,7 +415,8 @@ fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
 }
 
 /// Set the main window's size and position.
-fn setup_window(mut display_server: Gd<DisplayServer>, win_info: util::WinInfo) {
+fn setup_window(win_info: util::WinInfo) {
+  let mut display_server = DisplayServer::singleton();
   display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
 
   if win_info.maxed {
