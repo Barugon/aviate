@@ -301,6 +301,7 @@ impl IControl for MainWidget {
       return;
     };
 
+    // Check if the index level has changed.
     let index = airport_reader.get_index_level();
     match self.airport_status.index {
       nasr::AirportIndex::None => {
@@ -334,6 +335,7 @@ impl IControl for MainWidget {
       }
     }
 
+    // Check if there are pending requests.
     let pending = airport_reader.request_count() > 0;
     if pending != self.airport_status.pending {
       // Set the airport label's color to indicate if its busy.
@@ -347,6 +349,7 @@ impl IControl for MainWidget {
       self.airport_status.pending = pending;
     }
 
+    // Collect airport replies.
     let mut airport_infos = None;
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
@@ -381,6 +384,11 @@ impl IControl for MainWidget {
   }
 }
 
+struct AirportStatus {
+  index: nasr::AirportIndex,
+  pending: bool,
+}
+
 /// Hide the forward and back buttons.
 fn hide_buttons(node: Gd<Node>) {
   if let Ok(hbox) = node.get_children().at(0).try_cast::<HBoxContainer>() {
@@ -400,16 +408,13 @@ fn hide_buttons(node: Gd<Node>) {
   }
 }
 
-struct AirportStatus {
-  index: nasr::AirportIndex,
-  pending: bool,
-}
-
+/// Test if a key event has CMD or CTRL modifiers.
 fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
   event.get_modifiers_mask() == KeyModifierMask::CTRL
     || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
 }
 
+/// Set the main window's size and position.
 fn setup_window(mut display_server: Gd<DisplayServer>, win_info: util::WinInfo) {
   display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
 
