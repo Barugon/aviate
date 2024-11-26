@@ -119,11 +119,6 @@ impl MainWidget {
   }
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
-    self.get_child::<FileDialog>("FileDialog").hide();
-    if self.dialog_is_visible() {
-      return;
-    }
-
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Chart");
 
@@ -135,6 +130,7 @@ impl MainWidget {
   }
 
   fn select_airport(&mut self, airports: Vec<nasr::AirportInfo>) {
+    // It's possible to open a another dialog before the airport query is complete.
     if self.dialog_is_visible() {
       return;
     }
@@ -163,7 +159,6 @@ impl MainWidget {
         }
       }
       Err(err) => {
-        self.get_child::<FileDialog>("FileDialog").hide();
         self.show_alert(err.as_ref());
       }
     }
@@ -186,7 +181,6 @@ impl MainWidget {
         self.airport_reader = Some(airport_reader);
       }
       Err(err) => {
-        self.get_child::<FileDialog>("FileDialog").hide();
         self.show_alert(err.as_ref());
       }
     }
