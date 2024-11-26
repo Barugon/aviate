@@ -3,7 +3,7 @@ use godot::{
   classes::{
     display_server::WindowMode, notify::ControlNotification, AcceptDialog, Button, CheckButton,
     Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label,
-    PanelContainer,
+    PanelContainer, Window,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -47,7 +47,7 @@ impl MainWidget {
 
   #[func]
   fn find(&self) {
-    if !self.find_button.is_visible() {
+    if !self.find_button.is_visible() || self.dialog_is_visible() {
       return;
     }
 
@@ -68,7 +68,11 @@ impl MainWidget {
   }
 
   #[func]
-  fn open_zip_file(&self) {
+  fn select_zip_file(&self) {
+    if self.dialog_is_visible() {
+      return;
+    }
+
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
     if let Some(folder) = self.get_asset_folder() {
       dialog.set_current_dir(&folder);
@@ -115,6 +119,11 @@ impl MainWidget {
   }
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
+    self.get_child::<FileDialog>("FileDialog").hide();
+    if self.dialog_is_visible() {
+      return;
+    }
+
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Chart");
 
@@ -126,6 +135,10 @@ impl MainWidget {
   }
 
   fn select_airport(&mut self, airports: Vec<nasr::AirportInfo>) {
+    if self.dialog_is_visible() {
+      return;
+    }
+
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Airport");
 
@@ -150,6 +163,7 @@ impl MainWidget {
         }
       }
       Err(err) => {
+        self.get_child::<FileDialog>("FileDialog").hide();
         self.show_alert(err.as_ref());
       }
     }
@@ -172,6 +186,7 @@ impl MainWidget {
         self.airport_reader = Some(airport_reader);
       }
       Err(err) => {
+        self.get_child::<FileDialog>("FileDialog").hide();
         self.show_alert(err.as_ref());
       }
     }
@@ -197,6 +212,18 @@ impl MainWidget {
     if let Some(folder) = util::folder_string(path) {
       self.config.set_asset_folder(folder);
     }
+  }
+
+  /// Returns true if a dialog window is visible.
+  fn dialog_is_visible(&self) -> bool {
+    for child in self.base().get_children().iter_shared() {
+      if let Ok(window) = child.try_cast::<Window>() {
+        if window.is_exclusive() && window.is_visible() {
+          return true;
+        }
+      }
+    }
+    false
   }
 
   fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
@@ -258,7 +285,7 @@ impl IControl for MainWidget {
 
     // Connect the open button.
     let mut button = self.get_child::<Button>("OpenButton");
-    button.connect("pressed", &self.base().callable("open_zip_file"));
+    button.connect("pressed", &self.base().callable("select_zip_file"));
 
     // Connect the night mode button
     let mut button = self.get_child::<CheckButton>("NightModeButton");
@@ -378,8 +405,18 @@ impl IControl for MainWidget {
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {
     let event_key = event.cast::<InputEventKey>();
-    if event_key.get_keycode() == Key::F && cmd_or_ctrl(&event_key) {
-      self.find();
+    match event_key.get_keycode() {
+      Key::F => {
+        if cmd_or_ctrl(&event_key) {
+          self.find();
+        }
+      }
+      Key::O => {
+        if cmd_or_ctrl(&event_key) {
+          self.select_zip_file();
+        }
+      }
+      _ => (),
     }
   }
 }
