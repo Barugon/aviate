@@ -234,6 +234,8 @@ impl MainWidget {
 #[godot_api]
 impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
+    // util::compact_bounds_json();
+
     let airport_status = AirportStatus {
       index: nasr::AirportIndex::None,
       pending: false,
