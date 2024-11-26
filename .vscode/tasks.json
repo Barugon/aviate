@@ -22,6 +22,10 @@
     {
       "type": "cargo",
       "command": "clippy",
+      "args": [
+        "--features",
+        "dev"
+      ],
       "problemMatcher": [
         "$rustc"
       ],
@@ -35,6 +39,14 @@
         "$rustc"
       ],
       "label": "run"
+    },
+    {
+      "type": "shell",
+      "command": "cargo build --features dev && $GODOT4_BIN --path ${workspaceFolder}/godot",
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "label": "run dev"
     },
     {
       "type": "cargo",

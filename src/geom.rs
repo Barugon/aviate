@@ -29,16 +29,42 @@ impl Coord {
     Some(Self { x, y })
   }
 
-  pub fn to_geometry(&self) -> Option<vector::Geometry> {
+  pub fn to_geometry(self) -> Option<vector::Geometry> {
     let mut geom = vector::Geometry::empty(vector::OGRwkbGeometryType::wkbPoint).ok()?;
     geom.add_point_2d((self.x, self.y));
     Some(geom)
   }
 }
 
+impl From<Pos> for Coord {
+  fn from(pos: Pos) -> Self {
+    Self {
+      x: pos.x as f64,
+      y: pos.y as f64,
+    }
+  }
+}
+
 impl From<(f64, f64)> for Coord {
   fn from((x, y): (f64, f64)) -> Self {
     Self { x, y }
+  }
+}
+
+impl From<Coord> for Vector2 {
+  fn from(coord: Coord) -> Self {
+    Self::new(coord.x as f32, coord.y as f32)
+  }
+}
+
+impl ops::Sub<Coord> for Coord {
+  type Output = Self;
+
+  fn sub(self, coord: Coord) -> Self {
+    Self {
+      x: self.x - coord.x,
+      y: self.y - coord.y,
+    }
   }
 }
 

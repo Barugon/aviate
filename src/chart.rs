@@ -118,6 +118,8 @@ pub struct Transformation {
   to_dd: spatial_ref::CoordTransform,
   from_dd: spatial_ref::CoordTransform,
   bounds: Vec<geom::Coord>,
+  #[cfg(feature = "dev")]
+  points: Vec<geom::Coord>,
 }
 
 impl Transformation {
@@ -137,19 +139,26 @@ impl Transformation {
     let from_dd = spatial_ref::CoordTransform::new(&dd_sr, &chart_sr)?;
     let to_px = gdal::GeoTransformEx::invert(&from_px)?;
 
-    let bounds = if let Some(points) = get_polygon_bounds(chart_name, &from_px) {
+    let points = if let Some(points) = get_polygon_bounds(chart_name) {
       points
     } else {
       // Chart bounds not in the JSON, use the chart size.
-      let (xmin, ymin) = gdal::GeoTransformEx::apply(&from_px, 0.0, px_size.h as f64);
-      let (xmax, ymax) = gdal::GeoTransformEx::apply(&from_px, px_size.w as f64, 0.0);
-      let mut points = Vec::with_capacity(4);
-      points.push((xmin, ymin).into());
-      points.push((xmax, ymin).into());
-      points.push((xmax, ymax).into());
-      points.push((xmin, ymax).into());
-      points
+      let xmax = px_size.w as f64;
+      let ymax = px_size.h as f64;
+      vec![
+        (0.0, 0.0).into(),
+        (xmax, 0.0).into(),
+        (xmax, ymax).into(),
+        (0.0, ymax).into(),
+      ]
     };
+
+    // Convert the pixel coordinates to chart coordinates.
+    let mut bounds = Vec::with_capacity(points.len());
+    for point in &points {
+      let coord = gdal::GeoTransformEx::apply(&from_px, point.x, point.y);
+      bounds.push(geom::Coord::from(coord));
+    }
 
     Ok(Transformation {
       px_size,
@@ -159,6 +168,8 @@ impl Transformation {
       to_dd,
       from_dd,
       bounds,
+      #[cfg(feature = "dev")]
+      points,
     })
   }
 
@@ -175,6 +186,11 @@ impl Transformation {
   /// Get the bounds as chart coordinates.
   pub fn bounds(&self) -> &Vec<geom::Coord> {
     &self.bounds
+  }
+
+  #[cfg(feature = "dev")]
+  pub fn points(&self) -> &Vec<geom::Coord> {
+    &self.points
   }
 
   /// Convert a pixel coordinate to a chart coordinate.
@@ -363,7 +379,7 @@ impl RasterSource {
   }
 }
 
-fn get_polygon_bounds(name: &str, trans: &[f64; 6]) -> Option<Vec<geom::Coord>> {
+fn get_polygon_bounds(name: &str) -> Option<Vec<geom::Coord>> {
   // Parse the JSON.
   let json = Json::parse_string(util::BOUNDS_JSON);
   let dict = json.try_to::<Dictionary>().ok()?;
@@ -371,11 +387,11 @@ fn get_polygon_bounds(name: &str, trans: &[f64; 6]) -> Option<Vec<geom::Coord>> 
   // Find the chart.
   let array = dict.get(name)?.try_to::<Array<Variant>>().ok()?;
 
-  // Convert the pixel coordinates to chart coordinates.
+  // Collect the points.
   let mut points = Vec::with_capacity(array.len());
   for variant in array.iter_shared() {
     let coord = geom::Coord::from_variant(variant)?;
-    points.push(gdal::GeoTransformEx::apply(trans, coord.x, coord.y).into());
+    points.push((coord.x, coord.y).into());
   }
 
   Some(points)

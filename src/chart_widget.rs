@@ -216,6 +216,33 @@ impl ChartWidget {
     Some((zoom, pos))
   }
 
+  #[cfg(feature = "dev")]
+  fn draw_bounds(&mut self) {
+    let Some(raster_reader) = &self.raster_reader else {
+      return;
+    };
+
+    let source = raster_reader.transformation().points();
+    if source.is_empty() {
+      return;
+    }
+
+    let zoom = self.display_info.zoom as f64;
+    let pos = self.display_info.origin.into();
+    let mut dest = Vec::with_capacity(source.len() + 1);
+    for point in source {
+      let point = *point * zoom - pos;
+      dest.push(point.into());
+    }
+    dest.push(*dest.first().unwrap());
+
+    let color = Color::from_rgb(1.0, 0.0, 1.0);
+    let mut this = self.base_mut();
+    for idx in 1..dest.len() {
+      this.draw_line(dest[idx - 1], dest[idx], color);
+    }
+  }
+
   const MIN_ZOOM: f32 = 1.0 / 8.0;
   const MAX_ZOOM: f32 = 1.0;
 }
@@ -266,6 +293,9 @@ impl IControl for ChartWidget {
     if let Some((texture, rect)) = self.get_draw_info() {
       self.base_mut().draw_texture_rect(&texture, rect, false);
     };
+
+    #[cfg(feature = "dev")]
+    self.draw_bounds();
   }
 
   fn process(&mut self, _delta: f64) {

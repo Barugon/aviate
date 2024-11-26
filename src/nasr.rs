@@ -268,7 +268,7 @@ impl ToChart {
     bounds.add_geometry(ring)?;
 
     // Create a transformation from decimal degrees to chart coordinates.
-    let chart_sr = spatial_ref::SpatialRef::from_proj4(&proj4)?;
+    let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
     Ok(ToChart { trans, bounds })
   }
