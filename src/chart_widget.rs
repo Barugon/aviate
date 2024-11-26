@@ -59,7 +59,7 @@ impl ChartWidget {
       return;
     };
 
-    match raster_reader.transformation().nad83_to_px(coord) {
+    match raster_reader.transformation().dd_to_px(coord) {
       Ok(px) => {
         let chart_size = raster_reader.transformation().px_size();
         if chart_size.contains(px) {

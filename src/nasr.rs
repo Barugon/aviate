@@ -44,14 +44,15 @@ impl AirportReader {
         let request_count = request_count.clone();
         move || {
           // Create the name and ID indexes.
-          if source.create_basic_indexes() {
-            airport_status.set_has_basic_idx();
+          if source.create_basic_index() {
+            airport_status.set_has_basic_index();
           }
 
-          let nad83 = {
-            let mut nad83 = spatial_ref::SpatialRef::from_epsg(4269).unwrap();
-            nad83.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
-            nad83
+          let dd_sr = {
+            // FAA uses NAD83 for decimal degree coordinates.
+            let mut dd_sr = spatial_ref::SpatialRef::from_epsg(4269).unwrap();
+            dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+            dd_sr
           };
 
           // Chart transformation.
@@ -70,32 +71,22 @@ impl AirportReader {
           while let Ok(request) = trx.recv() {
             match request {
               AirportRequest::SpatialRef(spatial_info) => {
-                if airport_status.get() >= AirportIndex::Basic {
-                  airport_status.set_has_basic_idx();
-                  to_chart = None;
+                airport_status.set_has_basic_index();
+                source.clear_advanced_indexes();
+                to_chart = None;
 
-                  if let Some((proj4, bounds)) = spatial_info {
-                    match spatial_ref::SpatialRef::from_proj4(&proj4) {
-                      Ok(sr) => {
-                        match spatial_ref::CoordTransform::new(&nad83, &sr) {
-                          Ok(trans) => {
-                            let trans_info = ToChart { trans, bounds };
-                            // Create the airport spatial index.
-                            if source.create_spatial_index(&trans_info) {
-                              airport_status.set_has_spatial_idx();
-                              to_chart = Some(trans_info);
-                            }
-                          }
-                          Err(err) => {
-                            let err = format!("Unable to create coordinate transformation:\n{err}");
-                            send(AirportReply::Error(err.into()), false);
-                          }
-                        }
+                if let Some((proj4, points)) = spatial_info {
+                  match ToChart::new(&proj4, &points, &dd_sr) {
+                    Ok(trans_info) => {
+                      // Create the airport spatial index.
+                      if source.create_advanced_indexes(&trans_info) {
+                        airport_status.set_has_advanced_indexes();
+                        to_chart = Some(trans_info);
                       }
-                      Err(err) => {
-                        let err = format!("Unable to create spatial reference:\n{err}");
-                        send(AirportReply::Error(err.into()), false);
-                      }
+                    }
+                    Err(err) => {
+                      let err = format!("Unable to create transformation\n'{err}'");
+                      send(AirportReply::Error(err.into()), false);
                     }
                   }
                 }
@@ -120,6 +111,7 @@ impl AirportReader {
 
                   // Search for an airport ID first.
                   let reply = if let Some(info) = source.airport(&term) {
+                    // The airport ID index is not pre-filtered, so we need to check against the chart bounds.
                     if to_chart.contains(info.coord) {
                       AirportReply::Airport(info)
                     } else {
@@ -128,7 +120,7 @@ impl AirportReader {
                     }
                   } else {
                     // Airport ID not found, search the airport names.
-                    let infos = source.search(&term, to_chart, nph);
+                    let infos = source.search(&term, nph);
                     if infos.is_empty() {
                       let err = format!("Nothing on this chart matches\n'{term}'");
                       AirportReply::Error(err.into())
@@ -156,18 +148,6 @@ impl AirportReader {
     })
   }
 
-  /// True if the airport source has ID and name indexes.
-  #[allow(unused)]
-  pub fn has_basic_idx(&self) -> bool {
-    self.airport_status.get() >= AirportIndex::Basic
-  }
-
-  /// True if the airport source has a spatial index.
-  #[allow(unused)]
-  pub fn has_spatial_idx(&self) -> bool {
-    self.airport_status.get() >= AirportIndex::Spatial
-  }
-
   /// Get the airport index level.
   pub fn get_index_level(&self) -> AirportIndex {
     self.airport_status.get()
@@ -176,8 +156,8 @@ impl AirportReader {
   /// Set the chart spatial reference using a PROJ4 string.
   /// > **NOTE**: this is required for all queries other than `airport`.
   /// - `proj4`: PROJ4 text
-  /// - `bounds`: Chart bounds in LCC coordinates.
-  pub fn set_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
+  /// - `bounds`: chart bounds.
+  pub fn set_chart_spatial_ref(&self, proj4: String, bounds: Vec<geom::Coord>) {
     let request = AirportRequest::SpatialRef(Some((proj4, bounds)));
     self.tx.send(request).unwrap();
   }
@@ -203,7 +183,7 @@ impl AirportReader {
   #[allow(unused)]
   /// Request nearby airports.
   /// > **NOTE**: requires a chart spatial reference.
-  /// - `coord`: chart coordinate (LCC)
+  /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
@@ -239,7 +219,7 @@ impl AirportReader {
 }
 
 enum AirportRequest {
-  SpatialRef(Option<(String, geom::Bounds)>),
+  SpatialRef(Option<(String, Vec<geom::Coord>)>),
   Airport(String),
   Nearby(geom::Coord, f64, bool),
   Search(String, bool),
@@ -260,19 +240,55 @@ pub enum AirportReply {
 }
 
 struct ToChart {
-  /// Coordinate transformation from NAD83 to LCC.
+  /// Coordinate transformation from decimal degrees to chart coordinates.
   trans: spatial_ref::CoordTransform,
 
-  /// Chart bounds in LCC coordinates.
-  bounds: geom::Bounds,
+  /// Chart bounds.
+  bounds: vector::Geometry,
 }
 
 impl ToChart {
-  /// Test if a NAD83 coordinate is contained within the chart bounds.
-  fn contains(&self, nad83: geom::Coord) -> bool {
+  fn new(
+    proj4: &str,
+    points: &[geom::Coord],
+    dd_sr: &spatial_ref::SpatialRef,
+  ) -> Result<Self, errors::GdalError> {
+    // Add the points to a ring.
+    let mut ring = vector::Geometry::empty(vector::OGRwkbGeometryType::wkbLinearRing)?;
+    for point in points {
+      ring.add_point_2d((point.x, point.y));
+    }
+
+    // Close off the ring.
+    let point = points.first().unwrap();
+    ring.add_point_2d((point.x, point.y));
+
+    // Create a polygon from the ring.
+    let mut bounds = vector::Geometry::empty(vector::OGRwkbGeometryType::wkbPolygon)?;
+    bounds.add_geometry(ring)?;
+
+    // Create a transformation from decimal degrees to chart coordinates.
+    let chart_sr = spatial_ref::SpatialRef::from_proj4(&proj4)?;
+    let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
+    Ok(ToChart { trans, bounds })
+  }
+
+  /// Test if a decimal degree coordinate is within the chart bounds.
+  fn contains(&self, dd: geom::Coord) -> bool {
     use geom::Transform;
-    match self.trans.transform(nad83) {
-      Ok(lcc) => return self.bounds.contains(lcc),
+
+    // Convert to a chart coordinate.
+    match self.trans.transform(dd) {
+      Ok(chart) => {
+        // Create a geometry from the coordinate and test.
+        match vector::Geometry::empty(vector::OGRwkbGeometryType::wkbPoint) {
+          Ok(mut geom) => {
+            geom.add_point_2d((chart.x, chart.y));
+            return self.bounds.contains(&geom);
+          }
+          Err(err) => godot_error!("{err}"),
+        }
+      }
       Err(err) => godot_error!("{err}"),
     }
     false
@@ -283,22 +299,22 @@ impl ToChart {
 pub enum AirportIndex {
   None,
 
-  /// ID and name indexes are ready.
+  /// Airport ID index is ready.
   Basic,
 
-  /// Spatial index is ready.
-  Spatial,
+  /// Name and spatial indexes are ready.
+  Advanced,
 }
 
 impl From<u8> for AirportIndex {
   fn from(value: u8) -> Self {
     const NONE: u8 = AirportIndex::None as u8;
     const BASIC: u8 = AirportIndex::Basic as u8;
-    const SPATIAL: u8 = AirportIndex::Spatial as u8;
+    const SPATIAL: u8 = AirportIndex::Advanced as u8;
     match value {
       NONE => AirportIndex::None,
       BASIC => AirportIndex::Basic,
-      SPATIAL => AirportIndex::Spatial,
+      SPATIAL => AirportIndex::Advanced,
       _ => unreachable!(),
     }
   }
@@ -317,12 +333,12 @@ impl AirportStatusSync {
     }
   }
 
-  fn set_has_basic_idx(&mut self) {
+  fn set_has_basic_index(&mut self) {
     self.set(AirportIndex::Basic);
   }
 
-  fn set_has_spatial_idx(&mut self) {
-    self.set(AirportIndex::Spatial);
+  fn set_has_advanced_indexes(&mut self) {
+    self.set(AirportIndex::Advanced);
   }
 
   fn set(&mut self, status: AirportIndex) {
@@ -337,8 +353,8 @@ impl AirportStatusSync {
 struct AirportSource {
   dataset: gdal::Dataset,
   count: u64,
-  name_vec: Vec<(String, u64)>,
   id_map: collections::HashMap<String, u64>,
+  name_vec: Vec<(String, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
 }
 
@@ -363,26 +379,19 @@ impl AirportSource {
     Ok(Self {
       dataset,
       count,
-      name_vec: Vec::new(),
       id_map: collections::HashMap::new(),
+      name_vec: Vec::new(),
       sp_idx: rstar::RTree::new(),
     })
   }
 
-  // Create the name and ID indexes.
-  fn create_basic_indexes(&mut self) -> bool {
+  // Create the airport ID index.
+  fn create_basic_index(&mut self) -> bool {
     use vector::LayerAccess;
 
-    let count = self.count as usize;
-    let mut name_vec = Vec::with_capacity(count);
-    let mut id_map = collections::HashMap::with_capacity(count);
+    let mut id_map = collections::HashMap::with_capacity(self.count as usize);
     for feature in self.layer().features() {
       if let Some(fid) = feature.fid() {
-        // Add the airport name to the name vector.
-        if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
-          name_vec.push((name, fid));
-        }
-
         // Add the airport IDs to the ID index.
         if let Some(id) = feature.get_string(AirportInfo::AIRPORT_ID) {
           id_map.insert(id, fid);
@@ -390,32 +399,46 @@ impl AirportSource {
       }
     }
 
-    self.name_vec = name_vec;
     self.id_map = id_map;
-    !self.name_vec.is_empty() && !self.id_map.is_empty()
+    !self.id_map.is_empty()
   }
 
-  /// Create the spatial index.
+  /// Create the name and spatial indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
-  fn create_spatial_index(&mut self, to_chart: &ToChart) -> bool {
+  fn create_advanced_indexes(&mut self, to_chart: &ToChart) -> bool {
     use vector::LayerAccess;
 
-    let mut loc_vec = Vec::with_capacity(self.count as usize);
+    let mut name_vec = Vec::new();
+    let mut loc_vec = Vec::new();
     for feature in self.layer().features() {
       if let Some(fid) = feature.fid() {
         use geom::Transform;
         if let Some(coord) = feature
           .get_coord()
-          .and_then(|nad83| to_chart.trans.transform(nad83).ok())
+          .and_then(|dd| to_chart.trans.transform(dd).ok())
         {
-          if to_chart.bounds.contains(coord) {
-            loc_vec.push(LocIdx { coord, fid })
+          if let Some(geom) = coord.to_geometry() {
+            if to_chart.bounds.contains(&geom) {
+              // Add the airport name to the name vector.
+              if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
+                name_vec.push((name, fid));
+              }
+
+              loc_vec.push(LocIdx { coord, fid })
+            }
           }
         }
       }
     }
+
+    self.name_vec = name_vec;
     self.sp_idx = rstar::RTree::bulk_load(loc_vec);
-    self.sp_idx.size() > 0
+    !self.name_vec.is_empty() && self.sp_idx.size() > 0
+  }
+
+  fn clear_advanced_indexes(&mut self) {
+    self.name_vec = Vec::new();
+    self.sp_idx = rstar::RTree::new();
   }
 
   /// Get `AirportInfo` for the specified airport ID.
@@ -430,8 +453,8 @@ impl AirportSource {
   }
 
   /// Find airports within a search radius.
-  /// > **NOTE**: requires spatial index.
-  /// - `coord`: chart coordinate (LCC)
+  /// > **NOTE**: requires advanced indexes.
+  /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
   fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) -> Vec<AirportInfo> {
@@ -463,18 +486,18 @@ impl AirportSource {
   }
 
   /// Search for airports with names that contain the specified text.
+  /// > **NOTE**: requires advanced indexes.
   /// - `term`: search text
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `nph`: include non-public heliports
-  fn search(&self, term: &str, to_chart: &ToChart, nph: bool) -> Vec<AirportInfo> {
+  fn search(&self, term: &str, nph: bool) -> Vec<AirportInfo> {
     use vector::LayerAccess;
     let layer = self.layer();
     let mut airports = Vec::new();
     for (name, fid) in &self.name_vec {
       if name.contains(term) {
         if let Some(info) = layer.feature(*fid).and_then(AirportInfo::new) {
-          // Make sure the coordinate (NAD83) is within the chart bounds.
-          if (nph || !info.non_public_heliport()) && to_chart.contains(info.coord) {
+          if nph || !info.non_public_heliport() {
             airports.push(info);
           }
         }
@@ -525,7 +548,7 @@ pub struct AirportInfo {
   /// Airport name.
   pub name: String,
 
-  /// Coordinate in decimal degrees (NAD 83).
+  /// Coordinate in decimal degrees.
   pub coord: geom::Coord,
 
   /// Airport type.

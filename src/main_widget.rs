@@ -154,7 +154,7 @@ impl MainWidget {
             // Send the chart spatial reference to the airport reader.
             let proj4 = transformation.get_proj4();
             let bounds = transformation.bounds().clone();
-            airport_reader.set_spatial_ref(proj4, bounds);
+            airport_reader.set_chart_spatial_ref(proj4, bounds);
           }
         }
       }
@@ -176,7 +176,7 @@ impl MainWidget {
           // Send the chart spatial reference to the airport reader.
           let proj4 = transformation.get_proj4();
           let bounds = transformation.bounds().clone();
-          airport_reader.set_spatial_ref(proj4, bounds);
+          airport_reader.set_chart_spatial_ref(proj4, bounds);
         }
         self.airport_reader = Some(airport_reader);
       }
@@ -344,13 +344,13 @@ impl IControl for MainWidget {
           std::cmp::Ordering::Greater => {
             // Show the find button.
             self.find_button.set_visible(true);
-            self.airport_status.index = nasr::AirportIndex::Spatial;
+            self.airport_status.index = nasr::AirportIndex::Advanced;
           }
           std::cmp::Ordering::Equal => (),
         }
       }
-      nasr::AirportIndex::Spatial => {
-        if index < nasr::AirportIndex::Spatial {
+      nasr::AirportIndex::Advanced => {
+        if index < nasr::AirportIndex::Advanced {
           // Hide the find button.
           self.find_button.set_visible(false);
           self.airport_status.index = nasr::AirportIndex::Basic;

@@ -1,5 +1,9 @@
 use crate::{geom, util};
 use gdal::{raster, spatial_ref};
+use godot::{
+  builtin::{Array, Dictionary, Variant},
+  classes::Json,
+};
 use std::{any, hash::Hash, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
@@ -105,53 +109,62 @@ pub enum RasterReply {
   Error(ImagePart, util::Error),
 }
 
-/// Transformations between pixel, chart (LCC) and NAD83 coordinates.
+/// Transformations between pixel, chart and decimal degree coordinates.
 pub struct Transformation {
   px_size: geom::Size,
-  spatial_ref: spatial_ref::SpatialRef,
+  chart_sr: spatial_ref::SpatialRef,
   to_px: gdal::GeoTransform,
-  #[allow(unused)]
   from_px: gdal::GeoTransform,
-  #[allow(unused)]
-  to_nad83: spatial_ref::CoordTransform,
-  from_nad83: spatial_ref::CoordTransform,
-  bounds: geom::Bounds,
+  to_dd: spatial_ref::CoordTransform,
+  from_dd: spatial_ref::CoordTransform,
+  bounds: Vec<geom::Coord>,
 }
 
 impl Transformation {
   fn new(
+    chart_name: &str,
     px_size: geom::Size,
-    spatial_ref: spatial_ref::SpatialRef,
-    geo_transform: gdal::GeoTransform,
+    chart_sr: spatial_ref::SpatialRef,
+    from_px: gdal::GeoTransform,
   ) -> Result<Self, gdal::errors::GdalError> {
     // FAA uses NAD83.
-    let mut nad83 = spatial_ref::SpatialRef::from_epsg(4269)?;
+    let mut dd_sr = spatial_ref::SpatialRef::from_epsg(4269)?;
 
     // Respect X/Y order when converting to/from lat/lon coordinates.
-    nad83.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+    dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
 
-    let to_nad83 = spatial_ref::CoordTransform::new(&spatial_ref, &nad83)?;
-    let from_nad83 = spatial_ref::CoordTransform::new(&nad83, &spatial_ref)?;
-    let to_px = gdal::GeoTransformEx::invert(&geo_transform)?;
-    let bounds = geom::Bounds {
-      min: gdal::GeoTransformEx::apply(&geo_transform, 0.0, px_size.h as f64).into(),
-      max: gdal::GeoTransformEx::apply(&geo_transform, px_size.w as f64, 0.0).into(),
+    let to_dd = spatial_ref::CoordTransform::new(&chart_sr, &dd_sr)?;
+    let from_dd = spatial_ref::CoordTransform::new(&dd_sr, &chart_sr)?;
+    let to_px = gdal::GeoTransformEx::invert(&from_px)?;
+
+    let bounds = if let Some(points) = get_polygon_bounds(chart_name, &from_px) {
+      points
+    } else {
+      // Chart bounds not in the JSON, use the chart size.
+      let (xmin, ymin) = gdal::GeoTransformEx::apply(&from_px, 0.0, px_size.h as f64);
+      let (xmax, ymax) = gdal::GeoTransformEx::apply(&from_px, px_size.w as f64, 0.0);
+      let mut points = Vec::with_capacity(4);
+      points.push((xmin, ymin).into());
+      points.push((xmax, ymin).into());
+      points.push((xmax, ymax).into());
+      points.push((xmin, ymax).into());
+      points
     };
 
     Ok(Transformation {
       px_size,
-      spatial_ref,
+      chart_sr,
       to_px,
-      from_px: geo_transform,
-      to_nad83,
-      from_nad83,
+      from_px,
+      to_dd,
+      from_dd,
       bounds,
     })
   }
 
   /// Get the spatial reference as a proj4 string.
   pub fn get_proj4(&self) -> String {
-    self.spatial_ref.to_proj4().unwrap()
+    self.chart_sr.to_proj4().unwrap()
   }
 
   /// Get the full size of the chart in pixels.
@@ -159,12 +172,11 @@ impl Transformation {
     self.px_size
   }
 
-  /// Get the bounds as chart (LCC) coordinates.
-  pub fn bounds(&self) -> &geom::Bounds {
+  /// Get the bounds as chart coordinates.
+  pub fn bounds(&self) -> &Vec<geom::Coord> {
     &self.bounds
   }
 
-  #[allow(unused)]
   /// Convert a pixel coordinate to a chart coordinate.
   /// - `coord`: pixel coordinate
   pub fn px_to_chart(&self, coord: geom::Coord) -> geom::Coord {
@@ -177,36 +189,35 @@ impl Transformation {
     gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into()
   }
 
-  #[allow(unused)]
-  /// Convert a chart coordinate to a NAD83 coordinate.
+  /// Convert a chart coordinate to a decimal degree coordinate.
   /// - `coord`: chart coordinate
-  pub fn chart_to_nad83(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+  pub fn chart_to_dd(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     let mut x = [coord.x];
     let mut y = [coord.y];
-    self.to_nad83.transform_coords(&mut x, &mut y, &mut [])?;
+    self.to_dd.transform_coords(&mut x, &mut y, &mut [])?;
     Ok(geom::Coord { x: x[0], y: y[0] })
   }
 
-  /// Convert a NAD83 coordinate to a chart coordinate.
-  /// - `coord`: NAD83 coordinate
-  pub fn nad83_to_chart(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+  /// Convert a decimal degree coordinate to a chart coordinate.
+  /// - `coord`: decimal degree coordinate
+  pub fn dd_to_chart(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     let mut x = [coord.x];
     let mut y = [coord.y];
-    self.from_nad83.transform_coords(&mut x, &mut y, &mut [])?;
+    self.from_dd.transform_coords(&mut x, &mut y, &mut [])?;
     Ok(geom::Coord { x: x[0], y: y[0] })
   }
 
   #[allow(unused)]
-  /// Convert a pixel coordinate to a NAD83 coordinate.
+  /// Convert a pixel coordinate to a decimal degree coordinate.
   /// - `coord`: pixel coordinate
-  pub fn px_to_nad83(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
-    self.chart_to_nad83(self.px_to_chart(coord))
+  pub fn px_to_dd(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+    self.chart_to_dd(self.px_to_chart(coord))
   }
 
-  /// Convert a NAD83 coordinate to a pixel coordinate.
-  /// - `coord`: NAD83 coordinate
-  pub fn nad83_to_px(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
-    let coord = self.nad83_to_chart(coord);
+  /// Convert a decimal degree coordinate to a pixel coordinate.
+  /// - `coord`: decimal degree coordinate
+  pub fn dd_to_px(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+    let coord = self.dd_to_chart(coord);
     coord.map(|coord| self.chart_to_px(coord))
   }
 }
@@ -283,10 +294,12 @@ impl RasterSource {
           return Err("Unable to open chart:\ninvalid pixel size".into());
         }
 
-        let transformation = match Transformation::new(px_size, spatial_ref, geo_transformation) {
-          Ok(trans) => trans,
-          Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
-        };
+        let chart_name = util::stem_str(path).unwrap();
+        let transformation =
+          match Transformation::new(chart_name, px_size, spatial_ref, geo_transformation) {
+            Ok(trans) => trans,
+            Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+          };
 
         let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
           // The raster bands start at index one.
@@ -348,4 +361,22 @@ impl RasterSource {
       Some(gdal::raster::ResampleAlg::Average),
     )
   }
+}
+
+fn get_polygon_bounds(name: &str, trans: &[f64; 6]) -> Option<Vec<geom::Coord>> {
+  // Parse the JSON.
+  let json = Json::parse_string(util::BOUNDS_JSON);
+  let dict = json.try_to::<Dictionary>().ok()?;
+
+  // Find the chart.
+  let array = dict.get(name)?.try_to::<Array<Variant>>().ok()?;
+
+  // Convert the pixel coordinates to chart coordinates.
+  let mut points = Vec::with_capacity(array.len());
+  for variant in array.iter_shared() {
+    let coord = geom::Coord::from_variant(variant)?;
+    points.push(gdal::GeoTransformEx::apply(trans, coord.x, coord.y).into());
+  }
+
+  Some(points)
 }

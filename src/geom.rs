@@ -1,4 +1,4 @@
-use gdal::spatial_ref;
+use gdal::{spatial_ref, vector};
 use godot::prelude::*;
 use std::{cmp, ops};
 
@@ -21,6 +21,21 @@ pub struct Coord {
   pub y: f64,
 }
 
+impl Coord {
+  pub fn from_variant(value: Variant) -> Option<Self> {
+    let value = value.try_to::<Array<Variant>>().ok()?;
+    let x = value.get(0)?.try_to::<f64>().ok()?;
+    let y = value.get(1)?.try_to::<f64>().ok()?;
+    Some(Self { x, y })
+  }
+
+  pub fn to_geometry(&self) -> Option<vector::Geometry> {
+    let mut geom = vector::Geometry::empty(vector::OGRwkbGeometryType::wkbPoint).ok()?;
+    geom.add_point_2d((self.x, self.y));
+    Some(geom)
+  }
+}
+
 impl From<(f64, f64)> for Coord {
   fn from((x, y): (f64, f64)) -> Self {
     Self { x, y }
@@ -35,18 +50,6 @@ impl ops::Mul<f64> for Coord {
       x: self.x * scale,
       y: self.y * scale,
     }
-  }
-}
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Bounds {
-  pub min: Coord,
-  pub max: Coord,
-}
-
-impl Bounds {
-  pub fn contains(&self, coord: Coord) -> bool {
-    coord.x >= self.min.x && coord.x < self.max.x && coord.y >= self.min.y && coord.y < self.max.y
   }
 }
 
