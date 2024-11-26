@@ -19,6 +19,7 @@
     "rasterband",
     "reloadable",
     "rstar",
+    "rwkb",
     "serde",
     "tfws",
     "tifs",
