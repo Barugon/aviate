@@ -1,9 +1,5 @@
-use crate::{geom, util};
+use crate::{config, geom, util};
 use gdal::{raster, spatial_ref};
-use godot::{
-  builtin::{Array, Dictionary, Variant},
-  classes::Json,
-};
 use std::{any, hash::Hash, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
@@ -139,7 +135,7 @@ impl Transformation {
     let from_dd = spatial_ref::CoordTransform::new(&dd_sr, &chart_sr)?;
     let to_px = gdal::GeoTransformEx::invert(&from_px)?;
 
-    let points = if let Some(points) = get_polygon_bounds(chart_name) {
+    let points = if let Some(points) = config::get_chart_bounds(chart_name) {
       points
     } else {
       // Chart bounds not in the JSON, use the chart size.
@@ -377,22 +373,4 @@ impl RasterSource {
       Some(gdal::raster::ResampleAlg::Average),
     )
   }
-}
-
-fn get_polygon_bounds(name: &str) -> Option<Vec<geom::Coord>> {
-  // Parse the JSON.
-  let json = Json::parse_string(util::BOUNDS_JSON);
-  let dict = json.try_to::<Dictionary>().ok()?;
-
-  // Find the chart.
-  let array = dict.get(name)?.try_to::<Array<Variant>>().ok()?;
-
-  // Collect the points.
-  let mut points = Vec::with_capacity(array.len());
-  for variant in array.iter_shared() {
-    let coord = geom::Coord::from_variant(variant)?;
-    points.push((coord.x, coord.y).into());
-  }
-
-  Some(points)
 }

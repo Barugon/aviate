@@ -3,21 +3,13 @@ use gdal::raster;
 use godot::{
   classes::{
     display_server::WindowMode, file_access::ModeFlags, os::SystemDir, DisplayServer, FileAccess,
-    Json, Os,
+    Os,
   },
   prelude::*,
 };
 use std::{borrow, cmp, collections, ops, path};
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
-pub const BOUNDS_JSON: &str = include_str!("../res/bounds.json");
-
-#[allow(unused)]
-pub fn compact_bounds_json() {
-  let text = Json::stringify(&Json::parse_string(BOUNDS_JSON));
-  let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
-  store_text(&path, &text);
-}
 
 /// Error message as either `&'static str` or `String`.
 pub type Error = borrow::Cow<'static, str>;

@@ -1,4 +1,4 @@
-use crate::util;
+use crate::{geom, util};
 use godot::{classes::Json, prelude::*};
 use std::{cell, path, rc, sync::atomic};
 
@@ -78,6 +78,9 @@ struct Items {
 
 impl Items {
   fn load(path: path::PathBuf) -> Self {
+    #[cfg(feature = "dev")]
+    perform_housekeeping();
+
     let items = Self::load_items(&path);
     let changed = atomic::AtomicBool::new(false);
     Self {
@@ -132,4 +135,81 @@ impl Drop for Items {
   fn drop(&mut self) {
     self.store();
   }
+}
+
+const BOUNDS_JSON: &str = include_str!("../res/bounds.json");
+
+// Get the bounds for the specified chart in pixel coordinates.
+pub fn get_chart_bounds(chart_name: &str) -> Option<Vec<geom::Coord>> {
+  // Parse the bounds JSON.
+  let json = Json::parse_string(BOUNDS_JSON);
+  let dict = json.try_to::<Dictionary>().ok()?;
+
+  // Find the chart.
+  let array = dict.get(chart_name)?.try_to::<Array<Variant>>().ok()?;
+
+  // Collect the points.
+  let mut points = Vec::with_capacity(array.len());
+  for variant in array.iter_shared() {
+    let coord = geom::Coord::from_variant(variant)?;
+    points.push((coord.x, coord.y).into());
+  }
+
+  Some(points)
+}
+
+#[cfg(feature = "dev")]
+fn perform_housekeeping() {
+  compact_bounds_json();
+  convert_path();
+}
+
+#[cfg(feature = "dev")]
+fn convert_path() {
+  let path = path::PathBuf::from(util::get_downloads_folder().to_string()).join("path");
+  let Some(text) = util::load_text(&path) else {
+    return;
+  };
+
+  let text = text.to_string();
+  let Some(pos) = text.find("d=\"M ") else {
+    return;
+  };
+
+  let text = &text[pos + 5..];
+  let Some(pos) = text.find(" C ") else {
+    return;
+  };
+
+  let text = &text[pos + 3..];
+  let Some(pos) = text.find("\" />") else {
+    return;
+  };
+
+  let text = &text[..pos];
+  let mut prev = Default::default();
+  let mut result = String::new();
+
+  result += "[[";
+  for (idx, item) in text.split_ascii_whitespace().enumerate() {
+    if item == prev {
+      continue;
+    }
+
+    if idx > 0 {
+      result += "],[";
+    }
+    result += item;
+    prev = item;
+  }
+  result += "]]";
+
+  util::store_text(&path, &GString::from(result));
+}
+
+#[cfg(feature = "dev")]
+fn compact_bounds_json() {
+  let text = Json::stringify(&Json::parse_string(BOUNDS_JSON));
+  let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
+  util::store_text(&path, &text);
 }
