@@ -79,7 +79,7 @@ struct Items {
 impl Items {
   fn load(path: path::PathBuf) -> Self {
     #[cfg(feature = "dev")]
-    convert_path();
+    convert_svg();
 
     let items = Self::load_items(&path);
     let changed = atomic::AtomicBool::new(false);
@@ -159,43 +159,18 @@ pub fn get_chart_bounds(chart_name: &str) -> Option<Vec<geom::Coord>> {
 }
 
 #[cfg(feature = "dev")]
-fn convert_path() {
-  let file_name: &str = "";
-  if file_name.is_empty() {
-    return;
-  }
-
-  // Load the path file.
-  let path = path::PathBuf::from(util::get_downloads_folder().to_string()).join(file_name);
-  let Some(text) = util::load_text(&path) else {
+fn convert_svg() {
+  let Some(svg_info) = find_svg() else {
     return;
   };
 
-  // Find the start of the points text.
-  let text = text.to_string();
-  let Some(pos) = text.find("d=\"M ") else {
-    return;
-  };
-
-  let text = &text[pos + 5..];
-  let Some(pos) = text.find(" C ") else {
-    return;
-  };
-
-  // Find the end of the points text.
-  let text = &text[pos + 3..];
-  let Some(pos) = text.find("\" />") else {
-    return;
-  };
-
-  let text = &text[..pos];
   let mut prev = Default::default();
   let mut result = String::new();
 
   // Create a JSON array from the points.
   result += "[[";
-  for (idx, item) in text.split_ascii_whitespace().enumerate() {
-    if item == prev {
+  for (idx, item) in svg_info.point_text.split_ascii_whitespace().enumerate() {
+    if item == prev || item == "C" {
       continue;
     }
 
@@ -227,8 +202,60 @@ fn convert_path() {
   };
 
   // Set the new entry.
-  dict.set(file_name, Variant::from(array));
+  dict.set(GString::from(&svg_info.file_name), Variant::from(array));
 
   // Store the bounds JSON file.
   util::store_text(&path, &Json::stringify(&variant));
+
+  godot_print!("Added \"{}\" bounds", svg_info.file_name);
+}
+
+#[cfg(feature = "dev")]
+struct SVGInfo {
+  file_name: String,
+  point_text: String,
+}
+
+#[cfg(feature = "dev")]
+fn find_svg() -> Option<SVGInfo> {
+  let folder = path::PathBuf::from(util::get_downloads_folder().to_string()).join("convert");
+  for entry in std::fs::read_dir(&folder).ok()? {
+    let Ok(entry) = entry else {
+      continue;
+    };
+
+    let path = entry.path();
+    let Some(ext) = path.extension() else {
+      continue;
+    };
+
+    if !ext.eq_ignore_ascii_case("svg") {
+      continue;
+    }
+    // Load the path file.
+    let Some(text) = util::load_text(&path) else {
+      continue;
+    };
+
+    // Find the start of the points text.
+    let text = text.to_string();
+    let tag = "d=\"M ";
+    let Some(pos) = text.find(tag) else {
+      continue;
+    };
+
+    // Find the end of the points text.
+    let text = &text[pos + tag.len()..];
+    let tag = "\" />";
+    let Some(pos) = text.find(tag) else {
+      continue;
+    };
+
+    return Some(SVGInfo {
+      file_name: util::stem_str(&path).unwrap().into(),
+      point_text: text[..pos].into(),
+    });
+  }
+
+  None
 }
