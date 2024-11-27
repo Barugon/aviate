@@ -79,7 +79,7 @@ struct Items {
 impl Items {
   fn load(path: path::PathBuf) -> Self {
     #[cfg(feature = "dev")]
-    perform_housekeeping();
+    convert_path();
 
     let items = Self::load_items(&path);
     let changed = atomic::AtomicBool::new(false);
@@ -159,18 +159,19 @@ pub fn get_chart_bounds(chart_name: &str) -> Option<Vec<geom::Coord>> {
 }
 
 #[cfg(feature = "dev")]
-fn perform_housekeeping() {
-  compact_bounds_json();
-  convert_path();
-}
-
-#[cfg(feature = "dev")]
 fn convert_path() {
-  let path = path::PathBuf::from(util::get_downloads_folder().to_string()).join("path");
+  let file_name: &str = "";
+  if file_name.is_empty() {
+    return;
+  }
+
+  // Load the path file.
+  let path = path::PathBuf::from(util::get_downloads_folder().to_string()).join(file_name);
   let Some(text) = util::load_text(&path) else {
     return;
   };
 
+  // Find the start of the points text.
   let text = text.to_string();
   let Some(pos) = text.find("d=\"M ") else {
     return;
@@ -181,6 +182,7 @@ fn convert_path() {
     return;
   };
 
+  // Find the end of the points text.
   let text = &text[pos + 3..];
   let Some(pos) = text.find("\" />") else {
     return;
@@ -190,6 +192,7 @@ fn convert_path() {
   let mut prev = Default::default();
   let mut result = String::new();
 
+  // Create a JSON array from the points.
   result += "[[";
   for (idx, item) in text.split_ascii_whitespace().enumerate() {
     if item == prev {
@@ -199,17 +202,33 @@ fn convert_path() {
     if idx > 0 {
       result += "],[";
     }
+
     result += item;
     prev = item;
   }
   result += "]]";
 
-  util::store_text(&path, &GString::from(result));
-}
+  // Parse the array.
+  let variant = Json::parse_string(&result);
+  let Ok(array) = variant.try_to::<Array<Variant>>() else {
+    return;
+  };
 
-#[cfg(feature = "dev")]
-fn compact_bounds_json() {
-  let text = Json::stringify(&Json::parse_string(BOUNDS_JSON));
+  // Load the bounds JSON file.
   let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
-  util::store_text(&path, &text);
+  let Some(text) = util::load_text(&path) else {
+    return;
+  };
+
+  // Parse the JSON.
+  let variant = Json::parse_string(&text);
+  let Ok(mut dict) = variant.try_to::<Dictionary>() else {
+    return;
+  };
+
+  // Set the new entry.
+  dict.set(file_name, Variant::from(array));
+
+  // Store the bounds JSON file.
+  util::store_text(&path, &Json::stringify(&variant));
 }
