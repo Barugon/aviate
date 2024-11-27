@@ -229,7 +229,7 @@ impl ChartWidget {
 
     let zoom = self.display_info.zoom as f64;
     let pos = self.display_info.origin.into();
-    let mut dest = Vec::with_capacity(source.len() + 1);
+    let mut dest: Vec<Vector2> = Vec::with_capacity(source.len() + 1);
     for point in source {
       let point = *point * zoom - pos;
       dest.push(point.into());
@@ -238,9 +238,11 @@ impl ChartWidget {
 
     let color = Color::from_rgb(1.0, 0.0, 1.0);
     let mut this = self.base_mut();
-    for idx in 1..dest.len() {
-      this.draw_line(dest[idx - 1], dest[idx], color);
-    }
+    this
+      .draw_polyline_ex(&dest.into(), color)
+      .width(1.0)
+      .antialiased(true)
+      .done();
   }
 
   const MIN_ZOOM: f32 = 1.0 / 8.0;
