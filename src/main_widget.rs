@@ -301,18 +301,18 @@ impl IControl for MainWidget {
     button.set_pressed(show_bounds);
     button.connect("toggled", &self.base().callable("toggle_show_bounds"));
 
-    let title_property = "theme_override_font_sizes/title_font_size";
+    let title_property = StringName::from("theme_override_font_sizes/title_font_size");
     let title_size = Variant::from(18.0);
 
     // Setup the file dialog.
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
     dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
-    dialog.set(title_property, &title_size);
+    dialog.set(&title_property, &title_size);
     hide_buttons(dialog.get_vbox().unwrap().upcast());
 
     // Setup the alert dialog.
     let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
-    dialog.set(title_property, &title_size);
+    dialog.set(&title_property, &title_size);
 
     if let Some(label) = dialog.get_label() {
       let mut label = label;
@@ -324,12 +324,12 @@ impl IControl for MainWidget {
     // Setup and connect the select dialog.
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.connect("selected", &self.base().callable("item_selected"));
-    dialog.set(title_property, &title_size);
+    dialog.set(&title_property, &title_size);
 
     // Setup and connect the find dialog.
     let mut dialog = self.get_child::<find_dialog::FindDialog>("FindDialog");
     dialog.connect("confirmed", &self.base().callable("find_confirmed"));
-    dialog.set(title_property, &title_size);
+    dialog.set(&title_property, &title_size);
   }
 
   fn process(&mut self, _delta: f64) {
