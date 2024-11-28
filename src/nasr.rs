@@ -85,7 +85,7 @@ impl AirportReader {
                       }
                     }
                     Err(err) => {
-                      let err = format!("Unable to create transformation\n'{err}'");
+                      let err = format!("Unable to create transformation:\n{err}");
                       send(AirportReply::Error(err.into()), false);
                     }
                   }
