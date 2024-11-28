@@ -196,12 +196,12 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom
 
 #[cfg(feature = "dev")]
 fn convert_bounds_svgs() {
-  let folder = path::PathBuf::from(util::get_downloads_folder().to_string()).join("convert");
+  let folder = path::PathBuf::from(util::get_downloads_folder().to_string()).join("bounds");
   let Ok(files) = std::fs::read_dir(&folder) else {
     return;
   };
 
-  // Search for svg files in 'Downloads/convert'.
+  // Search for svg files in 'Downloads/bounds'.
   for entry in files {
     let Ok(entry) = entry else {
       continue;
