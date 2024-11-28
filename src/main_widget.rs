@@ -209,7 +209,7 @@ impl MainWidget {
   }
 
   fn save_asset_folder(&mut self, path: &str) {
-    if let Some(folder) = util::folder_string(path) {
+    if let Some(folder) = util::folder_gstring(path) {
       self.config.set_asset_folder(folder);
     }
   }
