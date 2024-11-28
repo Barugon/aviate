@@ -43,6 +43,22 @@ impl Storage {
     None
   }
 
+  pub fn set_show_bounds(&mut self, bounds: bool) {
+    let value = Variant::from(bounds);
+    let mut items = (*self.items).borrow_mut();
+    items.set(Storage::SHOW_BOUNDS_KEY, value);
+    items.store();
+  }
+
+  pub fn get_show_bounds(&self) -> Option<bool> {
+    let items = (*self.items).borrow();
+    match items.get(Storage::SHOW_BOUNDS_KEY)?.try_to::<bool>() {
+      Ok(value) => return Some(value),
+      Err(err) => godot_error!("{err}"),
+    }
+    None
+  }
+
   pub fn set_asset_folder(&mut self, folder: GString) {
     let value = Variant::from(folder);
     let mut items = (*self.items).borrow_mut();
@@ -67,6 +83,7 @@ impl Storage {
 
   const WIN_INFO_KEY: &'static str = "win_info";
   const NIGHT_MODE_KEY: &'static str = "night_mode";
+  const SHOW_BOUNDS_KEY: &'static str = "show_bounds";
   const ASSET_FOLDER_KEY: &'static str = "asset_folder";
 }
 

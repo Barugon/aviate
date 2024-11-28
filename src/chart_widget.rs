@@ -54,6 +54,13 @@ impl ChartWidget {
     }
   }
 
+  pub fn set_show_bounds(&mut self, bounds: bool) {
+    if self.display_info.bounds != bounds {
+      self.display_info.bounds = bounds;
+      self.base_mut().queue_redraw();
+    }
+  }
+
   pub fn goto_coord(&mut self, coord: geom::Coord) {
     let Some(raster_reader) = &self.raster_reader else {
       return;
@@ -217,6 +224,10 @@ impl ChartWidget {
   }
 
   fn draw_bounds(&mut self) {
+    if !self.display_info.bounds {
+      return;
+    }
+
     let Some(raster_reader) = &self.raster_reader else {
       return;
     };
@@ -349,6 +360,7 @@ struct DisplayInfo {
   rect: geom::Rect,
   zoom: f32,
   dark: bool,
+  bounds: bool,
 }
 
 impl DisplayInfo {
@@ -358,6 +370,7 @@ impl DisplayInfo {
       rect: geom::Rect::default(),
       zoom: 1.0,
       dark: false,
+      bounds: false,
     }
   }
 }

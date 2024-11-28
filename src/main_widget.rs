@@ -46,6 +46,12 @@ impl MainWidget {
   }
 
   #[func]
+  fn toggle_show_bounds(&mut self, night_mode: bool) {
+    self.chart_widget.bind_mut().set_show_bounds(night_mode);
+    self.config.set_show_bounds(night_mode);
+  }
+
+  #[func]
   fn find(&self) {
     if !self.find_button.is_visible() || self.dialog_is_visible() {
       return;
@@ -269,10 +275,6 @@ impl IControl for MainWidget {
     let callable = self.base().callable("find");
     self.find_button.connect("pressed", &callable);
 
-    // Read nite mode from the config.
-    let night_mode = self.config.get_night_mode().unwrap_or(false);
-    self.chart_widget.bind_mut().set_night_mode(night_mode);
-
     // Connect the sidebar button.
     let mut button = self.get_child::<CheckButton>("SidebarButton");
     button.connect("toggled", &self.base().callable("toggle_sidebar"));
@@ -281,10 +283,23 @@ impl IControl for MainWidget {
     let mut button = self.get_child::<Button>("OpenButton");
     button.connect("pressed", &self.base().callable("select_zip_file"));
 
+    // Read nite mode from the config.
+    let night_mode = self.config.get_night_mode().unwrap_or(false);
+    self.chart_widget.bind_mut().set_night_mode(night_mode);
+
     // Connect the night mode button
     let mut button = self.get_child::<CheckButton>("NightModeButton");
     button.set_pressed(night_mode);
     button.connect("toggled", &self.base().callable("toggle_night_mode"));
+
+    // Read show bounds from the config.
+    let show_bounds = self.config.get_show_bounds().unwrap_or(false);
+    self.chart_widget.bind_mut().set_show_bounds(show_bounds);
+
+    // Connect the show bounds button
+    let mut button = self.get_child::<CheckButton>("BoundsButton");
+    button.set_pressed(show_bounds);
+    button.connect("toggled", &self.base().callable("toggle_show_bounds"));
 
     let title_property = "theme_override_font_sizes/title_font_size";
     let title_size = Variant::from(18.0);

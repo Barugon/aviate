@@ -104,6 +104,10 @@ theme_override_styles/separator = SubResource("StyleBoxFlat_1aepe")
 layout_mode = 2
 text = "Night Mode"
 
+[node name="BoundsButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Show Bounds"
+
 [node name="ChartWidget" type="ChartWidget" parent="VBoxContainer/HBoxContainer"]
 clip_contents = true
 layout_mode = 2
