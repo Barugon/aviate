@@ -251,13 +251,10 @@ impl ChartWidget {
     dest.push(*dest.first().unwrap());
 
     // Draw it as a polyline.
-    let color = Color::from_rgb(1.0, 0.0, 1.0);
     let mut this = self.base_mut();
-    this
-      .draw_polyline_ex(&dest.into(), color)
-      .width(1.0)
-      .antialiased(true)
-      .done();
+    let points = dest.into();
+    let poly_draw = this.draw_polyline_ex(&points, Color::MAGENTA);
+    poly_draw.width(1.0).antialiased(true).done();
   }
 
   const MIN_ZOOM: f32 = 1.0 / 8.0;
