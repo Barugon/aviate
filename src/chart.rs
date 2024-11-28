@@ -153,8 +153,8 @@ impl Transformation {
       points
     } else {
       // Chart bounds not in the JSON, use the chart size.
-      let xmax = px_size.w as f64;
-      let ymax = px_size.h as f64;
+      let xmax = (px_size.w - 1) as f64;
+      let ymax = (px_size.h - 1) as f64;
       vec![
         (0.0, 0.0).into(),
         (xmax, 0.0).into(),
