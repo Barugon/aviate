@@ -125,11 +125,8 @@ pub struct Transformation {
   // Coordinate transformation from decimal degrees to chart coordinates.
   from_dd: spatial_ref::CoordTransform,
 
-  // Bounds in chart coordinates.
-  bounds: Vec<geom::Coord>,
-
   // Bounds in pixel coordinates.
-  points: Vec<geom::Coord>,
+  bounds: Vec<geom::Coord>,
 }
 
 impl Transformation {
@@ -149,26 +146,8 @@ impl Transformation {
     let from_dd = spatial_ref::CoordTransform::new(&dd_sr, &chart_sr)?;
     let to_px = gdal::GeoTransformEx::invert(&from_px)?;
 
-    let points = if let Some(points) = config::get_chart_bounds(chart_name) {
-      points
-    } else {
-      // Chart bounds not in the JSON, use the chart size.
-      let xmax = (px_size.w - 1) as f64;
-      let ymax = (px_size.h - 1) as f64;
-      vec![
-        (0.0, 0.0).into(),
-        (xmax, 0.0).into(),
-        (xmax, ymax).into(),
-        (0.0, ymax).into(),
-      ]
-    };
-
-    // Convert the pixel coordinates to chart coordinates.
-    let mut bounds = Vec::with_capacity(points.len());
-    for point in &points {
-      let coord = gdal::GeoTransformEx::apply(&from_px, point.x, point.y);
-      bounds.push(geom::Coord::from(coord));
-    }
+    // Get the chart bounds.
+    let pixel_bounds = config::get_chart_bounds(chart_name, px_size);
 
     Ok(Transformation {
       px_size,
@@ -177,8 +156,7 @@ impl Transformation {
       from_px,
       to_dd,
       from_dd,
-      bounds,
-      points,
+      bounds: pixel_bounds,
     })
   }
 
@@ -187,18 +165,25 @@ impl Transformation {
     self.chart_sr.to_proj4().unwrap()
   }
 
-  /// Get the full size of the chart in pixels.
+  /// The full size of the chart in pixels.
   pub fn px_size(&self) -> geom::Size {
     self.px_size
   }
 
-  /// Get the bounds as chart coordinates.
-  pub fn bounds(&self) -> &Vec<geom::Coord> {
+  /// The bounds as pixel coordinates.
+  pub fn pixel_bounds(&self) -> &Vec<geom::Coord> {
     &self.bounds
   }
 
-  pub fn points(&self) -> &Vec<geom::Coord> {
-    &self.points
+  /// Get the bounds as chart coordinates.
+  pub fn chart_bounds(&self) -> Vec<geom::Coord> {
+    // Convert the pixel coordinates to chart coordinates.
+    let mut chart_bounds = Vec::with_capacity(self.bounds.len());
+    for point in &self.bounds {
+      let coord = self.px_to_chart(*point);
+      chart_bounds.push(coord);
+    }
+    chart_bounds
   }
 
   /// Convert a pixel coordinate to a chart coordinate.

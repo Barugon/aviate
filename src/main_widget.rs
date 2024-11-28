@@ -159,7 +159,7 @@ impl MainWidget {
           if let Some(transformation) = self.chart_widget.bind().transformation() {
             // Send the chart spatial reference to the airport reader.
             let proj4 = transformation.get_proj4();
-            let bounds = transformation.bounds().clone();
+            let bounds = transformation.chart_bounds();
             airport_reader.set_chart_spatial_ref(proj4, bounds);
           }
         }
@@ -181,7 +181,7 @@ impl MainWidget {
         if let Some(transformation) = self.chart_widget.bind().transformation() {
           // Send the chart spatial reference to the airport reader.
           let proj4 = transformation.get_proj4();
-          let bounds = transformation.bounds().clone();
+          let bounds = transformation.chart_bounds();
           airport_reader.set_chart_spatial_ref(proj4, bounds);
         }
         self.airport_reader = Some(airport_reader);

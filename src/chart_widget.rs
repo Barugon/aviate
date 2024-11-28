@@ -233,7 +233,7 @@ impl ChartWidget {
     };
 
     // Get the chart bounds polygon in pixels.
-    let source = raster_reader.transformation().points();
+    let source = raster_reader.transformation().pixel_bounds();
     if source.is_empty() {
       return;
     }
@@ -252,8 +252,8 @@ impl ChartWidget {
 
     // Draw it as a polyline.
     let mut this = self.base_mut();
-    let points = dest.into();
-    let poly_draw = this.draw_polyline_ex(&points, Color::MAGENTA);
+    let packed = dest.into();
+    let poly_draw = this.draw_polyline_ex(&packed, Color::MAGENTA);
     poly_draw.width(1.0).antialiased(true).done();
   }
 
