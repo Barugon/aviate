@@ -79,7 +79,7 @@ struct Items {
 impl Items {
   fn load(path: path::PathBuf) -> Self {
     #[cfg(feature = "dev")]
-    convert_svg();
+    convert_bounds_svgs();
 
     let items = Self::load_items(&path);
     let changed = atomic::AtomicBool::new(false);
@@ -159,67 +159,14 @@ pub fn get_chart_bounds(chart_name: &str) -> Option<Vec<geom::Coord>> {
 }
 
 #[cfg(feature = "dev")]
-fn convert_svg() {
-  let Some(svg_info) = find_svg() else {
-    return;
-  };
-
-  let mut prev = Default::default();
-  let mut result = String::new();
-
-  // Create a JSON array from the points.
-  result += "[[";
-  for (idx, item) in svg_info.point_text.split_ascii_whitespace().enumerate() {
-    if item == prev || item == "C" {
-      continue;
-    }
-
-    if idx > 0 {
-      result += "],[";
-    }
-
-    result += item;
-    prev = item;
-  }
-  result += "]]";
-
-  // Parse the array.
-  let variant = Json::parse_string(&result);
-  let Ok(array) = variant.try_to::<Array<Variant>>() else {
-    return;
-  };
-
-  // Load the bounds JSON file.
-  let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
-  let Some(text) = util::load_text(&path) else {
-    return;
-  };
-
-  // Parse the JSON.
-  let variant = Json::parse_string(&text);
-  let Ok(mut dict) = variant.try_to::<Dictionary>() else {
-    return;
-  };
-
-  // Set the new entry.
-  dict.set(GString::from(&svg_info.file_name), Variant::from(array));
-
-  // Store the bounds JSON file.
-  util::store_text(&path, &Json::stringify(&variant));
-
-  godot_print!("Added \"{}\" bounds", svg_info.file_name);
-}
-
-#[cfg(feature = "dev")]
-struct SVGInfo {
-  file_name: String,
-  point_text: String,
-}
-
-#[cfg(feature = "dev")]
-fn find_svg() -> Option<SVGInfo> {
+fn convert_bounds_svgs() {
   let folder = path::PathBuf::from(util::get_downloads_folder().to_string()).join("convert");
-  for entry in std::fs::read_dir(&folder).ok()? {
+  let Ok(files) = std::fs::read_dir(&folder) else {
+    return;
+  };
+
+  // Search for svg files in 'Downloads/convert'.
+  for entry in files {
     let Ok(entry) = entry else {
       continue;
     };
@@ -232,7 +179,8 @@ fn find_svg() -> Option<SVGInfo> {
     if !ext.eq_ignore_ascii_case("svg") {
       continue;
     }
-    // Load the path file.
+
+    // Load the svg file.
     let Some(text) = util::load_text(&path) else {
       continue;
     };
@@ -251,11 +199,54 @@ fn find_svg() -> Option<SVGInfo> {
       continue;
     };
 
-    return Some(SVGInfo {
-      file_name: util::stem_str(&path).unwrap().into(),
-      point_text: text[..pos].into(),
-    });
-  }
+    let Some(name) = util::stem_str(&path) else {
+      continue;
+    };
 
-  None
+    let text = &text[..pos];
+    let mut prev = Default::default();
+    let mut result = String::new();
+
+    // Create a JSON array from the points.
+    result += "[[";
+    for (idx, item) in text.split_ascii_whitespace().enumerate() {
+      if item == prev || item == "C" {
+        continue;
+      }
+
+      if idx > 0 {
+        result += "],[";
+      }
+
+      result += item;
+      prev = item;
+    }
+    result += "]]";
+
+    // Parse the array.
+    let variant = Json::parse_string(&result);
+    let Ok(array) = variant.try_to::<Array<Variant>>() else {
+      return;
+    };
+
+    // Load the bounds JSON file.
+    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
+    let Some(text) = util::load_text(&path) else {
+      return;
+    };
+
+    // Parse the JSON.
+    let variant = Json::parse_string(&text);
+    let Ok(mut dict) = variant.try_to::<Dictionary>() else {
+      return;
+    };
+
+    // Set the new entry.
+    dict.set(GString::from(name), Variant::from(array));
+
+    // Store the bounds JSON file.
+    util::store_text(&path, &Json::stringify(&variant));
+
+    godot_print!("Added \"{}\" bounds", name);
+  }
 }
