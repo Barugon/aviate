@@ -216,17 +216,18 @@ impl ChartWidget {
     Some((zoom, pos))
   }
 
-  #[cfg(feature = "dev")]
   fn draw_bounds(&mut self) {
     let Some(raster_reader) = &self.raster_reader else {
       return;
     };
 
+    // Get the chart bounds polygon in pixels.
     let source = raster_reader.transformation().points();
     if source.is_empty() {
       return;
     }
 
+    // Scale and translate the coordinates to the current view.
     let zoom = self.display_info.zoom as f64;
     let pos = self.display_info.origin.into();
     let mut dest: Vec<Vector2> = Vec::with_capacity(source.len() + 1);
@@ -234,8 +235,11 @@ impl ChartWidget {
       let point = *point * zoom - pos;
       dest.push(point.into());
     }
+
+    // Close off the polygon.
     dest.push(*dest.first().unwrap());
 
+    // Draw it as a polyline.
     let color = Color::from_rgb(1.0, 0.0, 1.0);
     let mut this = self.base_mut();
     this
@@ -296,7 +300,6 @@ impl IControl for ChartWidget {
       self.base_mut().draw_texture_rect(&texture, rect, false);
     };
 
-    #[cfg(feature = "dev")]
     self.draw_bounds();
   }
 

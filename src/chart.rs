@@ -107,14 +107,28 @@ pub enum RasterReply {
 
 /// Transformations between pixel, chart and decimal degree coordinates.
 pub struct Transformation {
+  // Full size of the chart raster in pixels.
   px_size: geom::Size,
+
+  // The chart spatial reference.
   chart_sr: spatial_ref::SpatialRef,
+
+  // Geo-transformation from chart coordinates to pixels.
   to_px: gdal::GeoTransform,
+
+  // Geo-transformation from pixels to chart coordinates.
   from_px: gdal::GeoTransform,
+
+  // Coordinate transformation from chart coordinates to decimal degrees.
   to_dd: spatial_ref::CoordTransform,
+
+  // Coordinate transformation from decimal degrees to chart coordinates.
   from_dd: spatial_ref::CoordTransform,
+
+  // Bounds in chart coordinates.
   bounds: Vec<geom::Coord>,
-  #[cfg(feature = "dev")]
+
+  // Bounds in pixel coordinates.
   points: Vec<geom::Coord>,
 }
 
@@ -164,7 +178,6 @@ impl Transformation {
       to_dd,
       from_dd,
       bounds,
-      #[cfg(feature = "dev")]
       points,
     })
   }
@@ -184,7 +197,6 @@ impl Transformation {
     &self.bounds
   }
 
-  #[cfg(feature = "dev")]
   pub fn points(&self) -> &Vec<geom::Coord> {
     &self.points
   }
