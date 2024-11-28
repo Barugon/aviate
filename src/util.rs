@@ -109,46 +109,6 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   Err("Zip file does not contain usable data".into())
 }
 
-pub trait ToI32 {
-  fn to_i32(self) -> Option<i32>;
-}
-
-impl ToI32 for f64 {
-  fn to_i32(self) -> Option<i32> {
-    let cast = self as i32;
-    if cast as Self == self {
-      return Some(cast);
-    }
-    None
-  }
-}
-
-impl ToI32 for Variant {
-  fn to_i32(self) -> Option<i32> {
-    self.try_to::<f64>().ok()?.to_i32()
-  }
-}
-
-pub trait ToU32 {
-  fn to_u32(self) -> Option<u32>;
-}
-
-impl ToU32 for f64 {
-  fn to_u32(self) -> Option<u32> {
-    let cast = self as u32;
-    if cast as Self == self {
-      return Some(cast);
-    }
-    None
-  }
-}
-
-impl ToU32 for Variant {
-  fn to_u32(self) -> Option<u32> {
-    self.try_to::<f64>().ok()?.to_u32()
-  }
-}
-
 #[derive(Default, Eq, PartialEq)]
 pub struct WinInfo {
   pub pos: Option<geom::Pos>,
@@ -201,11 +161,50 @@ impl WinInfo {
   const MAXED_KEY: &'static str = "maxed";
 }
 
-const HASHABLE32_SCALE: f32 = (1 << 23) as f32;
+pub trait ToI32 {
+  fn to_i32(self) -> Option<i32>;
+}
+
+impl ToI32 for f64 {
+  fn to_i32(self) -> Option<i32> {
+    let cast = self as i32;
+    if cast as Self == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
+impl ToI32 for Variant {
+  fn to_i32(self) -> Option<i32> {
+    self.try_to::<f64>().ok()?.to_i32()
+  }
+}
+
+pub trait ToU32 {
+  fn to_u32(self) -> Option<u32>;
+}
+
+impl ToU32 for f64 {
+  fn to_u32(self) -> Option<u32> {
+    let cast = self as u32;
+    if cast as Self == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
+impl ToU32 for Variant {
+  fn to_u32(self) -> Option<u32> {
+    self.try_to::<f64>().ok()?.to_u32()
+  }
+}
 
 /// Represents a f32 in the 0..=1 range as a hashable value.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Hashable(u32);
+const HASHABLE32_SCALE: f32 = (1 << 23) as f32;
 
 impl Hashable {
   pub fn value(&self) -> f32 {
