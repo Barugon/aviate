@@ -261,7 +261,9 @@ struct RasterSource {
 impl RasterSource {
   fn open_options<'a>() -> gdal::DatasetOptions<'a> {
     gdal::DatasetOptions {
-      open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY | gdal::GdalOpenFlags::GDAL_OF_RASTER,
+      open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY
+        | gdal::GdalOpenFlags::GDAL_OF_RASTER
+        | gdal::GdalOpenFlags::GDAL_OF_INTERNAL,
       ..Default::default()
     }
   }

@@ -361,7 +361,9 @@ struct AirportSource {
 impl AirportSource {
   fn open_options<'a>() -> gdal::DatasetOptions<'a> {
     gdal::DatasetOptions {
-      open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY | gdal::GdalOpenFlags::GDAL_OF_VECTOR,
+      open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY
+        | gdal::GdalOpenFlags::GDAL_OF_VECTOR
+        | gdal::GdalOpenFlags::GDAL_OF_INTERNAL,
       ..Default::default()
     }
   }
