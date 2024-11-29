@@ -2,7 +2,8 @@ use crate::{config, geom, util};
 use gdal::{raster, spatial_ref};
 use std::{any, hash::Hash, path, sync::mpsc, thread};
 
-/// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
+/// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/)
+///  in zipped GEO-TIFF format.
 pub struct RasterReader {
   transformation: Transformation,
   tx: mpsc::Sender<ImagePart>,
