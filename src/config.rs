@@ -240,18 +240,34 @@ fn convert_bounds_svgs() {
     };
 
     let text = &text[..pos];
+    let mut first = Default::default();
     let mut prev = Default::default();
     let mut result = String::new();
 
     // Create a JSON array from the points.
     result += "[[";
     for (idx, item) in text.split_ascii_whitespace().enumerate() {
-      if item == prev || item == "C" {
+      // Ignore duplicates.
+      if item == first || item == prev {
         continue;
       }
 
+      // Make sure the item is a pair of comma separated values.
+      let mut iter = item.split(',');
+      let val = iter.next().and_then(|txt| txt.parse::<f64>().ok());
+      if val.is_none() {
+        continue;
+      };
+
+      let val = iter.next().and_then(|txt| txt.parse::<f64>().ok());
+      if val.is_none() {
+        continue;
+      };
+
       if idx > 0 {
         result += "],[";
+      } else {
+        first = item;
       }
 
       result += item;
