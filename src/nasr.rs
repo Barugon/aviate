@@ -9,7 +9,7 @@ use sync::{atomic, mpsc};
 /// AirportReader is used for opening and reading [NASR 28 day subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/)
 /// airport data.
 pub struct AirportReader {
-  request_count: sync::Arc<atomic::AtomicI64>,
+  request_count: sync::Arc<atomic::AtomicI32>,
   airport_status: AirportStatusSync,
   tx: mpsc::Sender<AirportRequest>,
   rx: mpsc::Receiver<AirportReply>,
@@ -32,7 +32,7 @@ impl AirportReader {
     };
 
     let airport_status = AirportStatusSync::new();
-    let request_count = sync::Arc::new(atomic::AtomicI64::new(0));
+    let request_count = sync::Arc::new(atomic::AtomicI32::new(0));
     let (tx, trx) = mpsc::channel();
     let (ttx, rx) = mpsc::channel();
 
@@ -208,7 +208,7 @@ impl AirportReader {
   }
 
   /// The number of pending airport requests.
-  pub fn request_count(&self) -> i64 {
+  pub fn request_count(&self) -> i32 {
     self.request_count.load(atomic::Ordering::Relaxed)
   }
 
