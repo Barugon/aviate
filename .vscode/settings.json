@@ -10,6 +10,7 @@
     "consts",
     "egui",
     "epsg",
+    "fract",
     "gdal",
     "gdext",
     "gdextension",
@@ -27,6 +28,7 @@
     "svgs",
     "tfws",
     "tifs",
+    "trunc",
     "unresizable",
     "vsizip"
   ],
