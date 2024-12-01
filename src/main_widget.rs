@@ -234,12 +234,10 @@ impl MainWidget {
 
     // Godot doesn't handle hi-dpi.
     let dpi = display_server.screen_get_dpi();
-    let scale = dpi as f32 / 96.0;
-    if scale > 1.0 {
-      if let Some(tree) = self.base().get_tree() {
-        if let Some(mut root) = tree.get_root() {
-          root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
-        }
+    let scale = quantize_scale(dpi as f32 / 96.0);
+    if let Some(tree) = self.base().get_tree() {
+      if let Some(mut root) = tree.get_root() {
+        root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
       }
     }
 
@@ -489,4 +487,12 @@ fn hide_buttons(node: Gd<Node>) {
 fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
   event.get_modifiers_mask() == KeyModifierMask::CTRL
     || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
+}
+
+fn quantize_scale(scale: f32) -> f32 {
+  let whole = scale.trunc();
+  if scale.fract() >= 0.75 {
+    return (whole + 0.5).max(1.0);
+  }
+  whole.max(1.0)
 }
