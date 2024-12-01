@@ -232,6 +232,7 @@ impl MainWidget {
     let mut display_server = DisplayServer::singleton();
     display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
 
+    // Godot doesn't handle hi-dpi.
     let dpi = display_server.screen_get_dpi();
     let scale = dpi as f32 / 96.0;
     if scale > 1.0 {
