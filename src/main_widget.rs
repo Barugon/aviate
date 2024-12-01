@@ -226,6 +226,36 @@ impl MainWidget {
     false
   }
 
+  /// Set the main window's size and position.
+  fn setup_window(&mut self) {
+    let win_info = self.config.get_win_info();
+    let mut display_server = DisplayServer::singleton();
+    display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
+
+    let dpi = display_server.screen_get_dpi();
+    let scale = dpi as f32 / 96.0;
+    if scale > 1.0 {
+      if let Some(tree) = self.base().get_tree() {
+        if let Some(mut root) = tree.get_root() {
+          root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
+        }
+      }
+    }
+
+    if win_info.maxed {
+      display_server.window_set_mode(WindowMode::MAXIMIZED);
+      return;
+    }
+
+    if let Some(pos) = win_info.pos {
+      display_server.window_set_position(pos.into());
+    }
+
+    if let Some(size) = win_info.size {
+      display_server.window_set_size(size.into());
+    }
+  }
+
   fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
     self.base().find_child(name).unwrap().cast()
   }
@@ -260,7 +290,7 @@ impl IControl for MainWidget {
   }
 
   fn ready(&mut self) {
-    setup_window(self.config.get_win_info());
+    self.setup_window();
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
@@ -458,23 +488,4 @@ fn hide_buttons(node: Gd<Node>) {
 fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
   event.get_modifiers_mask() == KeyModifierMask::CTRL
     || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
-}
-
-/// Set the main window's size and position.
-fn setup_window(win_info: util::WinInfo) {
-  let mut display_server = DisplayServer::singleton();
-  display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
-
-  if win_info.maxed {
-    display_server.window_set_mode(WindowMode::MAXIMIZED);
-    return;
-  }
-
-  if let Some(pos) = win_info.pos {
-    display_server.window_set_position(pos.into());
-  }
-
-  if let Some(size) = win_info.size {
-    display_server.window_set_size(size.into());
-  }
 }
