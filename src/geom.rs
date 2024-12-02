@@ -22,6 +22,10 @@ pub struct Coord {
 }
 
 impl Coord {
+  pub fn new(x: f64, y: f64) -> Self {
+    Self { x, y }
+  }
+
   pub fn from_variant(value: Variant) -> Option<Self> {
     let value = value.try_to::<Array<Variant>>().ok()?;
     let x = value.get(0)?.try_to::<f64>().ok()?;
@@ -77,6 +81,29 @@ impl ops::Mul<f64> for Coord {
       y: self.y * scale,
     }
   }
+}
+
+/// Check if a point is contained in a polygon.
+pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
+  let mut inside = false;
+  let count = points.len();
+  for idx in 0..count {
+    let pt1 = points[idx];
+    let pt2 = points[(idx + 1) % count];
+
+    // Check if the point is between the Y coordinates of pt1 and pt2.
+    if (pt1.y > point.y) != (pt2.y > point.y) {
+      // Calculate the X coordinate where the ray from the point intersects the edge.
+      let x = (pt2.x - pt1.x) * (point.y - pt1.y) / (pt2.y - pt1.y) + pt1.x;
+
+      // Check if the point lies to the left of the intersection.
+      if point.x < x {
+        // Toggle inside flag.
+        inside = !inside;
+      }
+    }
+  }
+  inside
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
@@ -356,5 +383,27 @@ impl From<Rect> for Rect2 {
       position: rect.pos.into(),
       size: rect.size.into(),
     }
+  }
+}
+
+mod test {
+  #[test]
+  fn polygon_contains() {
+    use super::*;
+
+    let points = vec![
+      Coord::new(0.0, 0.0),
+      Coord::new(100.0, 0.0),
+      Coord::new(100.0, 100.0),
+      Coord::new(0.0, 100.0),
+      Coord::new(0.0, 75.0),
+      Coord::new(50.0, 75.0),
+      Coord::new(50.0, 25.0),
+      Coord::new(0.0, 25.0),
+    ];
+
+    assert!(polygon_contains(&points, Coord::new(25.0, 20.0)));
+    assert!(polygon_contains(&points, Coord::new(80.0, 80.0)));
+    assert!(!polygon_contains(&points, Coord::new(25.0, 50.0)));
   }
 }

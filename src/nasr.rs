@@ -75,8 +75,8 @@ impl AirportReader {
                 source.clear_advanced_indexes();
                 to_chart = None;
 
-                if let Some((proj4, points)) = spatial_info {
-                  match ToChart::new(&proj4, &points, &dd_sr) {
+                if let Some((proj4, bounds)) = spatial_info {
+                  match ToChart::new(&proj4, &dd_sr, bounds) {
                     Ok(trans_info) => {
                       // Create the airport spatial index.
                       if source.create_advanced_indexes(&trans_info) {
@@ -244,29 +244,15 @@ struct ToChart {
   trans: spatial_ref::CoordTransform,
 
   /// Chart bounds.
-  bounds: vector::Geometry,
+  bounds: Vec<geom::Coord>,
 }
 
 impl ToChart {
   fn new(
     proj4: &str,
-    points: &[geom::Coord],
     dd_sr: &spatial_ref::SpatialRef,
+    bounds: Vec<geom::Coord>,
   ) -> Result<Self, errors::GdalError> {
-    // Add the points to a ring.
-    let mut ring = vector::Geometry::empty(vector::OGRwkbGeometryType::wkbLinearRing)?;
-    for point in points {
-      ring.add_point_2d((point.x, point.y));
-    }
-
-    // Close off the ring.
-    let point = points.first().unwrap();
-    ring.add_point_2d((point.x, point.y));
-
-    // Create a polygon from the ring.
-    let mut bounds = vector::Geometry::empty(vector::OGRwkbGeometryType::wkbPolygon)?;
-    bounds.add_geometry(ring)?;
-
     // Create a transformation from decimal degrees to chart coordinates.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
@@ -279,16 +265,7 @@ impl ToChart {
 
     // Convert to a chart coordinate.
     match self.trans.transform(dd) {
-      Ok(chart) => {
-        // Create a geometry from the coordinate and test.
-        match vector::Geometry::empty(vector::OGRwkbGeometryType::wkbPoint) {
-          Ok(mut geom) => {
-            geom.add_point_2d((chart.x, chart.y));
-            return self.bounds.contains(&geom);
-          }
-          Err(err) => godot_error!("{err}"),
-        }
-      }
+      Ok(chart) => return geom::polygon_contains(&self.bounds, chart),
       Err(err) => godot_error!("{err}"),
     }
     false
@@ -415,19 +392,17 @@ impl AirportSource {
     for feature in self.layer().features() {
       if let Some(fid) = feature.fid() {
         use geom::Transform;
-        if let Some(coord) = feature
+        if let Some(chart) = feature
           .get_coord()
           .and_then(|dd| to_chart.trans.transform(dd).ok())
         {
-          if let Some(geom) = coord.to_geometry() {
-            if to_chart.bounds.contains(&geom) {
-              // Add the airport name to the name vector.
-              if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
-                name_vec.push((name, fid));
-              }
-
-              loc_vec.push(LocIdx { coord, fid })
+          if geom::polygon_contains(&to_chart.bounds, chart) {
+            // Add the airport name to the name vector.
+            if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
+              name_vec.push((name, fid));
             }
+
+            loc_vec.push(LocIdx { coord: chart, fid })
           }
         }
       }
