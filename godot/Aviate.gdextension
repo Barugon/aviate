@@ -4,8 +4,9 @@ compatibility_minimum = 4.2
 reloadable = false
 
 [libraries]
-linux.debug.x86_64 =     "res://../target/debug/libaviate.so"
-linux.release.x86_64 =   "res://../target/release/libaviate.so"
-windows.debug.x86_64 =   "res://../target/x86_64-pc-windows-gnu/debug/aviate.dll"
+linux.debug.x86_64 = "res://../target/debug/libaviate.so"
+linux.release.x86_64 = "res://../target/release/libaviate.so"
+windows.debug.x86_64 = "res://../target/x86_64-pc-windows-gnu/debug/aviate.dll"
 windows.release.x86_64 = "res://../target/x86_64-pc-windows-gnu/release/aviate.dll"
-android.release.arm64    = "res://../target/aarch64-linux-android/release/libaviate.so"
+android.debug.arm64 = "res://../target/aarch64-linux-android/debug/libaviate.so"
+android.release.arm64 = "res://../target/aarch64-linux-android/release/libaviate.so"
