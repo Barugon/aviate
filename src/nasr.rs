@@ -50,7 +50,7 @@ impl AirportReader {
 
           let dd_sr = {
             // FAA uses NAD83 for decimal degree coordinates.
-            let mut dd_sr = spatial_ref::SpatialRef::from_epsg(4269).unwrap();
+            let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
             dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
             dd_sr
           };

@@ -10,6 +10,7 @@ use godot::{
 use std::{borrow, cmp, collections, ops, path};
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
+pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
 
 /// Error message as either `&'static str` or `String`.
 pub type Error = borrow::Cow<'static, str>;

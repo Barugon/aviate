@@ -138,7 +138,7 @@ impl Transformation {
     from_px: gdal::GeoTransform,
   ) -> Result<Self, gdal::errors::GdalError> {
     // FAA uses NAD83.
-    let mut dd_sr = spatial_ref::SpatialRef::from_epsg(4269)?;
+    let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83)?;
 
     // Respect X/Y order when converting to/from lat/lon coordinates.
     dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
