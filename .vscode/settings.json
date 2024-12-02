@@ -29,6 +29,7 @@
     "rustc",
     "rwkb",
     "serde",
+    "stdc",
     "svgs",
     "tfws",
     "tifs",
