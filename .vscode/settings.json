@@ -18,6 +18,7 @@
     "hasher",
     "hbox",
     "libaviate",
+    "longlat",
     "palettized",
     "polyline",
     "rasterband",
