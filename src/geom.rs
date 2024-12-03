@@ -397,13 +397,13 @@ mod test {
       Coord::new(100.0, 100.0),
       Coord::new(0.0, 100.0),
       Coord::new(0.0, 75.0),
-      Coord::new(50.0, 75.0),
-      Coord::new(50.0, 25.0),
+      Coord::new(50.0, 65.0),
+      Coord::new(50.0, 15.0),
       Coord::new(0.0, 25.0),
     ];
 
-    assert!(polygon_contains(&points, Coord::new(25.0, 20.0)));
+    assert!(polygon_contains(&points, Coord::new(20.0, 10.0)));
     assert!(polygon_contains(&points, Coord::new(80.0, 80.0)));
-    assert!(!polygon_contains(&points, Coord::new(25.0, 50.0)));
+    assert!(!polygon_contains(&points, Coord::new(20.0, 50.0)));
   }
 }
