@@ -9,6 +9,7 @@
     "cdylib",
     "consts",
     "cpan",
+    "devel",
     "egui",
     "epsg",
     "fract",
