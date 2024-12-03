@@ -11,12 +11,12 @@ fn main() {
   }
 
   // Make sure these are set.
+  #[allow(clippy::option_env_unwrap)]
+  option_env!("GDAL_VERSION").expect("GDAL_VERSION not set");
   if cfg!(target_os = "android") {
     #[allow(clippy::option_env_unwrap)]
     option_env!("ANDROID_NDK_HOME").expect("ANDROID_NDK_HOME not set");
   }
-  #[allow(clippy::option_env_unwrap)]
-  option_env!("GDAL_VERSION").expect("GDAL_VERSION not set");
 
   // Get the GDAL_HOME path.
   #[allow(clippy::option_env_unwrap)]
