@@ -148,7 +148,7 @@ impl Transformation {
     let to_px = gdal::GeoTransformEx::invert(&from_px)?;
 
     // Get the chart bounds.
-    let pixel_bounds = config::get_chart_bounds(chart_name, px_size);
+    let bounds = config::get_chart_bounds(chart_name, px_size);
 
     Ok(Transformation {
       px_size,
@@ -157,7 +157,7 @@ impl Transformation {
       from_px,
       to_dd,
       from_dd,
-      bounds: pixel_bounds,
+      bounds,
     })
   }
 
@@ -181,8 +181,7 @@ impl Transformation {
     // Convert the pixel coordinates to chart coordinates.
     let mut chart_bounds = Vec::with_capacity(self.bounds.len());
     for point in &self.bounds {
-      let coord = self.px_to_chart(*point);
-      chart_bounds.push(coord);
+      chart_bounds.push(self.px_to_chart(*point));
     }
     chart_bounds
   }
@@ -227,8 +226,7 @@ impl Transformation {
   /// Convert a decimal degree coordinate to a pixel coordinate.
   /// - `coord`: decimal degree coordinate
   pub fn dd_to_px(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
-    let coord = self.dd_to_chart(coord);
-    coord.map(|coord| self.chart_to_px(coord))
+    Ok(self.chart_to_px(self.dd_to_chart(coord)?))
   }
 }
 
