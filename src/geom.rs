@@ -83,18 +83,17 @@ impl ops::Mul<f64> for Coord {
   }
 }
 
-/// Check if a point is contained in a polygon.
+/// Check if a point is contained in a single-ring polygon.
 pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
   let mut inside = false;
   let count = points.len();
   for idx in 0..count {
-    let pt1 = points[idx];
-    let pt2 = points[(idx + 1) % count];
+    let line = [points[idx], points[(idx + 1) % count]];
 
-    // Check if the point is between the Y coordinates of pt1 and pt2.
-    if (pt1.y > point.y) != (pt2.y > point.y) {
-      // Calculate the X coordinate where the ray from the point intersects the edge.
-      let x = (pt2.x - pt1.x) * (point.y - pt1.y) / (pt2.y - pt1.y) + pt1.x;
+    // Check if the point is between the Y coordinates of line segment.
+    if (line[0].y > point.y) != (line[1].y > point.y) {
+      // Calculate the X coordinate where a horizontal ray from the point intersects the line segment.
+      let x = (line[1].x - line[0].x) * (point.y - line[0].y) / (line[1].y - line[0].y) + line[0].x;
 
       // Check if the point lies to the left of the intersection.
       if point.x < x {
