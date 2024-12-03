@@ -14,12 +14,10 @@ sudo dnf install gdal-devel
 
 ### Build GDAL static libraries
 
-- Prerequisites
-
 ```sh
 git clone https://github.com/microsoft/vcpkg.git
 cd vcpkg
-./bootstrap-vcpkg.sh -disableMetrics
+./bootstrap-vcpkg.sh # -disableMetrics
 ./vcpkg integrate install
 ```
 
@@ -35,27 +33,32 @@ export CXX=clang++
 
 ```sh
 unset CC CXX
-export ANDROID_NDK_HOME=<path/to/android_ndk_home>
+export ANDROID_NDK_HOME=<path/to/android-ndk>
 ./vcpkg install gdal[core]:arm64-android
 ```
 
 ### Build project with statically linked gdal
 
-- Prerequisites
+- Build for Linux
+
+```sh
+export GDAL_HOME=<path/to/vcpkg/installed/x64-linux>
+export GDAL_VERSION=<x.y.z>
+export GDAL_STATIC=1
+cargo build --target=x86_64-unknown-linux-gnu [--release]
+```
+
+- Build for Android
 
 ```sh
 rustup target add aarch64-linux-android
 cargo install cargo-ndk
 ```
 
-- Build for Linux
-
 ```sh
-GDAL_HOME=<path/to/vcpkg/gdal/stuff> GDAL_VERSION=<x.y.z> GDAL_STATIC=1 cargo build --target=x86_64-unknown-linux-gnu [--release]
-```
-
-- Build for Android
-
-```sh
-ANDROID_NDK_HOME=<path/to/android/ndk> GDAL_HOME=<path/to/vcpkg/gdal/stuff> GDAL_VERSION=<x.y.z> GDAL_STATIC=1 cargo ndk -t arm64-v8a build --target=aarch64-linux-android [--release]
+export ANDROID_NDK_HOME=<path/to/android-ndk>
+export GDAL_HOME=<path/to/vcpkg/installed/arm64-android>
+export GDAL_VERSION=<x.y.z>
+export GDAL_STATIC=1
+cargo ndk -t arm64-v8a build --target=aarch64-linux-android [--release]
 ```
