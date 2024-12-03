@@ -1,5 +1,7 @@
 # Build Aviate
 
+## GDAL shared
+
 To build against a shared library of GDAL, just install `gdal-devel` and build.
 
 ```sh
@@ -7,6 +9,8 @@ sudo dnf install gdal-devel
 ```
 
 > NOTE: that, of course, will not work for Android. 
+
+## GDAL static
 
 ### Build GDAL static libraries
 
