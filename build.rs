@@ -10,20 +10,14 @@ fn main() {
     return;
   }
 
-  // Make sure these are set.
-  #[allow(clippy::option_env_unwrap)]
-  option_env!("GDAL_VERSION").expect("GDAL_VERSION not set");
-  if cfg!(target_os = "android") {
-    #[allow(clippy::option_env_unwrap)]
-    option_env!("ANDROID_NDK_HOME").expect("ANDROID_NDK_HOME not set");
-  }
-
   // Get the GDAL_HOME path.
   #[allow(clippy::option_env_unwrap)]
   let gdal_home = option_env!("GDAL_HOME").expect("GDAL_HOME not set");
+  assert!(!gdal_home.is_empty());
 
   // Set the library search path.
   let lib_path = Path::new(gdal_home).join("lib");
+  assert!(lib_path.is_dir());
   println!("cargo::rustc-link-search={lib_path:?}");
 
   // Libraries to link against.
