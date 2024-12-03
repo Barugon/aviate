@@ -1,4 +1,4 @@
-use gdal::{spatial_ref, vector};
+use gdal::spatial_ref;
 use godot::prelude::*;
 use std::{cmp, ops};
 
@@ -31,12 +31,6 @@ impl Coord {
     let x = value.get(0)?.try_to::<f64>().ok()?;
     let y = value.get(1)?.try_to::<f64>().ok()?;
     Some(Self { x, y })
-  }
-
-  pub fn to_geometry(self) -> Option<vector::Geometry> {
-    let mut geom = vector::Geometry::empty(vector::OGRwkbGeometryType::wkbPoint).ok()?;
-    geom.add_point_2d((self.x, self.y));
-    Some(geom)
   }
 }
 
