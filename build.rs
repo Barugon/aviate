@@ -22,18 +22,18 @@ fn main() {
   println!("cargo::rustc-link-search={lib_path:?}");
 
   let libs = [
-    "stdc++",
-    "z",
+    "crypto",
+    "curl",
+    "geotiff",
     "json-c",
+    "lzma",
     "proj",
     "sqlite3",
-    "curl",
-    "crypto",
+    "ssl",
+    "stdc++",
     "tiff",
     "turbojpeg",
-    "lzma",
-    "ssl",
-    "geotiff",
+    "z",
   ];
   for lib in libs {
     println!("cargo::rustc-link-lib={lib}");
