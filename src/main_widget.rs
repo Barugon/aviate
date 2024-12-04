@@ -490,9 +490,9 @@ fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
 }
 
 fn quantize_scale(scale: f32) -> f32 {
-  let whole = scale.trunc();
-  if scale.fract() >= 0.75 {
-    return (whole + 0.5).max(1.0);
+  // TODO: This needs a better solution.
+  if scale > 3.0 {
+    return 3.0;
   }
-  whole.max(1.0)
+  scale.trunc().max(1.0)
 }
