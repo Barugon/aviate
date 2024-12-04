@@ -3,7 +3,7 @@ use godot::{
   classes::{
     display_server::WindowMode, notify::ControlNotification, AcceptDialog, Button, CheckButton,
     Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label,
-    PanelContainer, Window,
+    OptionButton, PanelContainer, Window,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -227,7 +227,7 @@ impl MainWidget {
   }
 
   /// Set the main window's size and position.
-  fn setup_window(&mut self) {
+  fn setup_window(&mut self) -> f32 {
     let win_info = self.config.get_win_info();
     let mut display_server = DisplayServer::singleton();
     display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
@@ -243,7 +243,7 @@ impl MainWidget {
 
     if win_info.maxed {
       display_server.window_set_mode(WindowMode::MAXIMIZED);
-      return;
+      return scale;
     }
 
     if let Some(pos) = win_info.pos {
@@ -253,6 +253,8 @@ impl MainWidget {
     if let Some(size) = win_info.size {
       display_server.window_set_size(size.into());
     }
+
+    scale
   }
 
   fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
@@ -289,7 +291,7 @@ impl IControl for MainWidget {
   }
 
   fn ready(&mut self) {
-    self.setup_window();
+    let scale = self.setup_window();
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
@@ -337,7 +339,12 @@ impl IControl for MainWidget {
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
     dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
     dialog.set(&title_property, &title_size);
-    hide_buttons(dialog.get_vbox().unwrap().upcast());
+
+    // The content scale hasn't been applied yet, so we need to account for it here.
+    fixup_file_dialog(&mut dialog, (self.base().get_size().x / scale) as i32);
+
+    #[cfg(target_os = "android")]
+    dialog.set_root_subfolder("/storage/emulated/0");
 
     // Setup the alert dialog.
     let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
@@ -464,23 +471,37 @@ struct AirportStatus {
   pending: bool,
 }
 
-/// Hide the forward and back buttons.
-fn hide_buttons(node: Gd<Node>) {
-  if let Ok(hbox) = node.get_children().at(0).try_cast::<HBoxContainer>() {
-    let children = hbox.get_children();
+fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>, max_width: i32) {
+  let vbox = file_dialog.get_vbox().unwrap();
+  let vbox_children = vbox.get_children();
+  let hbox = vbox_children.at(0).try_cast::<HBoxContainer>().unwrap();
+  let children = hbox.get_children();
 
-    // Back button.
-    if let Ok(button) = children.at(0).try_cast::<Button>() {
-      let mut button = button;
-      button.set_visible(false);
-    }
+  // Back button.
+  let mut button = children.at(0).try_cast::<Button>().unwrap();
+  button.set_visible(false);
 
-    // Forward button.
-    if let Ok(button) = children.at(1).try_cast::<Button>() {
-      let mut button = button;
-      button.set_visible(false);
-    }
-  }
+  // Forward button.
+  let mut button = children.at(1).try_cast::<Button>().unwrap();
+  button.set_visible(false);
+
+  // Hidden files button.
+  let mut button = children.at(7).try_cast::<Button>().unwrap();
+  button.set_visible(false);
+
+  // Locations.
+  let mut hbox = children.at(8).try_cast::<HBoxContainer>().unwrap();
+  hbox.set_visible(false);
+
+  let hbox = vbox_children.at(3).try_cast::<HBoxContainer>().unwrap();
+  let children = hbox.get_children();
+
+  // Filters.
+  let mut button = children.at(2).try_cast::<OptionButton>().unwrap();
+  button.set_visible(false);
+
+  // Set the initial dialog size.
+  file_dialog.set_size(Vector2i::new(400.min(max_width), 300));
 }
 
 /// Test if a key event has CMD or CTRL modifiers.
