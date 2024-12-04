@@ -1,38 +1,31 @@
 use crate::{geom, util};
-use godot::{
-  classes::{ConfigFile, Json},
-  prelude::*,
-};
+use godot::{classes::Json, prelude::*};
 use std::sync;
 
 /// Storage for configuration items, persisted as JSON.
 #[derive(Clone)]
 pub struct Storage {
-  items: sync::Arc<sync::RwLock<Gd<ConfigFile>>>,
+  items: sync::Arc<sync::RwLock<Items>>,
 }
 
 impl Storage {
   pub fn new() -> Self {
-    let mut items = ConfigFile::new_gd();
-    items.load(&Storage::path());
-
-    let items = sync::Arc::new(sync::RwLock::new(items));
+    let items = sync::Arc::new(sync::RwLock::new(Items::load(Storage::path())));
     Self { items }
   }
 
   pub fn set_win_info(&mut self, win_info: &util::WinInfo) {
     let value = win_info.to_variant();
-    self.set_value(Storage::WIN_INFO_KEY, &value);
+    self.set_value(Storage::WIN_INFO_KEY, value);
   }
 
-  #[allow(unused)]
   pub fn get_win_info(&self) -> util::WinInfo {
     util::WinInfo::from_variant(self.get_value(Storage::WIN_INFO_KEY))
   }
 
   pub fn set_night_mode(&mut self, dark: bool) {
     let value = Variant::from(dark);
-    self.set_value(Storage::NIGHT_MODE_KEY, &value);
+    self.set_value(Storage::NIGHT_MODE_KEY, value);
   }
 
   pub fn get_night_mode(&self) -> Option<bool> {
@@ -42,7 +35,7 @@ impl Storage {
 
   pub fn set_show_bounds(&mut self, bounds: bool) {
     let value = Variant::from(bounds);
-    self.set_value(Storage::SHOW_BOUNDS_KEY, &value);
+    self.set_value(Storage::SHOW_BOUNDS_KEY, value);
   }
 
   pub fn get_show_bounds(&self) -> Option<bool> {
@@ -52,7 +45,7 @@ impl Storage {
 
   pub fn set_asset_folder(&mut self, folder: GString) {
     let value = Variant::from(folder);
-    self.set_value(Storage::ASSET_FOLDER_KEY, &value);
+    self.set_value(Storage::ASSET_FOLDER_KEY, value);
   }
 
   pub fn get_asset_folder(&self) -> Option<GString> {
@@ -60,37 +53,79 @@ impl Storage {
     val.try_to::<GString>().ok()
   }
 
-  fn set_value(&mut self, key: &str, val: &Variant) {
+  fn set_value(&mut self, key: &str, val: Variant) {
     if let Ok(mut items) = self.items.write() {
-      items.set_value(Storage::CONFIG_SECTION, key, val);
+      items.set(key, val);
     }
   }
 
   fn get_value(&self, key: &str) -> Option<Variant> {
     if let Ok(items) = self.items.read() {
-      if items.has_section_key(Storage::CONFIG_SECTION, key) {
-        return Some(items.get_value(Storage::CONFIG_SECTION, key));
-      }
+      return items.get(key);
     }
     None
   }
 
-  fn path() -> String {
-    format!("user://{}.cfg", util::APP_NAME)
+  fn path() -> GString {
+    format!("user://{}.json", util::APP_NAME).into()
   }
 
-  const CONFIG_SECTION: &'static str = "config";
   const WIN_INFO_KEY: &'static str = "win_info";
   const NIGHT_MODE_KEY: &'static str = "night_mode";
   const SHOW_BOUNDS_KEY: &'static str = "show_bounds";
   const ASSET_FOLDER_KEY: &'static str = "asset_folder";
 }
 
-impl Drop for Storage {
-  fn drop(&mut self) {
-    if let Ok(mut items) = self.items.write() {
-      items.save(&Storage::path());
+struct Items {
+  path: GString,
+  items: Dictionary,
+}
+
+impl Items {
+  fn load(path: GString) -> Self {
+    #[cfg(feature = "dev")]
+    convert_bounds_svgs();
+
+    let items = Self::load_items(&path);
+    Self { path, items }
+  }
+
+  fn get(&self, key: &str) -> Option<Variant> {
+    self.items.get(key)
+  }
+
+  fn set(&mut self, key: &str, item: Variant) {
+    let existing = self.items.get_or_nil(key);
+    if item.try_to::<Dictionary>().is_ok() {
+      if Json::stringify(&existing) == Json::stringify(&item) {
+        return;
+      }
+    } else if existing == item {
+      return;
     }
+
+    self.items.set(key, item);
+    self.store();
+  }
+
+  fn store(&self) {
+    let text = Json::stringify(&Variant::from(self.items.clone()));
+    util::store_text(&self.path, &text);
+  }
+
+  fn load_items(path: &GString) -> Dictionary {
+    if let Some(text) = util::load_text(path) {
+      let items = Json::parse_string(&text);
+      match items.try_to::<Dictionary>() {
+        Ok(items) => {
+          return items;
+        }
+        Err(err) => {
+          godot_error!("{:?}: {}", path, err);
+        }
+      }
+    }
+    Dictionary::new()
   }
 }
 

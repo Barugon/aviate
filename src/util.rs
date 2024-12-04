@@ -1,7 +1,10 @@
 use crate::geom;
 use gdal::raster;
 use godot::{
-  classes::{display_server::WindowMode, os::SystemDir, DisplayServer, Os},
+  classes::{
+    display_server::WindowMode, file_access::ModeFlags, os::SystemDir, DisplayServer, FileAccess,
+    Os,
+  },
   prelude::*,
 };
 use std::{borrow, cmp, collections, ops, path};
@@ -287,4 +290,19 @@ pub fn folder_str(path: &path::Path) -> Option<&str> {
 /// Get the OS specific downloads folder.
 pub fn get_downloads_folder() -> GString {
   Os::singleton().get_system_dir(SystemDir::DOWNLOADS)
+}
+
+/// Load a text file.
+pub fn load_text(path: &GString) -> Option<GString> {
+  let file = FileAccess::open(path, ModeFlags::READ)?;
+  Some(file.get_as_text())
+}
+
+/// Store a text file.
+pub fn store_text(path: &GString, text: &GString) {
+  let Some(mut file) = FileAccess::open(path, ModeFlags::WRITE) else {
+    return;
+  };
+
+  file.store_string(text);
 }
