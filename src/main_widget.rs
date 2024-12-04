@@ -501,7 +501,7 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>, max_width: i32) {
   button.set_visible(false);
 
   // Set the initial dialog size.
-  file_dialog.set_size(Vector2i::new(400.min(max_width), 300));
+  file_dialog.set_size(Vector2i::new(500.min(max_width), 400));
 }
 
 /// Test if a key event has CMD or CTRL modifiers.
