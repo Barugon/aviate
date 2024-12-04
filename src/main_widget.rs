@@ -511,6 +511,7 @@ fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
     || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
 }
 
+/// Get an appropriate scale value.
 fn get_scale(dpi: i32) -> f32 {
   let scale = if cfg!(target_os = "android") {
     // Use 160 dpi as the base for Android.
