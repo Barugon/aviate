@@ -234,7 +234,7 @@ impl MainWidget {
 
     // Godot doesn't handle hi-dpi.
     let dpi = display_server.screen_get_dpi();
-    let scale = quantize_scale(dpi as f32 / 120.0);
+    let scale = get_scale(dpi);
     if let Some(tree) = self.base().get_tree() {
       if let Some(mut root) = tree.get_root() {
         root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
@@ -342,9 +342,6 @@ impl IControl for MainWidget {
 
     // The content scale hasn't been applied yet, so we need to account for it here.
     fixup_file_dialog(&mut dialog, (self.base().get_size().x / scale) as i32);
-
-    #[cfg(target_os = "android")]
-    dialog.set_root_subfolder("/storage/emulated/0");
 
     // Setup the alert dialog.
     let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
@@ -510,8 +507,18 @@ fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
     || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
 }
 
-fn quantize_scale(scale: f32) -> f32 {
-  godot_print!("{scale}");
-  // TODO: This needs a better solution.
-  scale.trunc().max(1.0)
+fn get_scale(dpi: i32) -> f32 {
+  let scale = if cfg!(target_os = "android") {
+    // Use 160 dpi as the base for Android.
+    dpi as f32 / 160.0
+  } else {
+    // Use 120 dpi as the base for desktop.
+    dpi as f32 / 120.0
+  };
+
+  // Quantize to 0.5.
+  let scale = (scale * 2.0).trunc() * 0.5;
+
+  // Make sure the final value doesn't fall below 1.0.
+  scale.max(1.0)
 }
