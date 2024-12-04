@@ -234,7 +234,7 @@ impl MainWidget {
 
     // Godot doesn't handle hi-dpi.
     let dpi = display_server.screen_get_dpi();
-    let scale = quantize_scale(dpi as f32 / 96.0);
+    let scale = quantize_scale(dpi as f32 / 120.0);
     if let Some(tree) = self.base().get_tree() {
       if let Some(mut root) = tree.get_root() {
         root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
@@ -511,9 +511,7 @@ fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
 }
 
 fn quantize_scale(scale: f32) -> f32 {
+  godot_print!("{scale}");
   // TODO: This needs a better solution.
-  if scale > 3.0 {
-    return 3.0;
-  }
   scale.trunc().max(1.0)
 }
