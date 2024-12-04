@@ -8,6 +8,13 @@ fn main() {
     return;
   }
 
+  // Use the correct C++ standard library.
+  if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "android" {
+    println!("cargo::rustc-link-lib=c++");
+  } else {
+    println!("cargo::rustc-link-lib=stdc++");
+  }
+
   // GDAL dependencies.
   let libs = [
     "crypto",
@@ -18,7 +25,6 @@ fn main() {
     "proj",
     "sqlite3",
     "ssl",
-    "stdc++",
     "tiff",
     "turbojpeg",
     "z",
