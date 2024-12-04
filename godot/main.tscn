@@ -115,7 +115,6 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="FileDialog" type="FileDialog" parent="."]
-title = "Open FAA Zip File"
 initial_position = 2
 size = Vector2i(500, 400)
 ok_button_text = "Open"

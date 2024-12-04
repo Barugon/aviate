@@ -80,6 +80,7 @@ impl MainWidget {
     }
 
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
+    dialog.set_title("Open FAA Zip File");
     if let Some(folder) = self.get_asset_folder() {
       dialog.set_current_dir(&folder);
     }
