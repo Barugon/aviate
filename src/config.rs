@@ -1,16 +1,16 @@
 use crate::{geom, util};
 use godot::{classes::Json, prelude::*};
-use std::sync;
+use std::{cell, rc};
 
 /// Storage for configuration items, persisted as JSON.
 #[derive(Clone)]
 pub struct Storage {
-  items: sync::Arc<sync::RwLock<Items>>,
+  items: rc::Rc<cell::RefCell<Items>>,
 }
 
 impl Storage {
   pub fn new() -> Self {
-    let items = sync::Arc::new(sync::RwLock::new(Items::load(Storage::path())));
+    let items = rc::Rc::new(cell::RefCell::new(Items::load(Storage::path())));
     Self { items }
   }
 
@@ -54,16 +54,11 @@ impl Storage {
   }
 
   fn set_value(&mut self, key: &str, val: Variant) {
-    if let Ok(mut items) = self.items.write() {
-      items.set(key, val);
-    }
+    self.items.borrow_mut().set(key, val);
   }
 
   fn get_value(&self, key: &str) -> Option<Variant> {
-    if let Ok(items) = self.items.read() {
-      return items.get(key);
-    }
-    None
+    self.items.borrow().get(key)
   }
 
   fn path() -> GString {
@@ -172,6 +167,8 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom
 #[cfg(feature = "dev")]
 /// Processes SVG files in '~/Downloads/bounds' and store into 'res/bounds.json'.
 fn convert_bounds_svgs() {
+  use std::path;
+
   let folder = path::PathBuf::from(util::get_downloads_folder().to_string()).join("bounds");
   let Ok(files) = std::fs::read_dir(&folder) else {
     return;
@@ -192,7 +189,7 @@ fn convert_bounds_svgs() {
     }
 
     // Load the svg file.
-    let Some(text) = util::load_text(&path) else {
+    let Some(text) = util::load_text(&path.to_str().unwrap().into()) else {
       continue;
     };
 
@@ -258,6 +255,7 @@ fn convert_bounds_svgs() {
 
     // Load the bounds JSON file.
     let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
+    let path = path.to_str().unwrap().into();
     let Some(text) = util::load_text(&path) else {
       return;
     };
