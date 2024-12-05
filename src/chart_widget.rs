@@ -2,7 +2,8 @@ use crate::{chart, geom, util};
 use godot::{
   classes::{
     image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, InputEvent,
-    InputEventMouseButton, InputEventMouseMotion, Texture2D,
+    InputEventMagnifyGesture, InputEventMouseButton, InputEventMouseMotion, InputEventScreenTouch,
+    Texture2D,
   },
   global::{MouseButton, MouseButtonMask},
   prelude::*,
@@ -16,7 +17,6 @@ pub struct ChartWidget {
   raster_reader: Option<chart::RasterReader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
-  scale: f32,
   helicopter: bool,
 }
 
@@ -49,7 +49,7 @@ impl ChartWidget {
   }
 
   pub fn set_scale(&mut self, scale: f32) {
-    self.scale = scale;
+    self.display_info.scale = scale;
   }
 
   pub fn set_night_mode(&mut self, dark: bool) {
@@ -274,7 +274,6 @@ impl IControl for ChartWidget {
       raster_reader: None,
       chart_image: None,
       display_info: DisplayInfo::new(),
-      scale: 1.0,
       helicopter: false,
     }
   }
@@ -332,11 +331,11 @@ impl IControl for ChartWidget {
 
     if let Ok(event) = event.clone().try_cast::<InputEventMouseMotion>() {
       if event.get_button_mask() == MouseButtonMask::LEFT {
-        let delta = event.get_screen_relative() / self.scale;
+        let delta = event.get_screen_relative() / self.display_info.scale;
         let pos = self.display_info.origin - delta.into();
         self.set_pos(pos);
       }
-    } else if let Ok(event) = event.try_cast::<InputEventMouseButton>() {
+    } else if let Ok(event) = event.clone().try_cast::<InputEventMouseButton>() {
       if event.is_pressed() {
         match event.get_button_index() {
           MouseButton::WHEEL_DOWN => {
@@ -350,6 +349,14 @@ impl IControl for ChartWidget {
           _ => (),
         };
       }
+    } else if let Ok(event) = event.clone().try_cast::<InputEventScreenTouch>() {
+      self.display_info.touch.update(event);
+    } else if let Ok(event) = event.try_cast::<InputEventMagnifyGesture>() {
+      if let Some(pos) = self.display_info.touch.pos {
+        let factor = 1.0 - (1.0 - event.get_factor()) / self.display_info.scale;
+        let zoom = self.display_info.zoom * factor;
+        self.set_zoom(zoom, pos);
+      }
     }
   }
 }
@@ -360,9 +367,11 @@ struct ChartImage {
 }
 
 struct DisplayInfo {
+  touch: Touch,
   origin: geom::Pos,
   rect: geom::Rect,
   zoom: f32,
+  scale: f32,
   dark: bool,
   bounds: bool,
 }
@@ -370,12 +379,41 @@ struct DisplayInfo {
 impl DisplayInfo {
   fn new() -> Self {
     Self {
+      touch: Touch::default(),
       origin: geom::Pos::default(),
       rect: geom::Rect::default(),
       zoom: 1.0,
+      scale: 1.0,
       dark: false,
       bounds: false,
     }
+  }
+}
+
+#[derive(Default)]
+struct Touch {
+  touch: [Option<Vector2>; 2],
+  pos: Option<Vector2>,
+}
+
+impl Touch {
+  fn update(&mut self, event: Gd<InputEventScreenTouch>) {
+    let index = event.get_index();
+    if (0..=1).contains(&index) {
+      let index = index as usize;
+      if event.is_pressed() {
+        self.touch[index] = Some(event.get_position());
+      } else {
+        self.touch[index] = None;
+      }
+
+      if let [Some(pt1), Some(pt2)] = &self.touch {
+        self.pos = Some((*pt1 + *pt2) * 0.5);
+      }
+      return;
+    }
+
+    self.pos = None;
   }
 }
 
