@@ -16,6 +16,7 @@ pub struct ChartWidget {
   raster_reader: Option<chart::RasterReader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
+  scale: f32,
   helicopter: bool,
 }
 
@@ -45,6 +46,10 @@ impl ChartWidget {
 
   pub fn transformation(&self) -> Option<&chart::Transformation> {
     Some(self.raster_reader.as_ref()?.transformation())
+  }
+
+  pub fn set_scale(&mut self, scale: f32) {
+    self.scale = scale;
   }
 
   pub fn set_night_mode(&mut self, dark: bool) {
@@ -269,6 +274,7 @@ impl IControl for ChartWidget {
       raster_reader: None,
       chart_image: None,
       display_info: DisplayInfo::new(),
+      scale: 1.0,
       helicopter: false,
     }
   }
@@ -326,7 +332,8 @@ impl IControl for ChartWidget {
 
     if let Ok(event) = event.clone().try_cast::<InputEventMouseMotion>() {
       if event.get_button_mask() == MouseButtonMask::LEFT {
-        let pos = self.display_info.origin - event.get_screen_relative().into();
+        let delta = event.get_screen_relative() / self.scale;
+        let pos = self.display_info.origin - delta.into();
         self.set_pos(pos);
       }
     } else if let Ok(event) = event.try_cast::<InputEventMouseButton>() {

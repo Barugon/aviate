@@ -302,6 +302,7 @@ impl IControl for MainWidget {
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
+    self.chart_widget.bind_mut().set_scale(scale);
 
     // Get the airport label.
     self.airport_label.init(self.get_child("AirportLabel"));
