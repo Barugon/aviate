@@ -121,7 +121,6 @@ ok_button_text = "Open"
 mode_overrides_title = false
 file_mode = 0
 access = 2
-filters = PackedStringArray("*.zip;Zip Files")
 
 [node name="AlertDialog" type="AcceptDialog" parent="."]
 initial_position = 2
