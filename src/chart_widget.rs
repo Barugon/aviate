@@ -353,7 +353,7 @@ impl IControl for ChartWidget {
       self.display_info.touch.update(event);
     } else if let Ok(event) = event.try_cast::<InputEventMagnifyGesture>() {
       if let Some(pos) = self.display_info.touch.pos {
-        let factor = 1.0 - (1.0 - event.get_factor()) / self.display_info.scale;
+        let factor = 1.0 - 2.0 * (1.0 - event.get_factor()) / self.display_info.scale;
         let zoom = self.display_info.zoom * factor;
         self.set_zoom(zoom, pos);
       }
