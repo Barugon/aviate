@@ -84,12 +84,10 @@ impl MainWidget {
     filters.push("*.zip;Zip Files");
     dialog.set_filters(&filters);
     dialog.set_title("Open FAA Zip File");
+
     if let Some(folder) = self.get_asset_folder() {
       dialog.set_current_dir(&folder);
     }
-
-    #[cfg(target_os = "android")]
-    dialog.set_root_subfolder("/storage/emulated/0");
 
     dialog.call_deferred("show", &[]);
   }
@@ -272,6 +270,8 @@ impl MainWidget {
 #[godot_api]
 impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
+    util::request_permissions();
+
     let airport_status = AirportStatus {
       index: nasr::AirportIndex::None,
       pending: false,
@@ -346,6 +346,9 @@ impl IControl for MainWidget {
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
     dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
     dialog.set(&title_property, &title_size);
+
+    #[cfg(target_os = "android")]
+    dialog.set_root_subfolder("/storage/emulated/0");
 
     // The content scale hasn't been applied yet, so we need to account for it here.
     fixup_file_dialog(&mut dialog, (self.base().get_size().x / scale) as i32);

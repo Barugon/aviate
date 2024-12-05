@@ -306,3 +306,7 @@ pub fn store_text(path: &GString, text: &GString) {
 
   file.store_string(text);
 }
+
+pub fn request_permissions() {
+  godot::classes::Os::singleton().request_permissions();
+}
