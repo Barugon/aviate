@@ -404,7 +404,7 @@ impl RasterSource {
       }
 
       // Resample the source row.
-      resample_row(&mut int_row, &src_row, pal, scale, portion);
+      process_row(&mut int_row, &src_row, pal, scale, portion);
 
       // Check if the end of the source data has been reached.
       sy += 1;
@@ -425,7 +425,7 @@ impl RasterSource {
       portion = scale;
       if remain < scale {
         // Resample the final amount from this source row.
-        resample_row(&mut int_row, &src_row, pal, scale, remain);
+        process_row(&mut int_row, &src_row, pal, scale, remain);
 
         // Output the final destination row.
         for rgb in &mut int_row {
@@ -452,7 +452,7 @@ impl RasterSource {
   }
 }
 
-fn resample_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
+fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
   let mut dst_iter = dst.iter_mut();
   let mut src_iter = src.iter();
   let mut portion = xr;
