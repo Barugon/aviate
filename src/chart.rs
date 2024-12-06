@@ -386,8 +386,8 @@ impl RasterSource {
     let src_end = src_rect.pos.y as isize + sh as isize;
     let dw = dst_rect.size.w as usize;
     let dh = dst_rect.size.h as usize;
-    let mut int_row = vec![Default::default(); dw];
-    let mut src_row = vec![Default::default(); sw];
+    let mut int_row = vec![[0.0, 0.0, 0.0]; dw];
+    let mut src_row = vec![0; sw];
     let mut dst = Vec::with_capacity(dw * dh);
     let mut portion = scale;
     let mut remain = 1.0;
@@ -430,7 +430,7 @@ impl RasterSource {
         // Output the final destination row.
         for rgb in &mut int_row {
           dst.push(color(*rgb));
-          *rgb = Default::default();
+          *rgb = [0.0, 0.0, 0.0];
         }
 
         // Check if the end of the destination data has been reached.
@@ -468,7 +468,7 @@ fn resample_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr:
 
   loop {
     // Resample the source pixel.
-    let rgb = pal[*src as usize];
+    let rgb = &pal[*src as usize];
     let ratio = portion * yr;
     dst[0] += rgb[0] * ratio;
     dst[1] += rgb[1] * ratio;
@@ -485,7 +485,7 @@ fn resample_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr:
 
     if remain < xr {
       // Resample what remains of this pixel.
-      let rgb = pal[*src as usize];
+      let rgb = &pal[*src as usize];
       let ratio = remain * yr;
       dst[0] += rgb[0] * ratio;
       dst[1] += rgb[1] * ratio;
