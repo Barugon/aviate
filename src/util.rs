@@ -29,85 +29,113 @@ pub enum ZipInfo {
 
 /// Returns information about what type of FAA data (if any) is contained in a zip file.
 pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
-  _get_zip_info(path.as_ref())
-}
+  |path: &path::Path| -> Result<ZipInfo, Error> {
+    let Some(path) = path.to_str() else {
+      return Err("Invalid unicode in zip file path".into());
+    };
 
-fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
-  let Some(path) = path.to_str() else {
-    return Err("Invalid unicode in zip file path".into());
-  };
+    // Concatenate the VSI prefix.
+    let path = ["/vsizip/", path].concat();
+    let path = path::PathBuf::from(path);
 
-  // Concatenate the VSI prefix.
-  let path = ["/vsizip/", path].concat();
-
-  match gdal::vsi::read_dir(&path, true) {
-    Ok(files) => {
-      let mut csv = path::PathBuf::new();
-      let mut shp = path::PathBuf::new();
-      let mut tfws = collections::HashSet::new();
-      let mut tifs = Vec::new();
-      for file in files {
-        let Some(ext) = file.extension() else {
-          continue;
-        };
-
-        // Make sure there's no invalid unicode.
-        if file.to_str().is_none() {
-          continue;
-        }
-
-        if ext.eq_ignore_ascii_case("tfw") {
-          tfws.insert(file);
-        } else if ext.eq_ignore_ascii_case("tif") {
-          tifs.push(file);
-        } else if csv.as_os_str().is_empty() && ext.eq_ignore_ascii_case("zip") {
-          if let Some(stem) = file.file_stem().and_then(|stem| stem.to_str()) {
-            if stem.to_ascii_uppercase().ends_with("_CSV") {
-              // CSV zip file contained in the main zip.
-              csv = file;
-            }
-          }
-        } else if shp.as_os_str().is_empty() && ext.eq_ignore_ascii_case("shp") {
-          if let Some(stem) = file.file_stem() {
-            if stem.eq_ignore_ascii_case("Class_Airspace") {
-              // Use the folder for shape files.
-              if let Some(parent) = file.parent() {
-                parent.clone_into(&mut shp);
+    match gdal::vsi::read_dir(&path, false) {
+      Ok(files) => {
+        let mut csv = path::PathBuf::new();
+        let mut shp = path::PathBuf::new();
+        let mut tfws = collections::HashSet::new();
+        let mut tifs = Vec::new();
+        for file in files {
+          if let Some(name) = file.file_name() {
+            if name.eq_ignore_ascii_case("Additional_Data") {
+              if let Some(shp_path) = get_shp_path(&path, path::Path::new(name)) {
+                shp = shp_path;
+              }
+            } else if name.eq_ignore_ascii_case("CSV_Data") {
+              if let Some(csv_path) = get_csv_path(&path, path::Path::new(name)) {
+                csv = csv_path;
               }
             }
+
+            if !csv.as_os_str().is_empty() && !shp.as_os_str().is_empty() {
+              return Ok(ZipInfo::Aero { csv, shp });
+            }
+          }
+
+          let Some(ext) = file.extension() else {
+            continue;
+          };
+
+          if ext.eq_ignore_ascii_case("tfw") {
+            tfws.insert(file);
+          } else if ext.eq_ignore_ascii_case("tif") {
+            tifs.push(file);
           }
         }
 
-        // Done if both the shape and aero data are present.
-        if !csv.as_os_str().is_empty() && !shp.as_os_str().is_empty() {
-          return Ok(ZipInfo::Aero { csv, shp });
+        // Only accept TIFF files that have matching TFW files.
+        let mut files = Vec::with_capacity(cmp::min(tifs.len(), tfws.len()));
+        for file in tifs {
+          if tfws.contains(&file.with_extension("tfw")) {
+            files.push(file);
+          }
+        }
+
+        if !files.is_empty() {
+          return Ok(ZipInfo::Chart(files));
         }
       }
-
-      // Only accept TIFF files that have matching TFW files.
-      let mut files = Vec::with_capacity(cmp::min(tifs.len(), tfws.len()));
-      for file in tifs {
-        if tfws.contains(&file.with_extension("tfw")) {
-          files.push(file);
+      Err(_) => {
+        let path = path::Path::new(&path);
+        if let Some(ext) = path.extension() {
+          if ext.eq_ignore_ascii_case("zip") {
+            return Err("Unable to read zip file".into());
+          }
         }
-      }
-
-      if !files.is_empty() {
-        return Ok(ZipInfo::Chart(files));
+        return Err("Not a zip file".into());
       }
     }
-    Err(_) => {
-      let path = path::Path::new(&path);
-      if let Some(ext) = path.extension() {
-        if ext.eq_ignore_ascii_case("zip") {
-          return Err("Unable to read zip file".into());
-        }
+
+    Err("Zip file does not contain usable data".into())
+  }(path.as_ref())
+}
+
+fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
+  let files = gdal::vsi::read_dir(&path.join(folder), false).ok()?;
+  for file in files {
+    let Some(ext) = file.extension() else {
+      continue;
+    };
+
+    if ext.eq_ignore_ascii_case("zip") {
+      let Some(stem) = file.file_stem().and_then(|stem| stem.to_str()) else {
+        continue;
+      };
+
+      if stem.to_ascii_uppercase().ends_with("_CSV") {
+        return Some(folder.join(file));
       }
-      return Err("Not a zip file".into());
     }
   }
+  None
+}
 
-  Err("Zip file does not contain usable data".into())
+fn get_shp_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
+  let files = gdal::vsi::read_dir(&path.join(folder), false).ok()?;
+  for file in files {
+    let Some(name) = file.file_name() else {
+      continue;
+    };
+
+    if name.eq_ignore_ascii_case("Shape_Files") {
+      return get_shp_path(path, &folder.join(name));
+    } else if let Some(stem) = path::Path::new(name).file_stem() {
+      if stem.eq_ignore_ascii_case("Class_Airspace") {
+        // Use the folder for shape files.
+        return Some(folder.into());
+      }
+    }
+  }
+  None
 }
 
 #[derive(Default, Eq, PartialEq)]
