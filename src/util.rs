@@ -231,15 +231,13 @@ impl From<Hashable> for f32 {
   }
 }
 
-pub type Color = [u8; 4];
-
 pub struct ImageData {
   pub w: usize,
   pub h: usize,
-  pub px: Vec<Color>,
+  pub px: Vec<[u8; 4]>,
 }
 
-/// Check if a GDAL `RgbaEntry` will fit into a `Color`.
+/// Check if a GDAL `RgbaEntry` will fit into a `[u8; 4]`.
 pub fn check_color(color: raster::RgbaEntry) -> bool {
   const COMP_RANGE: ops::Range<i16> = 0..256;
   COMP_RANGE.contains(&color.r)
@@ -248,13 +246,18 @@ pub fn check_color(color: raster::RgbaEntry) -> bool {
     && color.a == u8::MAX as i16
 }
 
-/// Convert a GDAL `RgbaEntry` to a `Color`.
-pub fn color(color: &raster::RgbaEntry) -> Color {
-  [color.r as u8, color.g as u8, color.b as u8, u8::MAX]
+/// Convert a GDAL `RgbaEntry` to a `[f32; 3]`.
+pub fn color_f32(color: &raster::RgbaEntry) -> [f32; 3] {
+  const SCALE: f32 = 1.0 / u8::MAX as f32;
+  [
+    color.r as f32 * SCALE,
+    color.g as f32 * SCALE,
+    color.b as f32 * SCALE,
+  ]
 }
 
-/// Convert a GDAL `RgbaEntry` to a luminance inverted `Color`.
-pub fn inverted_color(color: &raster::RgbaEntry) -> Color {
+/// Convert a GDAL `RgbaEntry` to a luminance inverted `[f32; 3]`.
+pub fn inverted_color_f32(color: &raster::RgbaEntry) -> [f32; 3] {
   let r = color.r as f32;
   let g = color.g as f32;
   let b = color.b as f32;
@@ -265,11 +268,23 @@ pub fn inverted_color(color: &raster::RgbaEntry) -> Color {
   let cr = r * 0.5 - g * 0.418688 - b * 0.081312;
 
   // Convert back to RGB.
-  let r = (y + 1.402 * cr) as u8;
-  let g = (y - 0.344136 * cb - 0.714136 * cr) as u8;
-  let b = (y + 1.772 * cb) as u8;
+  const SCALE: f32 = 1.0 / u8::MAX as f32;
+  let r = (y + 1.402 * cr) * SCALE;
+  let g = (y - 0.344136 * cb - 0.714136 * cr) * SCALE;
+  let b = (y + 1.772 * cb) * SCALE;
 
-  [r, g, b, u8::MAX]
+  [r, g, b]
+}
+
+/// Convert a `[f32; 3]` color to `[u8; 4]`
+pub fn color(color: [f32; 3]) -> [u8; 4] {
+  const SCALE: f32 = u8::MAX as f32;
+  [
+    (color[0] * SCALE) as u8,
+    (color[1] * SCALE) as u8,
+    (color[2] * SCALE) as u8,
+    u8::MAX,
+  ]
 }
 
 /// Return the file stem portion of a path as a `&str`.

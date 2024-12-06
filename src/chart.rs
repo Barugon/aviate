@@ -29,10 +29,16 @@ impl RasterReader {
     thread::Builder::new()
       .name(any::type_name::<RasterReader>().to_owned())
       .spawn(move || {
-        // Convert the color palette.
-        let light: Vec<util::Color> = palette.iter().map(util::color).collect();
-        let dark: Vec<util::Color> = palette.iter().map(util::inverted_color).collect();
-        drop(palette);
+        let (light, dark) = {
+          // Convert the color palette.
+          let mut light = Vec::with_capacity(u8::MAX as usize);
+          let mut dark = Vec::with_capacity(u8::MAX as usize);
+          for entry in palette {
+            light.push(util::color(util::color_f32(&entry)));
+            dark.push(util::color(util::inverted_color_f32(&entry)));
+          }
+          (light, dark)
+        };
 
         // Wait for a message. Exit when the connection is closed.
         while let Ok(request) = trx.recv() {
