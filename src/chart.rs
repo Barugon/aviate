@@ -395,7 +395,7 @@ impl RasterSource {
     let mut dy = 0;
 
     // Read the first source row.
-    raster.read_into_slice::<u8>((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+    raster.read_into_slice((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
 
     loop {
       // Check if the operation has been canceled.
@@ -419,7 +419,7 @@ impl RasterSource {
       }
 
       // Read the next source row.
-      raster.read_into_slice::<u8>((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+      raster.read_into_slice((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
 
       remain -= portion;
       portion = scale;
