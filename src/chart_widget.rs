@@ -187,7 +187,7 @@ impl ChartWidget {
     let chart_size = self.get_raster_size()?;
 
     // Clamp the zoom value.
-    let mut zoom = zoom.clamp(ChartWidget::MIN_ZOOM, ChartWidget::MAX_ZOOM);
+    let mut zoom = zoom.clamp(util::MIN_ZOOM, util::MAX_ZOOM);
 
     let mut max_size = chart_size * f64::from(zoom);
     let widget_size: geom::Size = self.base().get_size().into();
@@ -261,9 +261,6 @@ impl ChartWidget {
     let poly_draw = this.draw_polyline_ex(&packed, Color::MAGENTA);
     poly_draw.width(1.0).antialiased(true).done();
   }
-
-  const MIN_ZOOM: f32 = 1.0 / 8.0;
-  const MAX_ZOOM: f32 = 1.0;
 }
 
 #[godot_api]

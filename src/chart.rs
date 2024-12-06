@@ -369,13 +369,17 @@ impl RasterSource {
     cancel: sync::Arc<atomic::AtomicBool>,
   ) -> Result<Option<util::ImageData>, gdal::errors::GdalError> {
     let dst_rect = part.rect;
-    if dst_rect.size.w == 0 || dst_rect.size.h == 0 {
+    if !dst_rect.size.is_valid() {
+      return Ok(None);
+    }
+
+    let scale = part.zoom.value();
+    if !(util::MIN_ZOOM..=util::MAX_ZOOM).contains(&scale) {
       return Ok(None);
     }
 
     let src_rect = dst_rect.scaled(part.zoom.inverse()).fitted(self.px_size);
     let raster = self.dataset.rasterband(self.band_idx).unwrap();
-    let scale = part.zoom.value();
     let sw = src_rect.size.w as usize;
     let sh = src_rect.size.h as usize;
     let sx = src_rect.pos.x as isize;
