@@ -77,11 +77,11 @@ fn _get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
             }
           }
         }
-      }
 
-      // Both the shape folder and CSV zip must be present for aero data to be valid.
-      if !csv.as_os_str().is_empty() && !shp.as_os_str().is_empty() {
-        return Ok(ZipInfo::Aero { csv, shp });
+        // Done if both the shape and aero data are present.
+        if !csv.as_os_str().is_empty() && !shp.as_os_str().is_empty() {
+          return Ok(ZipInfo::Aero { csv, shp });
+        }
       }
 
       // Only accept TIFF files that have matching TFW files.
