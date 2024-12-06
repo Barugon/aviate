@@ -521,17 +521,12 @@ fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
 
 /// Get an appropriate scale value.
 fn get_scale(dpi: i32) -> f32 {
-  let scale = if cfg!(target_os = "android") {
-    // Use 140 as the base DPI for Android.
-    dpi as f32 / 140.0
-  } else {
-    // Use 120 as the base DPI for desktop.
-    dpi as f32 / 120.0
-  };
+  // Use 140 as the base DPI.
+  let scale = dpi as f32 / 140.0;
 
   // Quantize to 0.5.
-  // let scale = (scale * 2.0).trunc() * 0.5;
+  let scale = (scale * 2.0).trunc() * 0.5;
 
-  // Make sure the scale isn't less than 1.0.
+  // Make sure the scale doesn't go below 1.0.
   scale.max(1.0)
 }
