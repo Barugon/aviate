@@ -245,12 +245,12 @@ pub fn check_color(color: raster::RgbaEntry) -> bool {
   COMP_RANGE.contains(&color.r)
     && COMP_RANGE.contains(&color.g)
     && COMP_RANGE.contains(&color.b)
-    && COMP_RANGE.contains(&color.a)
+    && color.a == u8::MAX as i16
 }
 
 /// Convert a GDAL `RgbaEntry` to a `Color`.
 pub fn color(color: &raster::RgbaEntry) -> Color {
-  [color.r as u8, color.g as u8, color.b as u8, color.a as u8]
+  [color.r as u8, color.g as u8, color.b as u8, u8::MAX]
 }
 
 /// Convert a GDAL `RgbaEntry` to a luminance inverted `Color`.
@@ -269,7 +269,7 @@ pub fn inverted_color(color: &raster::RgbaEntry) -> Color {
   let g = (y - 0.344136 * cb - 0.714136 * cr) as u8;
   let b = (y + 1.772 * cb) as u8;
 
-  [r, g, b, color.a as u8]
+  [r, g, b, u8::MAX]
 }
 
 /// Return the file stem portion of a path as a `&str`.
