@@ -1,13 +1,18 @@
-use crate::{config, geom, util};
+use crate::{
+  config, geom,
+  util::{self, color},
+};
 use gdal::{raster, spatial_ref};
-use std::{any, hash::Hash, path, sync::mpsc, thread};
+use std::{any, cell, hash::Hash, path, sync, thread};
+use sync::{atomic, mpsc};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/)
 ///  in zipped GEO-TIFF format.
 pub struct RasterReader {
   transformation: Transformation,
-  tx: mpsc::Sender<ImagePart>,
+  tx: mpsc::Sender<(sync::Arc<atomic::AtomicBool>, ImagePart)>,
   rx: mpsc::Receiver<RasterReply>,
+  cancel: cell::Cell<Option<sync::Arc<atomic::AtomicBool>>>,
 }
 
 impl RasterReader {
@@ -34,40 +39,25 @@ impl RasterReader {
           let mut light = Vec::with_capacity(u8::MAX as usize);
           let mut dark = Vec::with_capacity(u8::MAX as usize);
           for entry in palette {
-            light.push(util::color(util::color_f32(&entry)));
-            dark.push(util::color(util::inverted_color_f32(&entry)));
+            light.push(util::color_f32(&entry));
+            dark.push(util::inverted_color_f32(&entry));
           }
           (light, dark)
         };
 
         // Wait for a message. Exit when the connection is closed.
         while let Ok(request) = trx.recv() {
-          let mut part = request;
+          let (cancel, part): (_, ImagePart) = request;
 
-          // GDAL doesn't have any way to cancel a raster read operation and the
-          // requests can pile up during a long read, so grab all the pending
-          // requests in order to get to the most recent.
-          while let Ok(request) = trx.try_recv() {
-            part = request;
-          }
+          // Choose the palette.
+          let pal = if part.dark { &dark } else { &light };
 
           // Read the image data.
-          match source.read(&part) {
-            Ok(gdal_image) => {
-              let ((w, h), data) = gdal_image.into_shape_and_vec();
-              let mut px = Vec::with_capacity(w * h);
-
-              // Choose the palette.
-              let colors = if part.dark { &dark } else { &light };
-
-              // Convert the palettized image to packed RGBA.
-              for val in data {
-                px.push(colors[val as usize]);
+          match source.read(&part, pal, cancel) {
+            Ok(image) => {
+              if let Some(image) = image {
+                ttx.send(RasterReply::Image(part, image)).unwrap();
               }
-
-              // Send the image data.
-              let image = util::ImageData { w, h, px };
-              ttx.send(RasterReply::Image(part, image)).unwrap();
             }
             Err(err) => {
               let text = format!("{err}");
@@ -82,6 +72,7 @@ impl RasterReader {
       transformation,
       tx,
       rx,
+      cancel: cell::Cell::new(None),
     })
   }
 
@@ -94,7 +85,13 @@ impl RasterReader {
   /// - `part`: the area to read from the source image.
   pub fn read_image(&self, part: ImagePart) {
     if part.rect.size.w > 0 && part.rect.size.h > 0 {
-      self.tx.send(part).unwrap();
+      if let Some(cancel) = self.cancel.take() {
+        cancel.store(true, atomic::Ordering::Relaxed);
+      }
+
+      let cancel = sync::Arc::new(atomic::AtomicBool::new(false));
+      self.cancel.replace(Some(cancel.clone()));
+      self.tx.send((cancel, part)).unwrap();
     }
   }
 
@@ -365,16 +362,139 @@ impl RasterSource {
     }
   }
 
-  fn read(&self, part: &ImagePart) -> Result<gdal::raster::Buffer<u8>, gdal::errors::GdalError> {
-    // Scale and correct the source rectangle (GDAL does not tolerate
-    // read requests outside the original raster size).
-    let src_rect = part.rect.scaled(part.zoom.inverse()).fitted(self.px_size);
+  fn read(
+    &self,
+    part: &ImagePart,
+    pal: &[[f32; 3]],
+    cancel: sync::Arc<atomic::AtomicBool>,
+  ) -> Result<Option<util::ImageData>, gdal::errors::GdalError> {
+    let dst_rect = part.rect;
+    if dst_rect.size.w == 0 || dst_rect.size.h == 0 {
+      return Ok(None);
+    }
+
+    let src_rect = dst_rect.scaled(part.zoom.inverse()).fitted(self.px_size);
     let raster = self.dataset.rasterband(self.band_idx).unwrap();
-    raster.read_as::<u8>(
-      src_rect.pos.into(),
-      src_rect.size.into(),
-      part.rect.size.into(),
-      Some(gdal::raster::ResampleAlg::Average),
-    )
+    let scale = part.zoom.value();
+    let sw = src_rect.size.w as usize;
+    let sh = src_rect.size.h as usize;
+    let sx = src_rect.pos.x as isize;
+    let src_end = src_rect.pos.y as isize + sh as isize;
+    let dw = dst_rect.size.w as usize;
+    let dh = dst_rect.size.h as usize;
+    let mut int_row = vec![Default::default(); dw];
+    let mut src_row = vec![Default::default(); sw];
+    let mut dst = Vec::with_capacity(dw * dh);
+    let mut portion = scale;
+    let mut remain = 1.0;
+    let mut sy = src_rect.pos.y as isize;
+    let mut dy = 0;
+
+    // Read the first source row.
+    raster.read_into_slice::<u8>((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+
+    loop {
+      // Check if the operation has been canceled.
+      if cancel.load(atomic::Ordering::Relaxed) {
+        return Ok(None);
+      }
+
+      // Resample the source row.
+      resample_row(&mut int_row, &src_row, pal, scale, portion);
+
+      // Check if the end of the source data has been reached.
+      sy += 1;
+      if sy == src_end {
+        // Output this row if the end of the destination data hasn't been reached.
+        if dy < dh {
+          for rgb in &mut int_row {
+            dst.push(color(*rgb));
+          }
+        }
+        break;
+      }
+
+      // Read the next source row.
+      raster.read_into_slice::<u8>((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+
+      remain -= portion;
+      portion = scale;
+      if remain < scale {
+        // Resample the final amount from this source row.
+        resample_row(&mut int_row, &src_row, pal, scale, remain);
+
+        // Output the final destination row.
+        for rgb in &mut int_row {
+          dst.push(color(*rgb));
+          *rgb = Default::default();
+        }
+
+        // Check if the end of the destination data has been reached.
+        dy += 1;
+        if dy == dh {
+          break;
+        }
+
+        portion = scale - remain;
+        remain = 1.0;
+      }
+    }
+
+    Ok(Some(util::ImageData {
+      w: dw,
+      h: dh,
+      px: dst,
+    }))
+  }
+}
+
+fn resample_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
+  let mut dst_iter = dst.iter_mut();
+  let mut src_iter = src.iter();
+  let mut portion = xr;
+  let mut remain = 1.0;
+
+  let Some(mut dst) = dst_iter.next() else {
+    return;
+  };
+
+  let Some(mut src) = src_iter.next() else {
+    return;
+  };
+
+  loop {
+    // Resample the source pixel.
+    let rgb = pal[*src as usize];
+    let ratio = portion * yr;
+    dst[0] += rgb[0] * ratio;
+    dst[1] += rgb[1] * ratio;
+    dst[2] += rgb[2] * ratio;
+
+    // Move to the next source pixel.
+    let Some(src_next) = src_iter.next() else {
+      break;
+    };
+
+    src = src_next;
+    remain -= portion;
+    portion = xr;
+
+    if remain < xr {
+      // Resample what remains of this pixel.
+      let rgb = pal[*src as usize];
+      let ratio = remain * yr;
+      dst[0] += rgb[0] * ratio;
+      dst[1] += rgb[1] * ratio;
+      dst[2] += rgb[2] * ratio;
+
+      // Move to the next destination pixel.
+      let Some(dst_next) = dst_iter.next() else {
+        break;
+      };
+
+      dst = dst_next;
+      portion = xr - remain;
+      remain = 1.0;
+    }
   }
 }
