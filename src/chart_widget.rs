@@ -187,7 +187,7 @@ impl ChartWidget {
     let chart_size = self.get_raster_size()?;
 
     // Clamp the zoom value.
-    let mut zoom = zoom.clamp(util::MIN_ZOOM, util::MAX_ZOOM);
+    let mut zoom = zoom.clamp(*util::ZOOM_RANGE.start(), *util::ZOOM_RANGE.end());
 
     let mut max_size = chart_size * f64::from(zoom);
     let widget_size: geom::Size = self.base().get_size().into();

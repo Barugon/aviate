@@ -1,7 +1,4 @@
-use crate::{
-  config, geom,
-  util::{self, color},
-};
+use crate::{config, geom, util};
 use gdal::{raster, spatial_ref};
 use std::{any, cell, path, sync, thread};
 use sync::{atomic, mpsc};
@@ -243,13 +240,11 @@ pub struct ImagePart {
 
 impl ImagePart {
   pub fn new(rect: geom::Rect, zoom: f32, dark: bool) -> Self {
-    // A zoom value of zero is not valid.
-    assert!(zoom > 0.0);
     Self { rect, zoom, dark }
   }
 
   pub fn is_valid(&self) -> bool {
-    self.rect.size.is_valid() && (util::MIN_ZOOM..=util::MAX_ZOOM).contains(&self.zoom)
+    self.rect.size.is_valid() && util::ZOOM_RANGE.contains(&self.zoom)
   }
 }
 
@@ -458,7 +453,7 @@ impl RasterSource {
         // Output this row if the end of the destination data hasn't been reached.
         if dy < dh {
           for rgb in &mut int_row {
-            dst.push(color(*rgb));
+            dst.push(util::color(*rgb));
           }
         }
         break;
@@ -475,7 +470,7 @@ impl RasterSource {
 
         // Output the final destination row.
         for rgb in &mut int_row {
-          dst.push(color(*rgb));
+          dst.push(util::color(*rgb));
           *rgb = [0.0, 0.0, 0.0];
         }
 
