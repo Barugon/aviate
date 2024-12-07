@@ -392,18 +392,22 @@ impl AirportSource {
     for feature in self.layer().features() {
       if let Some(fid) = feature.fid() {
         use geom::Transform;
-        if let Some(chart) = feature
-          .get_coord()
-          .and_then(|dd| to_chart.trans.transform(dd).ok())
-        {
-          if geom::polygon_contains(&to_chart.bounds, chart) {
-            // Add the airport name to the name vector.
-            if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
-              name_vec.push((name, fid));
-            }
 
-            loc_vec.push(LocIdx { coord: chart, fid })
+        let Some(coord) = feature.get_coord() else {
+          continue;
+        };
+
+        let Ok(coord) = to_chart.trans.transform(coord) else {
+          continue;
+        };
+
+        if geom::polygon_contains(&to_chart.bounds, coord) {
+          // Add the airport name to the name vector.
+          if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
+            name_vec.push((name, fid));
           }
+
+          loc_vec.push(LocIdx { coord, fid })
         }
       }
     }
