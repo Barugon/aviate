@@ -363,6 +363,57 @@ impl RasterSource {
     pal: &[[f32; 3]],
     cancel: sync::Arc<atomic::AtomicBool>,
   ) -> Result<Option<util::ImageData>, gdal::errors::GdalError> {
+    fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
+      let mut dst_iter = dst.iter_mut();
+      let mut src_iter = src.iter();
+      let mut portion = xr;
+      let mut remain = 1.0;
+
+      let Some(mut dst) = dst_iter.next() else {
+        return;
+      };
+
+      let Some(mut src) = src_iter.next() else {
+        return;
+      };
+
+      loop {
+        // Resample the source pixel.
+        let rgb = &pal[*src as usize];
+        let ratio = portion * yr;
+        dst[0] += rgb[0] * ratio;
+        dst[1] += rgb[1] * ratio;
+        dst[2] += rgb[2] * ratio;
+
+        // Move to the next source pixel.
+        let Some(src_next) = src_iter.next() else {
+          break;
+        };
+
+        src = src_next;
+        remain -= portion;
+        portion = xr;
+
+        if remain < xr {
+          // Resample what remains of this pixel.
+          let rgb = &pal[*src as usize];
+          let ratio = remain * yr;
+          dst[0] += rgb[0] * ratio;
+          dst[1] += rgb[1] * ratio;
+          dst[2] += rgb[2] * ratio;
+
+          // Move to the next destination pixel.
+          let Some(dst_next) = dst_iter.next() else {
+            break;
+          };
+
+          dst = dst_next;
+          portion = xr - remain;
+          remain = 1.0;
+        }
+      }
+    }
+
     let dst_rect = part.rect;
     if !dst_rect.size.is_valid() {
       return Ok(None);
@@ -398,7 +449,7 @@ impl RasterSource {
         return Ok(None);
       }
 
-      // Resample the source row.
+      // Process the source row.
       process_row(&mut int_row, &src_row, pal, scale, portion);
 
       // Check if the end of the source data has been reached.
@@ -419,7 +470,7 @@ impl RasterSource {
       remain -= portion;
       portion = scale;
       if remain < scale {
-        // Resample the final amount from this source row.
+        // Process the final amount from this source row.
         process_row(&mut int_row, &src_row, pal, scale, remain);
 
         // Output the final destination row.
@@ -444,56 +495,5 @@ impl RasterSource {
       h: dh,
       px: dst,
     }))
-  }
-}
-
-fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
-  let mut dst_iter = dst.iter_mut();
-  let mut src_iter = src.iter();
-  let mut portion = xr;
-  let mut remain = 1.0;
-
-  let Some(mut dst) = dst_iter.next() else {
-    return;
-  };
-
-  let Some(mut src) = src_iter.next() else {
-    return;
-  };
-
-  loop {
-    // Resample the source pixel.
-    let rgb = &pal[*src as usize];
-    let ratio = portion * yr;
-    dst[0] += rgb[0] * ratio;
-    dst[1] += rgb[1] * ratio;
-    dst[2] += rgb[2] * ratio;
-
-    // Move to the next source pixel.
-    let Some(src_next) = src_iter.next() else {
-      break;
-    };
-
-    src = src_next;
-    remain -= portion;
-    portion = xr;
-
-    if remain < xr {
-      // Resample what remains of this pixel.
-      let rgb = &pal[*src as usize];
-      let ratio = remain * yr;
-      dst[0] += rgb[0] * ratio;
-      dst[1] += rgb[1] * ratio;
-      dst[2] += rgb[2] * ratio;
-
-      // Move to the next destination pixel.
-      let Some(dst_next) = dst_iter.next() else {
-        break;
-      };
-
-      dst = dst_next;
-      portion = xr - remain;
-      remain = 1.0;
-    }
   }
 }

@@ -32,6 +32,45 @@ pub enum ZipInfo {
 /// Returns information about what type of FAA data (if any) is contained in a zip file.
 pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
   |path: &path::Path| -> Result<ZipInfo, Error> {
+    fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
+      let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
+      for file in files {
+        let Some(ext) = file.extension() else {
+          continue;
+        };
+
+        if ext.eq_ignore_ascii_case("zip") {
+          let Some(stem) = file.file_stem().and_then(|stem| stem.to_str()) else {
+            continue;
+          };
+
+          if stem.to_ascii_uppercase().ends_with("_CSV") {
+            return Some(folder.join(file));
+          }
+        }
+      }
+      None
+    }
+
+    fn get_shp_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
+      let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
+      for file in files {
+        let Some(name) = file.file_name() else {
+          continue;
+        };
+
+        if name.eq_ignore_ascii_case("Shape_Files") {
+          return get_shp_path(path, &folder.join(name));
+        } else if let Some(stem) = path::Path::new(name).file_stem() {
+          if stem.eq_ignore_ascii_case("Class_Airspace") {
+            // Use the folder for shape files.
+            return Some(folder.into());
+          }
+        }
+      }
+      None
+    }
+
     let Some(path) = path.to_str() else {
       return Err("Invalid unicode in zip file path".into());
     };
@@ -99,45 +138,6 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
 
     Err("Zip file does not contain usable data".into())
   }(path.as_ref())
-}
-
-fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-  let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
-  for file in files {
-    let Some(ext) = file.extension() else {
-      continue;
-    };
-
-    if ext.eq_ignore_ascii_case("zip") {
-      let Some(stem) = file.file_stem().and_then(|stem| stem.to_str()) else {
-        continue;
-      };
-
-      if stem.to_ascii_uppercase().ends_with("_CSV") {
-        return Some(folder.join(file));
-      }
-    }
-  }
-  None
-}
-
-fn get_shp_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-  let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
-  for file in files {
-    let Some(name) = file.file_name() else {
-      continue;
-    };
-
-    if name.eq_ignore_ascii_case("Shape_Files") {
-      return get_shp_path(path, &folder.join(name));
-    } else if let Some(stem) = path::Path::new(name).file_stem() {
-      if stem.eq_ignore_ascii_case("Class_Airspace") {
-        // Use the folder for shape files.
-        return Some(folder.into());
-      }
-    }
-  }
-  None
 }
 
 #[derive(Default, Eq, PartialEq)]
