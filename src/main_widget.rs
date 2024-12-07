@@ -348,8 +348,8 @@ impl IControl for MainWidget {
     dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
     dialog.set(&title_property, &title_size);
 
-    // Set the root subfolder to shared storage on Android.
     #[cfg(target_os = "android")]
+    // Set the root subfolder to shared storage on Android.
     dialog.set_root_subfolder("/storage/emulated/0");
 
     // The content scale hasn't been applied yet, so we need to account for it here.

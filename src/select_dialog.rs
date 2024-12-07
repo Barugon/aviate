@@ -55,6 +55,7 @@ impl SelectDialog {
       button.connect("pressed", &callable);
 
       #[cfg(target_os = "android")]
+      // Use a bit smaller font for the buttons on Android.
       button.add_theme_font_size_override("font_size", 12);
 
       self.items.add_child(&button);
