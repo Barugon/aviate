@@ -53,6 +53,10 @@ impl SelectDialog {
       button.set_toggle_mode(true);
       button.set_button_group(&group);
       button.connect("pressed", &callable);
+
+      #[cfg(target_os = "android")]
+      button.add_theme_font_size_override("font_size", 12);
+
       self.items.add_child(&button);
     }
 
