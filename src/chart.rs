@@ -84,7 +84,7 @@ impl RasterReader {
   /// Kick-off an image read operation.
   /// - `part`: the area to read from the source image.
   pub fn read_image(&self, part: ImagePart) {
-    if part.rect.size.w > 0 && part.rect.size.h > 0 {
+    if part.is_valid() {
       if let Some(cancel) = self.cancel.take() {
         cancel.store(true, atomic::Ordering::Relaxed);
       }
@@ -246,6 +246,10 @@ impl ImagePart {
     // A zoom value of zero is not valid.
     assert!(zoom > 0.0);
     Self { rect, zoom, dark }
+  }
+
+  pub fn is_valid(&self) -> bool {
+    self.rect.size.is_valid() && (util::MIN_ZOOM..=util::MAX_ZOOM).contains(&self.zoom)
   }
 }
 
@@ -414,18 +418,14 @@ impl RasterSource {
       }
     }
 
-    let dst_rect = part.rect;
-    if !dst_rect.size.is_valid() {
+    if !part.is_valid() {
       return Ok(None);
     }
 
-    let scale = part.zoom;
-    if !(util::MIN_ZOOM..=util::MAX_ZOOM).contains(&scale) {
-      return Ok(None);
-    }
-
-    let src_rect = dst_rect.scaled(1.0 / scale).fitted(self.px_size);
     let raster = self.dataset.rasterband(self.band_idx).unwrap();
+    let scale = part.zoom;
+    let dst_rect = part.rect;
+    let src_rect = dst_rect.scaled(1.0 / scale).fitted(self.px_size);
     let sw = src_rect.size.w as usize;
     let sh = src_rect.size.h as usize;
     let sx = src_rect.pos.x as isize;
