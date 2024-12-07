@@ -1,6 +1,6 @@
 use crate::{geom, util};
 use gdal::{errors, spatial_ref, vector};
-use godot::prelude::*;
+use godot::global::godot_error;
 use std::{any, collections, path, sync, thread};
 use sync::{atomic, mpsc};
 
