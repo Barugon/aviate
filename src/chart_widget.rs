@@ -148,7 +148,7 @@ impl ChartWidget {
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
     let chart_image = self.chart_image.as_ref()?;
-    let zoom = self.display_info.zoom / chart_image.part.zoom.value();
+    let zoom = self.display_info.zoom / chart_image.part.zoom;
     let pos = Vector2::from(chart_image.part.rect.pos) * zoom - self.display_info.origin.into();
     let size = chart_image.texture.get_size() * zoom;
     let rect = Rect2::new(pos, size);

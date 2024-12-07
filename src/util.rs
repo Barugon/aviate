@@ -102,7 +102,7 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
 }
 
 fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-  let files = gdal::vsi::read_dir(&path.join(folder), false).ok()?;
+  let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
   for file in files {
     let Some(ext) = file.extension() else {
       continue;
@@ -122,7 +122,7 @@ fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf>
 }
 
 fn get_shp_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-  let files = gdal::vsi::read_dir(&path.join(folder), false).ok()?;
+  let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
   for file in files {
     let Some(name) = file.file_name() else {
       continue;
@@ -229,35 +229,6 @@ impl ToU32 for f64 {
 impl ToU32 for Variant {
   fn to_u32(self) -> Option<u32> {
     self.try_to::<f64>().ok()?.to_u32()
-  }
-}
-
-/// Represents a f32 in the 0..=1 range as a hashable value.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Hashable(u32);
-const HASHABLE32_SCALE: f32 = (1 << 23) as f32;
-
-impl Hashable {
-  pub fn value(&self) -> f32 {
-    self.0 as f32 / HASHABLE32_SCALE
-  }
-
-  pub fn inverse(&self) -> f32 {
-    assert!(self.0 > 0);
-    HASHABLE32_SCALE / self.0 as f32
-  }
-}
-
-impl From<f32> for Hashable {
-  fn from(val: f32) -> Self {
-    assert!((0.0..=1.0).contains(&val));
-    Hashable((val * HASHABLE32_SCALE) as u32)
-  }
-}
-
-impl From<Hashable> for f32 {
-  fn from(hashable: Hashable) -> Self {
-    hashable.value()
   }
 }
 

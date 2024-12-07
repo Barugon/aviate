@@ -3,7 +3,7 @@ use crate::{
   util::{self, color},
 };
 use gdal::{raster, spatial_ref};
-use std::{any, cell, hash::Hash, path, sync, thread};
+use std::{any, cell, path, sync, thread};
 use sync::{atomic, mpsc};
 
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/)
@@ -234,10 +234,10 @@ impl Transformation {
 }
 
 /// The part of the image needed for display.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImagePart {
   pub rect: geom::Rect,
-  pub zoom: util::Hashable,
+  pub zoom: f32,
   pub dark: bool,
 }
 
@@ -245,11 +245,7 @@ impl ImagePart {
   pub fn new(rect: geom::Rect, zoom: f32, dark: bool) -> Self {
     // A zoom value of zero is not valid.
     assert!(zoom > 0.0);
-    Self {
-      rect,
-      zoom: zoom.into(),
-      dark,
-    }
+    Self { rect, zoom, dark }
   }
 }
 
@@ -278,7 +274,7 @@ impl RasterSource {
     match gdal::Dataset::open_ex(path, Self::open_options()) {
       Ok(dataset) => {
         // Get and check the dataset's spatial reference.
-        let spatial_ref = match dataset.spatial_ref() {
+        let cht_sr = match dataset.spatial_ref() {
           Ok(sr) => {
             match sr.to_proj4() {
               Ok(proj4) => {
@@ -296,8 +292,8 @@ impl RasterSource {
           Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
         };
 
-        // This dataset must have a geo-transformation.
-        let geo_transformation = match dataset.geo_transform() {
+        // Dataset must have a geo-transformation.
+        let geo_trans = match dataset.geo_transform() {
           Ok(gt) => gt,
           Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
         };
@@ -307,12 +303,11 @@ impl RasterSource {
           return Err("Unable to open chart:\ninvalid pixel size".into());
         }
 
-        let chart_name = util::stem_str(path).unwrap();
-        let transformation =
-          match Transformation::new(chart_name, px_size, spatial_ref, geo_transformation) {
-            Ok(trans) => trans,
-            Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
-          };
+        let cht_name = util::stem_str(path).unwrap();
+        let transformation = match Transformation::new(cht_name, px_size, cht_sr, geo_trans) {
+          Ok(trans) => trans,
+          Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+        };
 
         let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
           // The raster bands start at index one.
@@ -373,12 +368,12 @@ impl RasterSource {
       return Ok(None);
     }
 
-    let scale = part.zoom.value();
+    let scale = part.zoom;
     if !(util::MIN_ZOOM..=util::MAX_ZOOM).contains(&scale) {
       return Ok(None);
     }
 
-    let src_rect = dst_rect.scaled(part.zoom.inverse()).fitted(self.px_size);
+    let src_rect = dst_rect.scaled(1.0 / scale).fitted(self.px_size);
     let raster = self.dataset.rasterband(self.band_idx).unwrap();
     let sw = src_rect.size.w as usize;
     let sh = src_rect.size.h as usize;
