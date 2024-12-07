@@ -62,6 +62,7 @@ impl MainWidget {
       return;
     }
 
+    dialog.reset_size();
     dialog.call_deferred("show", &[]);
   }
 
@@ -361,8 +362,6 @@ impl IControl for MainWidget {
 
     if let Some(label) = dialog.get_label() {
       let mut label = label;
-      let property = "theme_override_colors/font_color";
-      label.set(property, &Variant::from(Color::from_rgb(1.0, 0.4, 0.4)));
       label.set_horizontal_alignment(HorizontalAlignment::CENTER);
     }
 
