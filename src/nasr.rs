@@ -283,20 +283,6 @@ pub enum AirportIndex {
   Advanced,
 }
 
-impl From<u8> for AirportIndex {
-  fn from(value: u8) -> Self {
-    const NONE: u8 = AirportIndex::None as u8;
-    const BASIC: u8 = AirportIndex::Basic as u8;
-    const SPATIAL: u8 = AirportIndex::Advanced as u8;
-    match value {
-      NONE => AirportIndex::None,
-      BASIC => AirportIndex::Basic,
-      SPATIAL => AirportIndex::Advanced,
-      _ => unreachable!(),
-    }
-  }
-}
-
 #[derive(Clone)]
 struct AirportStatusSync {
   status: sync::Arc<atomic::AtomicU8>,
@@ -323,7 +309,15 @@ impl AirportStatusSync {
   }
 
   fn get(&self) -> AirportIndex {
-    self.status.load(atomic::Ordering::Relaxed).into()
+    const NONE: u8 = AirportIndex::None as u8;
+    const BASIC: u8 = AirportIndex::Basic as u8;
+    const SPATIAL: u8 = AirportIndex::Advanced as u8;
+    match self.status.load(atomic::Ordering::Relaxed) {
+      NONE => AirportIndex::None,
+      BASIC => AirportIndex::Basic,
+      SPATIAL => AirportIndex::Advanced,
+      _ => unreachable!(),
+    }
   }
 }
 
@@ -519,8 +513,8 @@ impl rstar::PointDistance for LocIdx {
 /// Airport information.
 #[derive(Debug)]
 pub struct AirportInfo {
-  /// Feature record ID.
   #[allow(unused)]
+  /// Feature record ID.
   pub fid: u64,
 
   /// Airport ID.
