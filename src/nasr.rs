@@ -323,7 +323,6 @@ impl AirportStatusSync {
 
 struct AirportSource {
   dataset: gdal::Dataset,
-  count: u64,
   id_map: collections::HashMap<String, u64>,
   name_vec: Vec<(String, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
@@ -342,16 +341,9 @@ impl AirportSource {
   /// Open an airport data source.
   /// - `path`: NASR airport CSV file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
-    use gdal::vector::LayerAccess;
-
-    // Open the dataset and get the layer.
     let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
-    let layer = dataset.layer(0)?;
-    let count = layer.feature_count();
-
     Ok(Self {
       dataset,
-      count,
       id_map: collections::HashMap::new(),
       name_vec: Vec::new(),
       sp_idx: rstar::RTree::new(),
@@ -362,8 +354,10 @@ impl AirportSource {
   fn create_basic_index(&mut self) -> bool {
     use vector::LayerAccess;
 
-    let mut id_map = collections::HashMap::with_capacity(self.count as usize);
-    for feature in self.layer().features() {
+    let mut layer = self.layer();
+    let count = layer.feature_count();
+    let mut id_map = collections::HashMap::with_capacity(count as usize);
+    for feature in layer.features() {
       if let Some(fid) = feature.fid() {
         // Add the airport IDs to the ID index.
         if let Some(id) = feature.get_string(AirportInfo::AIRPORT_ID) {
@@ -408,6 +402,7 @@ impl AirportSource {
 
     self.name_vec = name_vec;
     self.sp_idx = rstar::RTree::bulk_load(loc_vec);
+
     !self.name_vec.is_empty() && self.sp_idx.size() > 0
   }
 
