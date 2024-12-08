@@ -3,7 +3,7 @@ use godot::{
   classes::{
     display_server::WindowMode, notify::ControlNotification, AcceptDialog, Button, CheckButton,
     Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label,
-    OptionButton, PanelContainer, Window,
+    MarginContainer, OptionButton, PanelContainer, Tree, Window,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -502,6 +502,12 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>, max_width: i32) {
   // Locations.
   let mut hbox = children.at(8).try_cast::<HBoxContainer>().unwrap();
   hbox.set_visible(false);
+
+  // Tree theme overrides.
+  let container = vbox_children.at(2).try_cast::<MarginContainer>().unwrap();
+  let mut tree = container.get_children().at(0).try_cast::<Tree>().unwrap();
+  tree.add_theme_constant_override("draw_guides", 0);
+  tree.add_theme_constant_override("v_separation", 2);
 
   let hbox = vbox_children.at(3).try_cast::<HBoxContainer>().unwrap();
   let children = hbox.get_children();

@@ -196,7 +196,7 @@ size_flags_horizontal = 3
 [node name="SelectDialog" type="SelectDialog" parent="."]
 title = "Select"
 initial_position = 2
-size = Vector2i(400, 250)
+size = Vector2i(400, 57)
 visible = false
 wrap_controls = true
 transient = true
@@ -220,6 +220,8 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_rcs2l")
 
 [node name="Tree" type="Tree" parent="SelectDialog/VBoxContainer/ItemsContainer"]
 layout_mode = 2
+theme_override_constants/draw_guides = 0
+theme_override_constants/v_separation = 2
 columns = 2
 hide_folding = true
 hide_root = true

@@ -9,6 +9,7 @@ use godot::{
 pub struct SelectDialog {
   base: Base<Window>,
   tree: OnReady<Gd<Tree>>,
+  width: i32,
 }
 
 #[godot_api]
@@ -37,10 +38,11 @@ impl SelectDialog {
     let mut button = self.get_child::<Button>("OkButton");
     button.set_disabled(true);
 
-    // Remove existing choices.
+    // Remove existing choices and disable scrolling.
     self.tree.clear();
     self.tree.set_column_expand_ratio(0, 2);
     self.tree.set_column_expand(0, true);
+    self.tree.set_v_scroll_enabled(false);
 
     // Populate with new choices.
     let root = self.tree.create_item().unwrap();
@@ -56,13 +58,20 @@ impl SelectDialog {
       }
     }
 
+    self.base_mut().reset_size();
+
+    // Reenable scrolling.
+    self.tree.set_v_scroll_enabled(true);
     self.tree.scroll_to_item(&root);
 
-    // Adjust the width if it's greater than the parent.
+    // Restore the width.
+    let size = Vector2i::new(self.width, self.base().get_size().y);
+    self.base_mut().set_size(size);
+
+    // Adjust the width if it's wider than the main window.
     const DECO_WIDTH: i32 = 16;
     let parent = self.base().get_parent().unwrap();
     let parent = parent.cast::<Control>();
-    let size = self.base().get_size();
     let parent_width = parent.get_size().x as i32;
     if size.x + DECO_WIDTH > parent_width {
       let new_size = Vector2i::new(parent_width - DECO_WIDTH, size.y);
@@ -83,11 +92,15 @@ impl IWindow for SelectDialog {
     Self {
       base,
       tree: OnReady::manual(),
+      width: 0,
     }
   }
 
   fn ready(&mut self) {
-    // Get the items vbox.
+    // Remember the dialog width.
+    self.width = self.base().get_size().x;
+
+    // Get the items tree.
     self.tree.init(self.get_child("Tree"));
 
     let callable = self.base().callable("choice_confirmed");
