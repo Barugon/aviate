@@ -27,16 +27,18 @@ struct MainWidget {
 #[godot_api]
 impl MainWidget {
   #[func]
-  fn toggle_sidebar(&self, toggle: bool) {
+  fn toggle_sidebar(&self, visible: bool) {
     let mut panel = self.get_child::<PanelContainer>("SidebarPanel");
-    panel.set_visible(toggle);
+    if panel.is_visible() != visible {
+      panel.set_visible(visible);
 
-    let mut button = self.get_child::<CheckButton>("SidebarButton");
-    button.set_tooltip_text(if toggle {
-      "Hide side panel"
-    } else {
-      "Show side panel"
-    });
+      let mut button = self.get_child::<CheckButton>("SidebarButton");
+      button.set_tooltip_text(if visible {
+        "Hide side panel"
+      } else {
+        "Show side panel"
+      });
+    }
   }
 
   #[func]
