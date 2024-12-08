@@ -362,6 +362,10 @@ impl RasterSource {
     pal: &[[f32; 3]],
     cancel: sync::Arc<atomic::AtomicBool>,
   ) -> Result<Option<util::ImageData>, gdal::errors::GdalError> {
+    if !part.is_valid() {
+      return Ok(None);
+    }
+
     fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
       let mut dst_iter = dst.iter_mut();
       let mut src_iter = src.iter();
@@ -411,10 +415,6 @@ impl RasterSource {
           remain = 1.0;
         }
       }
-    }
-
-    if !part.is_valid() {
-      return Ok(None);
     }
 
     let raster = self.dataset.rasterband(self.band_idx).unwrap();
