@@ -33,6 +33,10 @@ impl SelectDialog {
   }
 
   pub fn show_choices<'a, I: Iterator<Item = &'a str>>(&mut self, choices: I) {
+    // Disable the ok button.
+    let mut button = self.get_child::<Button>("OkButton");
+    button.set_disabled(true);
+
     // Remove existing choices.
     self.tree.clear();
     self.tree.set_column_expand_ratio(0, 2);
