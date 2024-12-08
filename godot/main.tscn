@@ -224,6 +224,7 @@ columns = 2
 hide_folding = true
 hide_root = true
 select_mode = 1
+scroll_horizontal_enabled = false
 
 [node name="PanelContainer" type="PanelContainer" parent="SelectDialog/VBoxContainer"]
 layout_mode = 2
