@@ -164,8 +164,8 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom
   Some(points)
 }
 
-#[cfg(feature = "dev")]
 /// Processes SVG files in '~/Downloads/bounds' and store into 'res/bounds.json'.
+#[cfg(feature = "dev")]
 fn convert_bounds_svgs() {
   use std::path;
 

@@ -238,6 +238,8 @@ impl MainWidget {
   fn setup_window(&mut self) -> f32 {
     let win_info = self.config.get_win_info();
     let mut display_server = DisplayServer::singleton();
+
+    #[cfg(not(target_os = "android"))]
     display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
 
     // Godot doesn't handle hi-dpi.
@@ -294,7 +296,7 @@ impl IControl for MainWidget {
   }
 
   fn on_notification(&mut self, what: ControlNotification) {
-    if what == ControlNotification::WM_CLOSE_REQUEST {
+    if what == ControlNotification::WM_CLOSE_REQUEST && cfg!(not(target_os = "android")) {
       let win_info = util::WinInfo::from_display(&DisplayServer::singleton());
       self.config.set_win_info(&win_info);
     }
@@ -351,8 +353,8 @@ impl IControl for MainWidget {
     dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
     dialog.set(&title_property, &title_size);
 
-    #[cfg(target_os = "android")]
     // Set the root subfolder to shared storage on Android.
+    #[cfg(target_os = "android")]
     dialog.set_root_subfolder("/storage/emulated/0");
 
     // The content scale hasn't been applied yet, so we need to account for it here.

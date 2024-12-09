@@ -216,9 +216,9 @@ impl Transformation {
     Ok(geom::Coord { x: x[0], y: y[0] })
   }
 
-  #[allow(unused)]
   /// Convert a pixel coordinate to a decimal degree coordinate.
   /// - `coord`: pixel coordinate
+  #[allow(unused)]
   pub fn px_to_dd(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     self.chart_to_dd(self.px_to_chart(coord))
   }

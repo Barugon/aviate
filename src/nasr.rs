@@ -162,17 +162,17 @@ impl AirportReader {
     self.tx.send(request).unwrap();
   }
 
-  #[allow(unused)]
   /// Clear the chart spatial reference.
+  #[allow(unused)]
   pub fn clear_spatial_ref(&self) {
     let request = AirportRequest::SpatialRef(None);
     self.tx.send(request).unwrap();
   }
 
-  #[allow(unused)]
   /// Lookup airport information using it's identifier.
   /// > **NOTE**: Ignores chart boundaries and does not require a chart spatial reference.
   /// - `id`: airport id
+  #[allow(unused)]
   pub fn airport(&self, id: String) {
     if !id.is_empty() {
       self.tx.send(AirportRequest::Airport(id)).unwrap();
@@ -180,12 +180,12 @@ impl AirportReader {
     }
   }
 
-  #[allow(unused)]
   /// Request nearby airports.
   /// > **NOTE**: requires a chart spatial reference.
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
+  #[allow(unused)]
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
     if dist >= 0.0 {
       self
@@ -508,8 +508,8 @@ impl rstar::PointDistance for LocIdx {
 /// Airport information.
 #[derive(Debug)]
 pub struct AirportInfo {
-  #[allow(unused)]
   /// Feature record ID.
+  #[allow(unused)]
   pub fid: u64,
 
   /// Airport ID.
