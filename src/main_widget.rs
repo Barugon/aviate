@@ -353,10 +353,6 @@ impl IControl for MainWidget {
     dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
     dialog.set(&title_property, &title_size);
 
-    // Set the root subfolder to shared storage on Android.
-    #[cfg(target_os = "android")]
-    dialog.set_root_subfolder("/storage/emulated/0");
-
     // The content scale hasn't been applied yet, so we need to account for it here.
     fixup_file_dialog(&mut dialog, (self.base().get_size().x / scale) as i32);
 
@@ -520,6 +516,10 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>, max_width: i32) {
 
   // Set the initial dialog size.
   file_dialog.set_size(Vector2i::new(500.min(max_width), 400));
+
+  // Set the root subfolder to shared storage on Android.
+  #[cfg(target_os = "android")]
+  dialog.set_root_subfolder("/storage/emulated/0");
 }
 
 /// Test if a key event has CMD or CTRL modifiers.
