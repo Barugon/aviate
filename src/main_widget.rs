@@ -92,6 +92,11 @@ impl MainWidget {
       dialog.set_current_dir(&folder);
     }
 
+    // Set the dialog size.
+    let width = 500.min(self.base().get_size().x as i32);
+    let height = dialog.get_size().y;
+    dialog.set_size(Vector2i::new(width, height));
+
     dialog.call_deferred("show", &[]);
   }
 
@@ -352,9 +357,7 @@ impl IControl for MainWidget {
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
     dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
     dialog.set(&title_property, &title_size);
-
-    // The content scale hasn't been applied yet, so we need to account for it here.
-    fixup_file_dialog(&mut dialog, (self.base().get_size().x / scale) as i32);
+    fixup_file_dialog(&mut dialog);
 
     // Setup the alert dialog.
     let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
@@ -479,7 +482,7 @@ struct AirportStatus {
   pending: bool,
 }
 
-fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>, max_width: i32) {
+fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>) {
   let vbox = file_dialog.get_vbox().unwrap();
   let vbox_children = vbox.get_children();
   let hbox = vbox_children.at(0).try_cast::<HBoxContainer>().unwrap();
@@ -513,9 +516,6 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>, max_width: i32) {
   // Filters.
   let mut button = children.at(2).try_cast::<OptionButton>().unwrap();
   button.set_visible(false);
-
-  // Set the initial dialog size.
-  file_dialog.set_size(Vector2i::new(500.min(max_width), 400));
 
   // Set the root subfolder to shared storage on Android.
   #[cfg(target_os = "android")]

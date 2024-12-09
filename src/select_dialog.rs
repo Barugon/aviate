@@ -64,19 +64,14 @@ impl SelectDialog {
     self.tree.set_v_scroll_enabled(true);
     self.tree.scroll_to_item(&root);
 
-    // Restore the width.
-    let size = Vector2i::new(self.width, self.base().get_size().y);
-    self.base_mut().set_size(size);
-
-    // Adjust the width if it's wider than the main window.
+    // Resize the window.
     const DECO_WIDTH: i32 = 16;
     let parent = self.base().get_parent().unwrap();
     let parent = parent.cast::<Control>();
     let parent_width = parent.get_size().x as i32;
-    if size.x + DECO_WIDTH > parent_width {
-      let new_size = Vector2i::new(parent_width - DECO_WIDTH, size.y);
-      self.base_mut().set_size(new_size);
-    }
+    let width = self.width.min(parent_width - DECO_WIDTH);
+    let height = self.base().get_size().y;
+    self.base_mut().set_size(Vector2i::new(width, height));
 
     self.base_mut().call_deferred("show", &[]);
   }
