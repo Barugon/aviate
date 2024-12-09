@@ -519,7 +519,7 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>, max_width: i32) {
 
   // Set the root subfolder to shared storage on Android.
   #[cfg(target_os = "android")]
-  dialog.set_root_subfolder("/storage/emulated/0");
+  file_dialog.set_root_subfolder("/storage/emulated/0");
 }
 
 /// Test if a key event has CMD or CTRL modifiers.
