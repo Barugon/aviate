@@ -16,6 +16,7 @@
     "gdal",
     "gdext",
     "gdextension",
+    "geos",
     "geotiff",
     "gstring",
     "hasher",
