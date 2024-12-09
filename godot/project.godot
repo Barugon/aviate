@@ -22,8 +22,6 @@ config/icon="res://icon.png"
 window/size/viewport_width=1200
 window/size/viewport_height=800
 window/energy_saving/keep_screen_on=false
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [input_devices]
