@@ -2,8 +2,8 @@ use crate::geom;
 use gdal::raster;
 use godot::{
   classes::{
-    display_server::WindowMode, file_access::ModeFlags, os::SystemDir, DisplayServer, FileAccess,
-    Os,
+    display_server::WindowMode, file_access::ModeFlags, os::SystemDir, Control, DisplayServer,
+    FileAccess, Os, Window,
   },
   prelude::*,
 };
@@ -12,6 +12,9 @@ use std::{borrow, cmp, collections, ops, path};
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
 pub const ZOOM_RANGE: ops::RangeInclusive<f32> = 1.0 / 8.0..=1.0;
+pub const TITLE_HEIGHT: i32 = 32;
+pub const BORDER_WIDTH: i32 = 8;
+pub const BORDER_HEIGHT: i32 = 6;
 
 /// Error message as either `&'static str` or `String`.
 pub type Error = borrow::Cow<'static, str>;
@@ -326,4 +329,58 @@ pub fn store_text(path: &GString, text: &GString) {
 
 pub fn request_permissions() {
   godot::classes::Os::singleton().request_permissions();
+}
+
+/// Make sure that a dialog window doesn't fall outside the edges of the main window.
+pub fn adjust_dialog(window: &mut Gd<Window>) {
+  if !window.is_visible() {
+    return;
+  }
+
+  let Some(parent) = window.get_parent() else {
+    return;
+  };
+
+  let Ok(parent) = parent.try_cast::<Control>() else {
+    return;
+  };
+
+  let parent_size = parent.get_size();
+  let parent_size = Vector2i::new(parent_size.x as i32, parent_size.y as i32);
+  let size = window.get_size() + Vector2i::new(BORDER_WIDTH * 2, TITLE_HEIGHT + BORDER_HEIGHT);
+
+  // Make sure it's not bigger than the window area.
+  if size.x > parent_size.x || size.y > parent_size.y {
+    let size = Vector2i::new(
+      size.x.min(parent_size.x) - BORDER_WIDTH * 2,
+      size.y.min(parent_size.y) - (TITLE_HEIGHT + BORDER_HEIGHT),
+    );
+    window.set_size(size);
+  }
+
+  let pos = window.get_position();
+  let delta = Vector2i::new(BORDER_WIDTH, TITLE_HEIGHT);
+  let mut new_pos = pos - delta;
+
+  // Make sure it's not outside the window area.
+  if new_pos.x + size.x > parent_size.x as i32 {
+    new_pos.x = parent_size.x as i32 - size.x;
+  }
+
+  if new_pos.y + size.y > parent_size.y as i32 {
+    new_pos.y = parent_size.y as i32 - size.y;
+  }
+
+  if new_pos.x < 0 {
+    new_pos.x = 0;
+  }
+
+  if new_pos.y < 0 {
+    new_pos.y = 0;
+  }
+
+  new_pos += delta;
+  if new_pos != pos {
+    window.set_position(new_pos);
+  }
 }

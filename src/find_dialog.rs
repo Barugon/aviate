@@ -1,3 +1,4 @@
+use crate::util;
 use godot::{
   classes::{
     notify::WindowNotification, Button, IWindow, InputEvent, InputEventKey, LineEdit, Window,
@@ -103,5 +104,9 @@ impl IWindow for FindDialog {
     {
       self.base_mut().hide();
     }
+  }
+
+  fn process(&mut self, _: f64) {
+    util::adjust_dialog(&mut self.base_mut());
   }
 }

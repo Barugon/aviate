@@ -1,8 +1,10 @@
 use godot::{
-  classes::{Button, Control, IWindow, InputEvent, InputEventKey, Tree, Window},
+  classes::{Button, IWindow, InputEvent, InputEventKey, Tree, Window},
   global::{Key, KeyModifierMask},
   prelude::*,
 };
+
+use crate::util;
 
 #[derive(GodotClass)]
 #[class(base=Window)]
@@ -65,13 +67,8 @@ impl SelectDialog {
     self.tree.scroll_to_item(&root);
 
     // Resize the window.
-    const DECO_WIDTH: i32 = 16;
-    let parent = self.base().get_parent().unwrap();
-    let parent = parent.cast::<Control>();
-    let parent_width = parent.get_size().x as i32;
-    let width = self.width.min(parent_width - DECO_WIDTH);
-    let height = self.base().get_size().y;
-    self.base_mut().set_size(Vector2i::new(width, height));
+    let size = Vector2i::new(self.width, self.base().get_size().y);
+    self.base_mut().set_size(size);
 
     self.base_mut().call_deferred("show", &[]);
   }
@@ -129,5 +126,9 @@ impl IWindow for SelectDialog {
     {
       self.base_mut().hide();
     }
+  }
+
+  fn process(&mut self, _: f64) {
+    util::adjust_dialog(&mut self.base_mut());
   }
 }
