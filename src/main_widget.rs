@@ -54,7 +54,7 @@ impl MainWidget {
   }
 
   #[func]
-  fn find(&self) {
+  fn find_clicked(&self) {
     if !self.find_button.is_visible() || self.dialog_is_visible() {
       return;
     }
@@ -77,7 +77,7 @@ impl MainWidget {
   }
 
   #[func]
-  fn select_zip_file(&self) {
+  fn open_zip_file_clicked(&self) {
     if self.dialog_is_visible() {
       return;
     }
@@ -101,7 +101,7 @@ impl MainWidget {
   }
 
   #[func]
-  fn zip_file_selected(&mut self, path: String) {
+  fn open_zip_file_confirmed(&mut self, path: String) {
     match util::get_zip_info(&path) {
       Ok(info) => match info {
         util::ZipInfo::Chart(files) => {
@@ -321,7 +321,7 @@ impl IControl for MainWidget {
     self.find_button.init(self.get_child("FindButton"));
 
     // Connect the find button.
-    let callable = self.base().callable("find");
+    let callable = self.base().callable("find_clicked");
     self.find_button.connect("pressed", &callable);
 
     // Connect the sidebar button.
@@ -330,7 +330,7 @@ impl IControl for MainWidget {
 
     // Connect the open button.
     let mut button = self.get_child::<Button>("OpenButton");
-    button.connect("pressed", &self.base().callable("select_zip_file"));
+    button.connect("pressed", &self.base().callable("open_zip_file_clicked"));
 
     // Read nite mode from the config.
     let night_mode = self.config.get_night_mode().unwrap_or(false);
@@ -355,7 +355,8 @@ impl IControl for MainWidget {
 
     // Setup the file dialog.
     let mut dialog = self.get_child::<FileDialog>("FileDialog");
-    dialog.connect("file_selected", &self.base().callable("zip_file_selected"));
+    let callable = &self.base().callable("open_zip_file_confirmed");
+    dialog.connect("file_selected", callable);
     dialog.set(&title_property, &title_size);
     fixup_file_dialog(&mut dialog);
 
@@ -464,12 +465,12 @@ impl IControl for MainWidget {
     match event_key.get_keycode() {
       Key::F => {
         if cmd_or_ctrl(&event_key) {
-          self.find();
+          self.find_clicked();
         }
       }
       Key::O => {
         if cmd_or_ctrl(&event_key) {
-          self.select_zip_file();
+          self.open_zip_file_clicked();
         }
       }
       _ => (),
