@@ -326,11 +326,13 @@ impl IControl for MainWidget {
 
     // Connect the sidebar button.
     let mut button = self.get_child::<CheckButton>("SidebarButton");
-    button.connect("toggled", &self.base().callable("toggle_sidebar"));
+    let callable = self.base().callable("toggle_sidebar");
+    button.connect("toggled", &callable);
 
     // Connect the open button.
     let mut button = self.get_child::<Button>("OpenButton");
-    button.connect("pressed", &self.base().callable("open_zip_file_clicked"));
+    let callable = self.base().callable("open_zip_file_clicked");
+    button.connect("pressed", &callable);
 
     // Read nite mode from the config.
     let night_mode = self.config.get_night_mode().unwrap_or(false);
@@ -338,8 +340,9 @@ impl IControl for MainWidget {
 
     // Connect the night mode button
     let mut button = self.get_child::<CheckButton>("NightModeButton");
+    let callable = self.base().callable("toggle_night_mode");
     button.set_pressed(night_mode);
-    button.connect("toggled", &self.base().callable("toggle_night_mode"));
+    button.connect("toggled", &callable);
 
     // Read show bounds from the config.
     let show_bounds = self.config.get_show_bounds().unwrap_or(false);
@@ -347,8 +350,9 @@ impl IControl for MainWidget {
 
     // Connect the show bounds button
     let mut button = self.get_child::<CheckButton>("BoundsButton");
+    let callable = self.base().callable("toggle_show_bounds");
     button.set_pressed(show_bounds);
-    button.connect("toggled", &self.base().callable("toggle_show_bounds"));
+    button.connect("toggled", &callable);
 
     let title_property = StringName::from("theme_override_font_sizes/title_font_size");
     let title_size = Variant::from(18.0);
@@ -371,12 +375,14 @@ impl IControl for MainWidget {
 
     // Setup and connect the select dialog.
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    dialog.connect("selected", &self.base().callable("item_selected"));
+    let callable = self.base().callable("item_selected");
+    dialog.connect("selected", &callable);
     dialog.set(&title_property, &title_size);
 
     // Setup and connect the find dialog.
     let mut dialog = self.get_child::<find_dialog::FindDialog>("FindDialog");
-    dialog.connect("confirmed", &self.base().callable("find_confirmed"));
+    let callable = self.base().callable("find_confirmed");
+    dialog.connect("confirmed", &callable);
     dialog.set(&title_property, &title_size);
   }
 
