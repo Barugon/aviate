@@ -332,12 +332,12 @@ pub fn request_permissions() {
 }
 
 /// Make sure that a dialog window doesn't fall outside the edges of the main window.
-pub fn adjust_dialog(window: &mut Gd<Window>) {
-  if !window.is_visible() {
+pub fn adjust_dialog(dialog: &mut Gd<Window>) {
+  if !dialog.is_visible() {
     return;
   }
 
-  let Some(parent) = window.get_parent() else {
+  let Some(parent) = dialog.get_parent() else {
     return;
   };
 
@@ -345,28 +345,28 @@ pub fn adjust_dialog(window: &mut Gd<Window>) {
     return;
   };
 
-  let parent_size = parent.get_size();
-  let parent_size = Vector2i::new(parent_size.x as i32, parent_size.y as i32);
-  let size = window.get_size() + Vector2i::new(BORDER_WIDTH * 2, TITLE_HEIGHT + BORDER_HEIGHT);
+  const DECO: Vector2i = Vector2i::new(BORDER_WIDTH * 2, TITLE_HEIGHT + BORDER_HEIGHT);
+  let max_size = parent.get_size();
+  let max_size = Vector2i::new(max_size.x as i32, max_size.y as i32);
+  let size = dialog.get_size() + DECO;
 
-  // Make sure it's not bigger than the window area.
-  if size.x > parent_size.x || size.y > parent_size.y {
-    let w = size.x.min(parent_size.x) - BORDER_WIDTH * 2;
-    let h = size.y.min(parent_size.y) - (TITLE_HEIGHT + BORDER_HEIGHT);
-    window.set_size(Vector2i::new(w, h));
+  // Make sure it's not bigger than the main window area.
+  let new_size = Vector2i::new(size.x.min(max_size.x), size.y.min(max_size.y));
+  if new_size != size {
+    dialog.set_size(new_size - DECO);
   }
 
-  let pos = window.get_position();
-  let delta = Vector2i::new(BORDER_WIDTH, TITLE_HEIGHT);
-  let mut new_pos = pos - delta;
+  const DELTA: Vector2i = Vector2i::new(BORDER_WIDTH, TITLE_HEIGHT);
+  let pos = dialog.get_position();
+  let mut new_pos = pos - DELTA;
 
-  // Make sure it's not outside the window area.
-  if new_pos.x + size.x > parent_size.x {
-    new_pos.x = parent_size.x - size.x;
+  // Make sure it's not outside the main window area.
+  if new_pos.x + size.x > max_size.x {
+    new_pos.x = max_size.x - size.x;
   }
 
-  if new_pos.y + size.y > parent_size.y {
-    new_pos.y = parent_size.y - size.y;
+  if new_pos.y + size.y > max_size.y {
+    new_pos.y = max_size.y - size.y;
   }
 
   if new_pos.x < 0 {
@@ -377,8 +377,8 @@ pub fn adjust_dialog(window: &mut Gd<Window>) {
     new_pos.y = 0;
   }
 
-  new_pos += delta;
+  new_pos += DELTA;
   if new_pos != pos {
-    window.set_position(new_pos);
+    dialog.set_position(new_pos);
   }
 }
