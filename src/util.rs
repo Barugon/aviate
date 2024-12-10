@@ -351,11 +351,9 @@ pub fn adjust_dialog(window: &mut Gd<Window>) {
 
   // Make sure it's not bigger than the window area.
   if size.x > parent_size.x || size.y > parent_size.y {
-    let size = Vector2i::new(
-      size.x.min(parent_size.x) - BORDER_WIDTH * 2,
-      size.y.min(parent_size.y) - (TITLE_HEIGHT + BORDER_HEIGHT),
-    );
-    window.set_size(size);
+    let w = size.x.min(parent_size.x) - BORDER_WIDTH * 2;
+    let h = size.y.min(parent_size.y) - (TITLE_HEIGHT + BORDER_HEIGHT);
+    window.set_size(Vector2i::new(w, h));
   }
 
   let pos = window.get_position();
@@ -363,12 +361,12 @@ pub fn adjust_dialog(window: &mut Gd<Window>) {
   let mut new_pos = pos - delta;
 
   // Make sure it's not outside the window area.
-  if new_pos.x + size.x > parent_size.x as i32 {
-    new_pos.x = parent_size.x as i32 - size.x;
+  if new_pos.x + size.x > parent_size.x {
+    new_pos.x = parent_size.x - size.x;
   }
 
-  if new_pos.y + size.y > parent_size.y as i32 {
-    new_pos.y = parent_size.y as i32 - size.y;
+  if new_pos.y + size.y > parent_size.y {
+    new_pos.y = parent_size.y - size.y;
   }
 
   if new_pos.x < 0 {
