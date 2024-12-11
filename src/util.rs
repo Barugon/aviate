@@ -42,7 +42,7 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
         };
 
         if ext.eq_ignore_ascii_case("zip") {
-          let Some(stem) = file.file_stem().and_then(|stem| stem.to_str()) else {
+          let Some(stem) = stem_str(&file) else {
             continue;
           };
 
