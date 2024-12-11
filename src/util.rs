@@ -299,7 +299,7 @@ pub fn stem_str(path: &path::Path) -> Option<&str> {
 
 /// Return the folder of a path as a `String`.
 pub fn folder_gstring<P: AsRef<path::Path>>(path: P) -> Option<GString> {
-  folder_str(path.as_ref()).map(|stem| stem.into())
+  Some(folder_str(path.as_ref())?.into())
 }
 
 /// Return the folder of a path as a `&str`.
