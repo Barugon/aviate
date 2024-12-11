@@ -87,10 +87,7 @@ impl MainWidget {
     filters.push("*.zip;Zip Files");
     dialog.set_filters(&filters);
     dialog.set_title("Open FAA Zip File");
-
-    if let Some(folder) = self.get_asset_folder() {
-      dialog.set_current_dir(&folder);
-    }
+    dialog.set_current_dir(&self.get_asset_folder());
 
     // Set the dialog size.
     let width = 500.min(self.base().get_size().x as i32);
@@ -212,13 +209,9 @@ impl MainWidget {
     dialog.call_deferred("show", &[]);
   }
 
-  fn get_asset_folder(&self) -> Option<GString> {
+  fn get_asset_folder(&self) -> GString {
     let folder = self.config.get_asset_folder();
-    if folder.is_some() {
-      return folder;
-    }
-
-    Some(util::get_downloads_folder())
+    folder.unwrap_or(util::get_downloads_folder())
   }
 
   fn save_asset_folder(&mut self, path: &str) {
