@@ -460,15 +460,15 @@ impl IControl for MainWidget {
   }
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {
-    let Ok(event_key) = event.try_cast::<InputEventKey>() else {
+    let Ok(key_event) = event.try_cast::<InputEventKey>() else {
       return;
     };
 
-    if !cmd_or_ctrl(&event_key) {
+    if !cmd_or_ctrl(&key_event) {
       return;
     }
 
-    match event_key.get_keycode() {
+    match key_event.get_keycode() {
       Key::F => {
         self.find_clicked();
       }

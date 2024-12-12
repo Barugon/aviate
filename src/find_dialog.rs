@@ -98,9 +98,12 @@ impl IWindow for FindDialog {
   }
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {
-    let event_key = event.cast::<InputEventKey>();
-    if event_key.get_keycode() == Key::ESCAPE
-      && event_key.get_modifiers_mask() == KeyModifierMask::default()
+    let Ok(key_event) = event.try_cast::<InputEventKey>() else {
+      return;
+    };
+
+    if key_event.get_keycode() == Key::ESCAPE
+      && key_event.get_modifiers_mask() == KeyModifierMask::default()
     {
       self.base_mut().hide();
     }
