@@ -233,25 +233,16 @@ impl MainWidget {
   }
 
   /// Set the main window's size and position.
-  fn setup_window(&mut self) -> f32 {
+  fn setup_window(&mut self) {
     let win_info = self.config.get_win_info();
     let mut display_server = DisplayServer::singleton();
 
     #[cfg(not(target_os = "android"))]
     display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
 
-    // Godot doesn't handle hi-dpi automatically.
-    let dpi = display_server.screen_get_dpi();
-    let scale = get_scale(dpi);
-    if let Some(tree) = self.base().get_tree() {
-      if let Some(mut root) = tree.get_root() {
-        root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
-      }
-    }
-
     if win_info.maxed {
       display_server.window_set_mode(WindowMode::MAXIMIZED);
-      return scale;
+      return;
     }
 
     if let Some(pos) = win_info.pos {
@@ -261,8 +252,6 @@ impl MainWidget {
     if let Some(size) = win_info.size {
       display_server.window_set_size(size.into());
     }
-
-    scale
   }
 
   fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
@@ -301,7 +290,17 @@ impl IControl for MainWidget {
   }
 
   fn ready(&mut self) {
-    let scale = self.setup_window();
+    // Godot doesn't handle hi-dpi automatically.
+    let dpi = DisplayServer::singleton().screen_get_dpi();
+    let scale = get_scale(dpi);
+    if let Some(tree) = self.base().get_tree() {
+      if let Some(mut root) = tree.get_root() {
+        root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
+      }
+    }
+
+    // Set the main window's size and position.
+    self.setup_window();
 
     // Get the chart widget.
     self.chart_widget.init(self.get_child("ChartWidget"));
