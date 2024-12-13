@@ -240,7 +240,7 @@ impl MainWidget {
     #[cfg(not(target_os = "android"))]
     display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
 
-    // Godot doesn't handle hi-dpi.
+    // Godot doesn't handle hi-dpi automatically.
     let dpi = display_server.screen_get_dpi();
     let scale = get_scale(dpi);
     if let Some(tree) = self.base().get_tree() {
