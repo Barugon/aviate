@@ -181,7 +181,7 @@ impl Transformation {
     // Convert the pixel coordinates to chart coordinates.
     let mut chart_bounds = Vec::with_capacity(self.bounds.len());
     for point in self.bounds.iter() {
-      chart_bounds.push(*self.px_to_chart(geom::Px(*point)));
+      chart_bounds.push(*self.px_to_chart(point));
     }
     geom::ChtVec(chart_bounds)
   }

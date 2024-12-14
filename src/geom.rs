@@ -36,11 +36,31 @@ impl ops::Deref for Px {
 /// Vector of pixel coordinates.
 pub struct PxVec(pub Vec<Coord>);
 
+impl PxVec {
+  pub fn iter(&self) -> PxIter<'_> {
+    PxIter {
+      iter: self.0.iter(),
+    }
+  }
+}
+
 impl ops::Deref for PxVec {
   type Target = Vec<Coord>;
 
   fn deref(&self) -> &Self::Target {
     &self.0
+  }
+}
+
+pub struct PxIter<'a> {
+  iter: core::slice::Iter<'a, Coord>,
+}
+
+impl Iterator for PxIter<'_> {
+  type Item = Px;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    Some(Px(*self.iter.next()?))
   }
 }
 
@@ -83,11 +103,32 @@ impl ops::Deref for Cht {
 /// Vector of chart coordinates.
 pub struct ChtVec(pub Vec<Coord>);
 
+impl ChtVec {
+  #[allow(unused)]
+  pub fn iter(&self) -> ChtIter<'_> {
+    ChtIter {
+      iter: self.0.iter(),
+    }
+  }
+}
+
 impl ops::Deref for ChtVec {
   type Target = Vec<Coord>;
 
   fn deref(&self) -> &Self::Target {
     &self.0
+  }
+}
+
+pub struct ChtIter<'a> {
+  iter: core::slice::Iter<'a, Coord>,
+}
+
+impl Iterator for ChtIter<'_> {
+  type Item = Cht;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    Some(Cht(*self.iter.next()?))
   }
 }
 
