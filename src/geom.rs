@@ -22,19 +22,19 @@ impl ops::Deref for Px {
 /// Vector of pixel coordinates.
 pub struct PxVec(pub Vec<Coord>);
 
-impl PxVec {
-  pub fn iter(&self) -> PxIter<'_> {
-    PxIter {
-      iter: self.0.iter(),
-    }
-  }
-}
-
 impl ops::Deref for PxVec {
   type Target = Vec<Coord>;
 
   fn deref(&self) -> &Self::Target {
     &self.0
+  }
+}
+
+impl PxVec {
+  pub fn iter(&self) -> PxIter<'_> {
+    PxIter {
+      iter: self.0.iter(),
+    }
   }
 }
 
@@ -89,20 +89,20 @@ impl ops::Deref for Cht {
 /// Vector of chart coordinates.
 pub struct ChtVec(pub Vec<Coord>);
 
+impl ops::Deref for ChtVec {
+  type Target = Vec<Coord>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
 impl ChtVec {
   #[allow(unused)]
   pub fn iter(&self) -> ChtIter<'_> {
     ChtIter {
       iter: self.0.iter(),
     }
-  }
-}
-
-impl ops::Deref for ChtVec {
-  type Target = Vec<Coord>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
   }
 }
 
