@@ -366,6 +366,7 @@ impl RasterSource {
       return Ok(None);
     }
 
+    /// Process a source image row into an intermediate result.
     fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
       let mut dst_iter = dst.iter_mut();
       let mut src_iter = src.iter();

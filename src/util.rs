@@ -34,7 +34,7 @@ pub enum ZipInfo {
 /// Returns information about what type of FAA data (if any) is contained in a zip file.
 pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
   fn get_info(path: &path::Path) -> Result<ZipInfo, Error> {
-    // Return a path if the input folder contains CSV data.
+    /// Return a path if the folder contains CSV data.
     fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
       let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
       for file in files {
@@ -55,7 +55,7 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
       None
     }
 
-    // Return a path if the input folder contains shape-file data.
+    /// Return a path if the folder contains shape-file data.
     fn get_shp_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
       let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
       for file in files {
