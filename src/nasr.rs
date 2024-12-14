@@ -261,14 +261,25 @@ impl ToChart {
 
   /// Test if a decimal degree coordinate is within the chart bounds.
   fn contains(&self, coord: geom::DD) -> bool {
-    use geom::Transform;
-
     // Convert to a chart coordinate.
     match self.trans.transform(*coord) {
       Ok(coord) => return geom::polygon_contains(&self.bounds, coord),
       Err(err) => godot_error!("{err}"),
     }
     false
+  }
+}
+
+pub trait Transform {
+  fn transform(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError>;
+}
+
+impl Transform for spatial_ref::CoordTransform {
+  fn transform(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+    let mut x = [coord.x];
+    let mut y = [coord.y];
+    self.transform_coords(&mut x, &mut y, &mut [])?;
+    Ok(geom::Coord::new(x[0], y[0]))
   }
 }
 
@@ -379,8 +390,6 @@ impl AirportSource {
     let mut loc_vec = Vec::new();
     for feature in self.layer().features() {
       if let Some(fid) = feature.fid() {
-        use geom::Transform;
-
         let Some(coord) = feature.get_coord() else {
           continue;
         };

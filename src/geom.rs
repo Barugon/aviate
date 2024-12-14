@@ -1,19 +1,5 @@
-use gdal::spatial_ref;
 use godot::prelude::*;
 use std::{cmp, ops};
-
-pub trait Transform {
-  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError>;
-}
-
-impl Transform for spatial_ref::CoordTransform {
-  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError> {
-    let mut x = [coord.x];
-    let mut y = [coord.y];
-    self.transform_coords(&mut x, &mut y, &mut [])?;
-    Ok(Coord { x: x[0], y: y[0] })
-  }
-}
 
 /// Pixel coordinate.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
