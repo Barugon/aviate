@@ -157,7 +157,7 @@ impl AirportReader {
   /// > **NOTE**: this is required for all queries other than `airport`.
   /// - `proj4`: PROJ4 text
   /// - `bounds`: chart bounds.
-  pub fn set_chart_spatial_ref(&self, proj4: String, bounds: Vec<geom::Coord>) {
+  pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::ChtVec) {
     let request = AirportRequest::SpatialRef(Some((proj4, bounds)));
     self.tx.send(request).unwrap();
   }
@@ -186,7 +186,7 @@ impl AirportReader {
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
   #[allow(unused)]
-  pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
+  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool) {
     if dist >= 0.0 {
       self
         .tx
@@ -219,9 +219,9 @@ impl AirportReader {
 }
 
 enum AirportRequest {
-  SpatialRef(Option<(String, Vec<geom::Coord>)>),
+  SpatialRef(Option<(String, geom::ChtVec)>),
   Airport(String),
-  Nearby(geom::Coord, f64, bool),
+  Nearby(geom::Cht, f64, bool),
   Search(String, bool),
 }
 
@@ -244,14 +244,14 @@ struct ToChart {
   trans: spatial_ref::CoordTransform,
 
   /// Chart bounds.
-  bounds: Vec<geom::Coord>,
+  bounds: geom::ChtVec,
 }
 
 impl ToChart {
   fn new(
     proj4: &str,
     dd_sr: &spatial_ref::SpatialRef,
-    bounds: Vec<geom::Coord>,
+    bounds: geom::ChtVec,
   ) -> Result<Self, errors::GdalError> {
     // Create a transformation from decimal degrees to chart coordinates.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
@@ -260,12 +260,12 @@ impl ToChart {
   }
 
   /// Test if a decimal degree coordinate is within the chart bounds.
-  fn contains(&self, dd: geom::Coord) -> bool {
+  fn contains(&self, coord: geom::DD) -> bool {
     use geom::Transform;
 
     // Convert to a chart coordinate.
-    match self.trans.transform(dd) {
-      Ok(chart) => return geom::polygon_contains(&self.bounds, chart),
+    match self.trans.transform(*coord) {
+      Ok(coord) => return geom::polygon_contains(&self.bounds, coord),
       Err(err) => godot_error!("{err}"),
     }
     false
@@ -385,7 +385,7 @@ impl AirportSource {
           continue;
         };
 
-        let Ok(coord) = to_chart.trans.transform(coord) else {
+        let Ok(coord) = to_chart.trans.transform(*coord) else {
           continue;
         };
 
@@ -395,6 +395,7 @@ impl AirportSource {
             name_vec.push((name, fid));
           }
 
+          let coord = geom::Cht(coord);
           loc_vec.push(LocIdx { coord, fid })
         }
       }
@@ -427,7 +428,7 @@ impl AirportSource {
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
-  fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) -> Vec<AirportInfo> {
+  fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool) -> Vec<AirportInfo> {
     use vector::LayerAccess;
     let layer = self.layer();
     let coord = [coord.x, coord.y];
@@ -485,7 +486,7 @@ impl AirportSource {
 
 /// Location spatial index item.
 struct LocIdx {
-  coord: geom::Coord,
+  coord: geom::Cht,
   fid: u64,
 }
 
@@ -519,7 +520,7 @@ pub struct AirportInfo {
   pub name: String,
 
   /// Coordinate in decimal degrees.
-  pub coord: geom::Coord,
+  pub coord: geom::DD,
 
   /// Airport type.
   pub airport_type: AirportType,
@@ -692,14 +693,14 @@ impl GetAirportUse for vector::Feature<'_> {
 }
 
 trait GetCoord {
-  fn get_coord(&self) -> Option<geom::Coord>;
+  fn get_coord(&self) -> Option<geom::DD>;
 }
 
 impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self) -> Option<geom::Coord> {
-    Some(geom::Coord {
-      x: self.get_f64("LONG_DECIMAL")?,
-      y: self.get_f64("LAT_DECIMAL")?,
-    })
+  fn get_coord(&self) -> Option<geom::DD> {
+    Some(geom::DD::new(
+      self.get_f64("LONG_DECIMAL")?,
+      self.get_f64("LAT_DECIMAL")?,
+    ))
   }
 }

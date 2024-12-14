@@ -15,6 +15,104 @@ impl Transform for spatial_ref::CoordTransform {
   }
 }
 
+/// Pixel coordinate.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Px(pub Coord);
+
+impl Px {
+  pub fn new(x: f64, y: f64) -> Self {
+    Self(Coord { x, y })
+  }
+}
+
+impl ops::Deref for Px {
+  type Target = Coord;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+/// Vector of pixel coordinates.
+pub struct PxVec(pub Vec<Coord>);
+
+impl ops::Deref for PxVec {
+  type Target = Vec<Coord>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+/// Decimal degree coordinate.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct DD(pub Coord);
+
+impl DD {
+  pub fn new(x: f64, y: f64) -> Self {
+    Self(Coord { x, y })
+  }
+}
+
+impl ops::Deref for DD {
+  type Target = Coord;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+/// Chart coordinate.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Cht(pub Coord);
+
+impl Cht {
+  pub fn new(x: f64, y: f64) -> Self {
+    Self(Coord { x, y })
+  }
+}
+
+impl ops::Deref for Cht {
+  type Target = Coord;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+/// Vector of chart coordinates.
+pub struct ChtVec(pub Vec<Coord>);
+
+impl ops::Deref for ChtVec {
+  type Target = Vec<Coord>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+/// Check if a point is contained in a single-ring polygon.
+pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
+  let mut inside = false;
+  let count = points.len();
+  for idx in 0..count {
+    let line = [points[idx], points[(idx + 1) % count]];
+
+    // Check if the point is between the Y coordinates of line segment.
+    if (line[0].y > point.y) != (line[1].y > point.y) {
+      // Calculate the X coordinate where a horizontal ray from the point intersects the line segment.
+      let x = (line[1].x - line[0].x) * (point.y - line[0].y) / (line[1].y - line[0].y) + line[0].x;
+
+      // Check if the point lies to the left of the intersection.
+      if point.x < x {
+        // Toggle inside flag.
+        inside = !inside;
+      }
+    }
+  }
+  inside
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Coord {
   pub x: f64,
@@ -75,28 +173,6 @@ impl ops::Mul<f64> for Coord {
       y: self.y * scale,
     }
   }
-}
-
-/// Check if a point is contained in a single-ring polygon.
-pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
-  let mut inside = false;
-  let count = points.len();
-  for idx in 0..count {
-    let line = [points[idx], points[(idx + 1) % count]];
-
-    // Check if the point is between the Y coordinates of line segment.
-    if (line[0].y > point.y) != (line[1].y > point.y) {
-      // Calculate the X coordinate where a horizontal ray from the point intersects the line segment.
-      let x = (line[1].x - line[0].x) * (point.y - line[0].y) / (line[1].y - line[0].y) + line[0].x;
-
-      // Check if the point lies to the left of the intersection.
-      if point.x < x {
-        // Toggle inside flag.
-        inside = !inside;
-      }
-    }
-  }
-  inside
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
@@ -213,7 +289,7 @@ impl Size {
     self.w > 0 && self.h > 0
   }
 
-  pub fn contains(&self, coord: Coord) -> bool {
+  pub fn contains(&self, coord: Px) -> bool {
     let w = self.w as f64;
     let h = self.h as f64;
     coord.x >= 0.0 && coord.x < w && coord.y >= 0.0 && coord.y < h

@@ -125,26 +125,23 @@ impl Items {
 }
 
 // Get the bounds for the specified chart in pixel coordinates.
-pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> Vec<geom::Coord> {
-  let limit = geom::Coord {
-    x: (chart_size.w - 1) as f64,
-    y: (chart_size.h - 1) as f64,
-  };
+pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> geom::PxVec {
+  let limit = geom::Px::new((chart_size.w - 1) as f64, (chart_size.h - 1) as f64);
 
   if let Some(points) = get_bounds_from_json(chart_name, limit) {
     points
   } else {
     // Chart bounds not in the JSON, use the chart size.
-    vec![
+    geom::PxVec(vec![
       (0.0, 0.0).into(),
       (limit.x, 0.0).into(),
       (limit.x, limit.y).into(),
       (0.0, limit.y).into(),
-    ]
+    ])
   }
 }
 
-fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom::Coord>> {
+fn get_bounds_from_json(chart_name: &str, limit: geom::Px) -> Option<geom::PxVec> {
   // Parse the bounds JSON.
   let json = Json::parse_string(include_str!("../res/bounds.json"));
   let dict = json.try_to::<Dictionary>().ok()?;
@@ -161,7 +158,7 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom
     points.push((x, y).into());
   }
 
-  Some(points)
+  Some(geom::PxVec(points))
 }
 
 /// Processes SVG files in '~/Downloads/bounds' and store into 'res/bounds.json'.
