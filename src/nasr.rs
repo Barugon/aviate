@@ -256,6 +256,20 @@ impl Bounds {
   fn new(poly: geom::ChtVec) -> Self {
     assert!(!poly.is_empty());
 
+    // Check if the polygon is an exact rectangle.
+    if poly.len() == 4
+      && poly[0].y == poly[1].y
+      && poly[1].x == poly[2].x
+      && poly[2].y == poly[3].y
+      && poly[3].x == poly[0].x
+    {
+      // A simple extent check will do.
+      let xr = poly[0].x..=poly[1].x;
+      let yr = poly[2].y..=poly[1].y;
+      let poly = geom::ChtVec(Vec::new());
+      return Self { xr, yr, poly };
+    }
+
     // Generate an extent.
     let mut min = geom::Coord::new(f64::MAX, f64::MAX);
     let mut max = geom::Coord::new(f64::MIN, f64::MIN);
@@ -269,17 +283,6 @@ impl Bounds {
     // Express the extent as X and Y ranges.
     let xr = min.x..=max.x;
     let yr = min.y..=max.y;
-
-    // Check if the polygon and the extent are the same.
-    if poly.len() == 4 && min == poly[3] && max == poly[1] {
-      let ul = geom::Coord::new(min.x, max.y);
-      let lr = geom::Coord::new(max.x, min.y);
-      if ul == poly[0] && lr == poly[2] {
-        let poly = geom::ChtVec(Vec::new());
-        return Self { xr, yr, poly };
-      }
-    }
-
     Self { xr, yr, poly }
   }
 
