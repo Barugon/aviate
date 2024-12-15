@@ -2,6 +2,68 @@ use gdal::spatial_ref;
 use godot::prelude::*;
 use std::{cmp, ops};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Coord {
+  pub x: f64,
+  pub y: f64,
+}
+
+impl Coord {
+  pub fn new(x: f64, y: f64) -> Self {
+    Self { x, y }
+  }
+
+  pub fn from_variant(value: Variant) -> Option<Self> {
+    let value = value.try_to::<Array<Variant>>().ok()?;
+    let x = value.get(0)?.try_to::<f64>().ok()?;
+    let y = value.get(1)?.try_to::<f64>().ok()?;
+    Some(Self { x, y })
+  }
+}
+
+impl From<Pos> for Coord {
+  fn from(pos: Pos) -> Self {
+    Self {
+      x: pos.x as f64,
+      y: pos.y as f64,
+    }
+  }
+}
+
+impl From<(f64, f64)> for Coord {
+  fn from((x, y): (f64, f64)) -> Self {
+    Self { x, y }
+  }
+}
+
+impl From<Coord> for Vector2 {
+  fn from(coord: Coord) -> Self {
+    Self::new(coord.x as f32, coord.y as f32)
+  }
+}
+
+impl ops::Sub<Coord> for Coord {
+  type Output = Self;
+
+  fn sub(self, coord: Coord) -> Self {
+    Self {
+      x: self.x - coord.x,
+      y: self.y - coord.y,
+    }
+  }
+}
+
+impl ops::Mul<f64> for Coord {
+  type Output = Self;
+
+  fn mul(self, scale: f64) -> Self {
+    Self {
+      x: self.x * scale,
+      y: self.y * scale,
+    }
+  }
+}
+
 /// Pixel coordinate.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Px(pub Coord);
@@ -151,68 +213,6 @@ impl Transform for spatial_ref::CoordTransform {
     let mut y = [coord.y];
     self.transform_coords(&mut x, &mut y, &mut [])?;
     Ok(Coord::new(x[0], y[0]))
-  }
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Coord {
-  pub x: f64,
-  pub y: f64,
-}
-
-impl Coord {
-  pub fn new(x: f64, y: f64) -> Self {
-    Self { x, y }
-  }
-
-  pub fn from_variant(value: Variant) -> Option<Self> {
-    let value = value.try_to::<Array<Variant>>().ok()?;
-    let x = value.get(0)?.try_to::<f64>().ok()?;
-    let y = value.get(1)?.try_to::<f64>().ok()?;
-    Some(Self { x, y })
-  }
-}
-
-impl From<Pos> for Coord {
-  fn from(pos: Pos) -> Self {
-    Self {
-      x: pos.x as f64,
-      y: pos.y as f64,
-    }
-  }
-}
-
-impl From<(f64, f64)> for Coord {
-  fn from((x, y): (f64, f64)) -> Self {
-    Self { x, y }
-  }
-}
-
-impl From<Coord> for Vector2 {
-  fn from(coord: Coord) -> Self {
-    Self::new(coord.x as f32, coord.y as f32)
-  }
-}
-
-impl ops::Sub<Coord> for Coord {
-  type Output = Self;
-
-  fn sub(self, coord: Coord) -> Self {
-    Self {
-      x: self.x - coord.x,
-      y: self.y - coord.y,
-    }
-  }
-}
-
-impl ops::Mul<f64> for Coord {
-  type Output = Self;
-
-  fn mul(self, scale: f64) -> Self {
-    Self {
-      x: self.x * scale,
-      y: self.y * scale,
-    }
   }
 }
 
