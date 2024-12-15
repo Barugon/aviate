@@ -177,7 +177,7 @@ impl Transformation {
   }
 
   /// Get the bounds as chart coordinates.
-  pub fn chart_bounds(&self) -> geom::ChartBounds {
+  pub fn get_chart_bounds(&self) -> geom::ChartBounds {
     // Convert the pixel coordinates to chart coordinates.
     let mut cht_poly = Vec::with_capacity(self.bounds.len());
     for point in self.bounds.iter() {
