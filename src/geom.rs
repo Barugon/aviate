@@ -181,6 +181,57 @@ impl Iterator for ChtIter<'_> {
   }
 }
 
+pub struct ChartBounds {
+  xr: ops::RangeInclusive<f64>,
+  yr: ops::RangeInclusive<f64>,
+  poly: ChtVec,
+}
+
+impl ChartBounds {
+  pub fn new(poly: ChtVec) -> Self {
+    assert!(!poly.is_empty());
+
+    // Check if the polygon is an exact rectangle (origin must be upper left).
+    if poly.len() == 4
+      && poly[0].y == poly[1].y
+      && poly[1].x == poly[2].x
+      && poly[2].y == poly[3].y
+      && poly[3].x == poly[0].x
+    {
+      // A simple extent check will do.
+      let xr = poly[0].x..=poly[1].x;
+      let yr = poly[2].y..=poly[1].y;
+      let poly = ChtVec(Vec::new());
+      return Self { xr, yr, poly };
+    }
+
+    // Generate an extent from the polygon coordinates.
+    let mut min = Coord::new(f64::MAX, f64::MAX);
+    let mut max = Coord::new(f64::MIN, f64::MIN);
+    for coord in poly.iter() {
+      min.x = min.x.min(coord.x);
+      min.y = min.y.min(coord.y);
+      max.x = max.x.max(coord.x);
+      max.y = max.y.max(coord.y);
+    }
+
+    // Express the extent as X and Y ranges.
+    let xr = min.x..=max.x;
+    let yr = min.y..=max.y;
+    Self { xr, yr, poly }
+  }
+
+  pub fn contains(&self, coord: Cht) -> bool {
+    if self.xr.contains(&coord.x) && self.yr.contains(&coord.y) {
+      if self.poly.is_empty() {
+        return true;
+      }
+      return polygon_contains(&self.poly, *coord);
+    }
+    false
+  }
+}
+
 /// Check if a point is contained in a single-ring polygon.
 pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
   let mut inside = false;
