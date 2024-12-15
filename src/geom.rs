@@ -98,7 +98,6 @@ impl ops::Deref for ChtVec {
 }
 
 impl ChtVec {
-  #[allow(unused)]
   pub fn iter(&self) -> ChtIter<'_> {
     ChtIter {
       iter: self.0.iter(),

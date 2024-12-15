@@ -1,7 +1,8 @@
 use crate::{geom, util};
+use core::f64;
 use gdal::{errors, spatial_ref, vector};
 use godot::global::godot_error;
-use std::{any, collections, path, sync, thread};
+use std::{any, collections, ops::RangeInclusive, path, sync, thread};
 use sync::{atomic, mpsc};
 
 // NASR = National Airspace System Resources
@@ -239,12 +240,60 @@ pub enum AirportReply {
   Error(util::Error),
 }
 
+struct Bounds {
+  xr: RangeInclusive<f64>,
+  yr: RangeInclusive<f64>,
+  poly: geom::ChtVec,
+}
+
+impl Bounds {
+  fn new(poly: geom::ChtVec) -> Self {
+    assert!(!poly.is_empty());
+
+    // Generate an extent.
+    let mut min = geom::Coord::new(f64::MAX, f64::MAX);
+    let mut max = geom::Coord::new(f64::MIN, f64::MIN);
+    for coord in poly.iter() {
+      min.x = min.x.min(coord.x);
+      min.y = min.y.min(coord.y);
+      max.x = max.x.max(coord.x);
+      max.y = max.y.max(coord.y);
+    }
+
+    // Express the extent as X and Y ranges.
+    let xr = min.x..=max.x;
+    let yr = min.y..=max.y;
+
+    // Check if the polygon and the extent are the same.
+    if poly.len() == 4 && min == poly[3] && max == poly[1] {
+      let ul = geom::Coord::new(min.x, max.y);
+      let lr = geom::Coord::new(max.x, min.y);
+      if ul == poly[0] && lr == poly[2] {
+        let poly = geom::ChtVec(Vec::new());
+        return Self { xr, yr, poly };
+      }
+    }
+
+    Self { xr, yr, poly }
+  }
+
+  fn contains(&self, coord: geom::Cht) -> bool {
+    if self.xr.contains(&coord.x) && self.yr.contains(&coord.y) {
+      if self.poly.is_empty() {
+        return true;
+      }
+      return geom::polygon_contains(&self.poly, *coord);
+    }
+    false
+  }
+}
+
 struct ToChart {
   /// Coordinate transformation from decimal degrees to chart coordinates.
   trans: spatial_ref::CoordTransform,
 
   /// Chart bounds.
-  bounds: geom::ChtVec,
+  bounds: Bounds,
 }
 
 impl ToChart {
@@ -253,9 +302,11 @@ impl ToChart {
     dd_sr: &spatial_ref::SpatialRef,
     bounds: geom::ChtVec,
   ) -> Result<Self, errors::GdalError> {
-    // Create a transformation from decimal degrees to chart coordinates.
+    // Create a transformation from decimal degrees to chart coordinates and a bounds object.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
+    let bounds = Bounds::new(bounds);
+
     Ok(ToChart { trans, bounds })
   }
 
@@ -263,7 +314,7 @@ impl ToChart {
   fn contains(&self, coord: geom::DD) -> bool {
     // Convert to a chart coordinate.
     match self.trans.transform(*coord) {
-      Ok(coord) => return geom::polygon_contains(&self.bounds, coord),
+      Ok(coord) => return self.bounds.contains(geom::Cht(coord)),
       Err(err) => godot_error!("{err}"),
     }
     false
@@ -398,13 +449,13 @@ impl AirportSource {
           continue;
         };
 
-        if geom::polygon_contains(&to_chart.bounds, coord) {
+        let coord = geom::Cht(coord);
+        if to_chart.bounds.contains(coord) {
           // Add the airport name to the name vector.
           if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
             name_vec.push((name, fid));
           }
 
-          let coord = geom::Cht(coord);
           loc_vec.push(LocIdx { coord, fid })
         }
       }

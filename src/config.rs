@@ -127,7 +127,6 @@ impl Items {
 // Get the bounds for the specified chart in pixel coordinates.
 pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> geom::PxVec {
   let limit = geom::Px::new((chart_size.w - 1) as f64, (chart_size.h - 1) as f64);
-
   if let Some(points) = get_bounds_from_json(chart_name, limit) {
     points
   } else {
