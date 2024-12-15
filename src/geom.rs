@@ -125,14 +125,14 @@ pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
   for idx in 0..count {
     let line = [points[idx], points[(idx + 1) % count]];
 
-    // Check if the point is between the Y coordinates of line segment.
+    // Check if the point is between the Y coordinates of the current line segment.
     if (line[0].y > point.y) != (line[1].y > point.y) {
       // Calculate the X coordinate where a horizontal ray from the point intersects the line segment.
       let x = (line[1].x - line[0].x) * (point.y - line[0].y) / (line[1].y - line[0].y) + line[0].x;
 
       // Check if the point lies to the left of the intersection.
       if point.x < x {
-        // Toggle inside flag.
+        // Toggle the inside flag.
         inside = !inside;
       }
     }
