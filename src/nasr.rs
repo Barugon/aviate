@@ -44,11 +44,12 @@ impl AirportReader {
         let mut airport_status = airport_status.clone();
         let request_count = request_count.clone();
         move || {
-          // Create the name and ID indexes.
+          // Create the airport basic index.
           if source.create_basic_index() {
             airport_status.set_has_basic_index();
           }
 
+          // Create a spatial reference for decimal degree coordinates.
           let dd_sr = {
             // FAA uses NAD83 for decimal degree coordinates.
             let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
@@ -78,11 +79,11 @@ impl AirportReader {
 
                 if let Some((proj4, bounds)) = spatial_info {
                   match ToChart::new(&proj4, &dd_sr, bounds) {
-                    Ok(trans_info) => {
-                      // Create the airport spatial index.
-                      if source.create_advanced_indexes(&trans_info) {
+                    Ok(trans) => {
+                      // Create the airport advanced indexes.
+                      if source.create_advanced_indexes(&trans) {
                         airport_status.set_has_advanced_indexes();
-                        to_chart = Some(trans_info);
+                        to_chart = Some(trans);
                       }
                     }
                     Err(err) => {
@@ -103,8 +104,13 @@ impl AirportReader {
                 send(reply, true);
               }
               AirportRequest::Nearby(coord, dist, nph) => {
-                let infos = source.nearby(coord, dist, nph);
-                send(AirportReply::Nearby(infos), true);
+                if to_chart.is_some() {
+                  let infos = source.nearby(coord, dist, nph);
+                  send(AirportReply::Nearby(infos), true);
+                } else {
+                  let err = "Chart transformation is required to find nearby airports";
+                  send(AirportReply::Error(err.into()), true);
+                }
               }
               AirportRequest::Search(term, nph) => {
                 if let Some(to_chart) = to_chart.as_ref() {
@@ -131,7 +137,7 @@ impl AirportReader {
                   };
                   send(reply, true);
                 } else {
-                  let err = "Chart transformation is needed for search";
+                  let err = "Chart transformation is required for airport search";
                   send(AirportReply::Error(err.into()), true);
                 }
               }
