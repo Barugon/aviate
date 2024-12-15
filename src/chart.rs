@@ -201,19 +201,15 @@ impl Transformation {
   /// Convert a chart coordinate to a decimal degree coordinate.
   /// - `coord`: chart coordinate
   pub fn chart_to_dd(&self, coord: geom::Cht) -> Result<geom::DD, gdal::errors::GdalError> {
-    let mut x = [coord.x];
-    let mut y = [coord.y];
-    self.to_dd.transform_coords(&mut x, &mut y, &mut [])?;
-    Ok(geom::DD::new(x[0], y[0]))
+    use geom::Transform;
+    Ok(geom::DD(self.to_dd.transform(*coord)?))
   }
 
   /// Convert a decimal degree coordinate to a chart coordinate.
   /// - `coord`: decimal degree coordinate
   pub fn dd_to_chart(&self, coord: geom::DD) -> Result<geom::Cht, gdal::errors::GdalError> {
-    let mut x = [coord.x];
-    let mut y = [coord.y];
-    self.from_dd.transform_coords(&mut x, &mut y, &mut [])?;
-    Ok(geom::Cht::new(x[0], y[0]))
+    use geom::Transform;
+    Ok(geom::Cht(self.from_dd.transform(*coord)?))
   }
 
   /// Convert a pixel coordinate to a decimal degree coordinate.
