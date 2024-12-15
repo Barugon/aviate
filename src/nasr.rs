@@ -246,13 +246,13 @@ pub enum AirportReply {
   Error(util::Error),
 }
 
-struct Bounds {
+struct ChartBounds {
   xr: RangeInclusive<f64>,
   yr: RangeInclusive<f64>,
   poly: geom::ChtVec,
 }
 
-impl Bounds {
+impl ChartBounds {
   fn new(poly: geom::ChtVec) -> Self {
     assert!(!poly.is_empty());
 
@@ -302,7 +302,7 @@ struct ToChart {
   trans: spatial_ref::CoordTransform,
 
   /// Chart bounds.
-  bounds: Bounds,
+  bounds: ChartBounds,
 }
 
 impl ToChart {
@@ -314,31 +314,20 @@ impl ToChart {
     // Create a transformation from decimal degrees to chart coordinates and a bounds object.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
-    let bounds = Bounds::new(bounds);
+    let bounds = ChartBounds::new(bounds);
     Ok(ToChart { trans, bounds })
   }
 
   /// Test if a decimal degree coordinate is within the chart bounds.
   fn contains(&self, coord: geom::DD) -> bool {
+    use geom::Transform;
+
     // Convert to a chart coordinate.
     match self.trans.transform(*coord) {
       Ok(coord) => return self.bounds.contains(geom::Cht(coord)),
       Err(err) => godot_error!("{err}"),
     }
     false
-  }
-}
-
-pub trait Transform {
-  fn transform(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError>;
-}
-
-impl Transform for spatial_ref::CoordTransform {
-  fn transform(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
-    let mut x = [coord.x];
-    let mut y = [coord.y];
-    self.transform_coords(&mut x, &mut y, &mut [])?;
-    Ok(geom::Coord::new(x[0], y[0]))
   }
 }
 
@@ -443,6 +432,7 @@ impl AirportSource {
   /// Create the name and spatial indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
   fn create_advanced_indexes(&mut self, to_chart: &ToChart) -> bool {
+    use geom::Transform;
     use vector::LayerAccess;
 
     let mut name_vec = Vec::new();
