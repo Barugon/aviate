@@ -1,3 +1,4 @@
+use gdal::spatial_ref;
 use godot::prelude::*;
 use std::{cmp, ops};
 
@@ -73,6 +74,7 @@ impl ops::Deref for DD {
 pub struct Cht(pub Coord);
 
 impl Cht {
+  #[allow(unused)]
   pub fn new(x: f64, y: f64) -> Self {
     Self(Coord { x, y })
   }
@@ -137,6 +139,19 @@ pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
     }
   }
   inside
+}
+
+pub trait Transform {
+  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError>;
+}
+
+impl Transform for spatial_ref::CoordTransform {
+  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError> {
+    let mut x = [coord.x];
+    let mut y = [coord.y];
+    self.transform_coords(&mut x, &mut y, &mut [])?;
+    Ok(Coord::new(x[0], y[0]))
+  }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
