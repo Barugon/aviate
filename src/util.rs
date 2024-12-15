@@ -236,6 +236,7 @@ impl ToU32 for f64 {
 
 impl ToU32 for Variant {
   fn to_u32(self) -> Option<u32> {
+    // JSON values are read as f64.
     self.try_to::<f64>().ok()?.to_u32()
   }
 }
@@ -332,7 +333,7 @@ pub fn store_text(path: &GString, text: &GString) {
 }
 
 pub fn request_permissions() {
-  godot::classes::Os::singleton().request_permissions();
+  Os::singleton().request_permissions();
 }
 
 /// Make sure that a dialog window doesn't fall outside the edges of the main window.
