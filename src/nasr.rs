@@ -256,7 +256,7 @@ impl Bounds {
   fn new(poly: geom::ChtVec) -> Self {
     assert!(!poly.is_empty());
 
-    // Check if the polygon is an exact rectangle.
+    // Check if the polygon is an exact rectangle (origin must be upper left).
     if poly.len() == 4
       && poly[0].y == poly[1].y
       && poly[1].x == poly[2].x
@@ -270,7 +270,7 @@ impl Bounds {
       return Self { xr, yr, poly };
     }
 
-    // Generate an extent.
+    // Generate an extent from the polygon coordinates.
     let mut min = geom::Coord::new(f64::MAX, f64::MAX);
     let mut max = geom::Coord::new(f64::MIN, f64::MIN);
     for coord in poly.iter() {
@@ -315,7 +315,6 @@ impl ToChart {
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
     let bounds = Bounds::new(bounds);
-
     Ok(ToChart { trans, bounds })
   }
 
