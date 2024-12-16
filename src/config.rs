@@ -165,11 +165,26 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Px) -> Option<geom::PxVec
 fn convert_bounds_svgs() {
   use std::path;
 
+  // Load the bounds JSON file.
+  let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
+  let path = path.to_str().unwrap().into();
+  let Some(text) = util::load_text(&path) else {
+    return;
+  };
+
+  // Parse the JSON.
+  let variant = Json::parse_string(&text);
+  let Ok(mut dict) = variant.try_to::<Dictionary>() else {
+    return;
+  };
+
+  // Get the files from the bounds folder.
   let folder = path::PathBuf::from(util::get_downloads_folder().to_string()).join("bounds");
   let Ok(files) = std::fs::read_dir(&folder) else {
     return;
   };
 
+  let mut changed = false;
   for entry in files {
     let Ok(entry) = entry else {
       continue;
@@ -210,64 +225,42 @@ fn convert_bounds_svgs() {
     let text = &text[..pos];
     let mut first = Default::default();
     let mut prev = Default::default();
-    let mut result = String::new();
+    let mut array = Array::new();
 
     // Create a JSON array from the points.
-    result += "[[";
     for (idx, item) in text.split_ascii_whitespace().enumerate() {
       // Ignore duplicates.
       if item == first || item == prev {
         continue;
       }
 
-      // Make sure the item is a pair of comma separated values.
+      // Get the X and Y values.
       let mut iter = item.split(',');
-      let val = iter.next().and_then(|txt| txt.parse::<f64>().ok());
-      if val.is_none() {
+      let Some(x) = iter.next().and_then(|txt| txt.parse::<f64>().ok()) else {
         continue;
       };
 
-      let val = iter.next().and_then(|txt| txt.parse::<f64>().ok());
-      if val.is_none() {
+      let Some(y) = iter.next().and_then(|txt| txt.parse::<f64>().ok()) else {
         continue;
       };
 
-      if idx > 0 {
-        result += "],[";
-      } else {
+      prev = item;
+      if idx == 0 {
         first = item;
       }
 
-      result += item;
-      prev = item;
+      array.push(&Variant::from([x, y]));
     }
-    result += "]]";
-
-    // Parse the array.
-    let variant = Json::parse_string(&result);
-    let Ok(array) = variant.try_to::<Array<Variant>>() else {
-      return;
-    };
-
-    // Load the bounds JSON file.
-    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/bounds.json");
-    let path = path.to_str().unwrap().into();
-    let Some(text) = util::load_text(&path) else {
-      return;
-    };
-
-    // Parse the JSON.
-    let variant = Json::parse_string(&text);
-    let Ok(mut dict) = variant.try_to::<Dictionary>() else {
-      return;
-    };
 
     // Set the new entry.
     dict.set(GString::from(name), Variant::from(array));
-
-    // Store the bounds JSON file.
-    util::store_text(&path, &Json::stringify(&variant));
+    changed = true;
 
     godot_print!("Added \"{}\" bounds", name);
+  }
+
+  if changed {
+    // Store the bounds JSON file.
+    util::store_text(&path, &Json::stringify(&variant));
   }
 }
