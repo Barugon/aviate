@@ -190,14 +190,7 @@ pub struct ChartBounds {
 impl ChartBounds {
   pub fn new(poly: ChtVec) -> Self {
     assert!(!poly.is_empty());
-
-    // Check if the polygon is an exact rectangle (origin must be upper left).
-    if poly.len() == 4
-      && poly[0].y == poly[1].y
-      && poly[1].x == poly[2].x
-      && poly[2].y == poly[3].y
-      && poly[3].x == poly[0].x
-    {
+    if is_rectangle(&poly) {
       // A simple extent check will do.
       let xr = poly[0].x..=poly[1].x;
       let yr = poly[2].y..=poly[1].y;
@@ -230,6 +223,18 @@ impl ChartBounds {
     }
     false
   }
+}
+
+/// Check if s polygon is an exact rectangle.
+pub fn is_rectangle(poly: &[Coord]) -> bool {
+  if poly.len() == 4 {
+    if poly[0].y == poly[1].y {
+      return poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x;
+    } else if poly[0].x == poly[1].x {
+      return poly[1].y == poly[2].y && poly[2].x == poly[3].x && poly[3].y == poly[0].y;
+    }
+  }
+  return false;
 }
 
 /// Check if a point is contained in a single-ring polygon.
