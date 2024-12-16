@@ -182,26 +182,23 @@ impl Iterator for ChtIter<'_> {
 }
 
 pub struct ChartBounds {
-  xr: ops::RangeInclusive<f64>,
-  yr: ops::RangeInclusive<f64>,
-  poly: ChtVec,
+  extent: Extent,
+  polygon: ChtVec,
 }
 
 impl ChartBounds {
-  pub fn new(poly: ChtVec) -> Self {
-    assert!(!poly.is_empty());
-    if is_rectangle(&poly) {
+  pub fn new(polygon: ChtVec) -> Self {
+    assert!(!polygon.is_empty());
+    if let Some(extent) = as_extent(&polygon) {
       // A simple extent check will do.
-      let xr = poly[0].x..=poly[1].x;
-      let yr = poly[2].y..=poly[1].y;
-      let poly = ChtVec(Vec::new());
-      return Self { xr, yr, poly };
+      let polygon = ChtVec(Vec::new());
+      return Self { extent, polygon };
     }
 
     // Generate an extent from the polygon coordinates.
     let mut min = Coord::new(f64::MAX, f64::MAX);
     let mut max = Coord::new(f64::MIN, f64::MIN);
-    for coord in poly.iter() {
+    for coord in polygon.iter() {
       min.x = min.x.min(coord.x);
       min.y = min.y.min(coord.y);
       max.x = max.x.max(coord.x);
@@ -209,32 +206,52 @@ impl ChartBounds {
     }
 
     // Express the extent as X and Y ranges.
-    let xr = min.x..=max.x;
-    let yr = min.y..=max.y;
-    Self { xr, yr, poly }
+    let extent = Extent::new(min.x..=max.x, min.y..=max.y);
+    Self { extent, polygon }
   }
 
   pub fn contains(&self, coord: Cht) -> bool {
-    if self.xr.contains(&coord.x) && self.yr.contains(&coord.y) {
-      if self.poly.is_empty() {
+    if self.extent.contains(*coord) {
+      if self.polygon.is_empty() {
         return true;
       }
-      return polygon_contains(&self.poly, *coord);
+      return polygon_contains(&self.polygon, *coord);
     }
     false
   }
 }
 
-/// Check if s polygon is an exact rectangle.
-pub fn is_rectangle(poly: &[Coord]) -> bool {
+pub struct Extent {
+  xr: ops::RangeInclusive<f64>,
+  yr: ops::RangeInclusive<f64>,
+}
+
+impl Extent {
+  fn new(xr: ops::RangeInclusive<f64>, yr: ops::RangeInclusive<f64>) -> Self {
+    Self { xr, yr }
+  }
+
+  fn contains(&self, coord: Coord) -> bool {
+    self.xr.contains(&coord.x) && self.yr.contains(&coord.y)
+  }
+}
+
+/// Check if a polygon is an exact rectangle. If so then return it as an extent.
+pub fn as_extent(poly: &[Coord]) -> Option<Extent> {
   if poly.len() == 4 {
     if poly[0].y == poly[1].y {
-      return poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x;
-    } else if poly[0].x == poly[1].x {
-      return poly[1].y == poly[2].y && poly[2].x == poly[3].x && poly[3].y == poly[0].y;
+      if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
+        return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
+      }
+    } else if poly[0].x == poly[1].x
+      && poly[1].y == poly[2].y
+      && poly[2].x == poly[3].x
+      && poly[3].y == poly[0].y
+    {
+      return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
     }
   }
-  return false;
+  None
 }
 
 /// Check if a point is contained in a single-ring polygon.
