@@ -64,6 +64,114 @@ impl ops::Mul<f64> for Coord {
   }
 }
 
+pub struct Extent {
+  xr: ops::RangeInclusive<f64>,
+  yr: ops::RangeInclusive<f64>,
+}
+
+impl Extent {
+  fn new(xr: ops::RangeInclusive<f64>, yr: ops::RangeInclusive<f64>) -> Self {
+    Self { xr, yr }
+  }
+
+  pub fn from_polygon(poly: &[Coord]) -> Self {
+    let mut min = Coord::new(f64::MAX, f64::MAX);
+    let mut max = Coord::new(f64::MIN, f64::MIN);
+    for coord in poly.iter() {
+      min.x = min.x.min(coord.x);
+      min.y = min.y.min(coord.y);
+      max.x = max.x.max(coord.x);
+      max.y = max.y.max(coord.y);
+    }
+    Self::new(min.x..=max.x, min.y..=max.y)
+  }
+
+  fn contains(&self, coord: Coord) -> bool {
+    self.xr.contains(&coord.x) && self.yr.contains(&coord.y)
+  }
+}
+
+pub struct Bounds {
+  extent: Extent,
+  polygon: Vec<Coord>,
+}
+
+impl Bounds {
+  pub fn new(polygon: Vec<Coord>) -> Self {
+    assert!(!polygon.is_empty());
+    if let Some(extent) = polygon_as_extent(&polygon) {
+      // A simple extent check will do.
+      let polygon = Vec::new();
+      return Self { extent, polygon };
+    }
+    let extent = Extent::from_polygon(&polygon);
+    Self { extent, polygon }
+  }
+
+  pub fn contains(&self, coord: Coord) -> bool {
+    if self.extent.contains(coord) {
+      if self.polygon.is_empty() {
+        return true;
+      }
+      return polygon_contains(&self.polygon, coord);
+    }
+    false
+  }
+}
+
+/// Check if a polygon is an exact rectangle. If so then return it as an extent.
+pub fn polygon_as_extent(poly: &[Coord]) -> Option<Extent> {
+  if poly.len() == 4 {
+    if poly[0].y == poly[1].y {
+      if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
+        return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
+      }
+    } else if poly[0].x == poly[1].x
+      && poly[1].y == poly[2].y
+      && poly[2].x == poly[3].x
+      && poly[3].y == poly[0].y
+    {
+      return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
+    }
+  }
+  None
+}
+
+/// Check if a point is contained in a polygon.
+pub fn polygon_contains(poly: &[Coord], point: Coord) -> bool {
+  let mut inside = false;
+  let count = poly.len();
+  for idx in 0..count {
+    let line = [poly[idx], poly[(idx + 1) % count]];
+
+    // Check if the point is between the Y coordinates of the current line segment.
+    if (line[0].y > point.y) != (line[1].y > point.y) {
+      // Calculate the X coordinate where a horizontal ray from the point intersects the line segment.
+      let x = (line[1].x - line[0].x) * (point.y - line[0].y) / (line[1].y - line[0].y) + line[0].x;
+
+      // Check if the point lies to the left of the intersection.
+      if point.x < x {
+        // Toggle the inside flag.
+        inside = !inside;
+      }
+    }
+  }
+  inside
+}
+
+pub trait Transform {
+  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError>;
+}
+
+impl Transform for spatial_ref::CoordTransform {
+  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError> {
+    let mut x = [coord.x];
+    let mut y = [coord.y];
+    self.transform_coords(&mut x, &mut y, &mut [])?;
+    Ok(Coord::new(x[0], y[0]))
+  }
+}
+
 /// Pixel coordinate.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Px(pub Coord);
@@ -162,6 +270,7 @@ impl ops::Deref for ChtVec {
 }
 
 impl ChtVec {
+  #[allow(unused)]
   pub fn iter(&self) -> ChtIter<'_> {
     ChtIter {
       iter: self.0.iter(),
@@ -181,111 +290,19 @@ impl Iterator for ChtIter<'_> {
   }
 }
 
-pub struct ChartBounds {
-  extent: Extent,
-  polygon: ChtVec,
+pub struct ChtBounds {
+  bounds: Bounds,
 }
 
-impl ChartBounds {
+impl ChtBounds {
   pub fn new(polygon: ChtVec) -> Self {
-    assert!(!polygon.is_empty());
-    if let Some(extent) = as_extent(&polygon) {
-      // A simple extent check will do.
-      let polygon = ChtVec(Vec::new());
-      return Self { extent, polygon };
+    Self {
+      bounds: Bounds::new(polygon.0),
     }
-
-    // Generate an extent from the polygon coordinates.
-    let mut min = Coord::new(f64::MAX, f64::MAX);
-    let mut max = Coord::new(f64::MIN, f64::MIN);
-    for coord in polygon.iter() {
-      min.x = min.x.min(coord.x);
-      min.y = min.y.min(coord.y);
-      max.x = max.x.max(coord.x);
-      max.y = max.y.max(coord.y);
-    }
-
-    // Express the extent as X and Y ranges.
-    let extent = Extent::new(min.x..=max.x, min.y..=max.y);
-    Self { extent, polygon }
   }
 
   pub fn contains(&self, coord: Cht) -> bool {
-    if self.extent.contains(*coord) {
-      if self.polygon.is_empty() {
-        return true;
-      }
-      return polygon_contains(&self.polygon, *coord);
-    }
-    false
-  }
-}
-
-pub struct Extent {
-  xr: ops::RangeInclusive<f64>,
-  yr: ops::RangeInclusive<f64>,
-}
-
-impl Extent {
-  fn new(xr: ops::RangeInclusive<f64>, yr: ops::RangeInclusive<f64>) -> Self {
-    Self { xr, yr }
-  }
-
-  fn contains(&self, coord: Coord) -> bool {
-    self.xr.contains(&coord.x) && self.yr.contains(&coord.y)
-  }
-}
-
-/// Check if a polygon is an exact rectangle. If so then return it as an extent.
-pub fn as_extent(poly: &[Coord]) -> Option<Extent> {
-  if poly.len() == 4 {
-    if poly[0].y == poly[1].y {
-      if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
-        return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
-      }
-    } else if poly[0].x == poly[1].x
-      && poly[1].y == poly[2].y
-      && poly[2].x == poly[3].x
-      && poly[3].y == poly[0].y
-    {
-      return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
-    }
-  }
-  None
-}
-
-/// Check if a point is contained in a single-ring polygon.
-pub fn polygon_contains(points: &[Coord], point: Coord) -> bool {
-  let mut inside = false;
-  let count = points.len();
-  for idx in 0..count {
-    let line = [points[idx], points[(idx + 1) % count]];
-
-    // Check if the point is between the Y coordinates of the current line segment.
-    if (line[0].y > point.y) != (line[1].y > point.y) {
-      // Calculate the X coordinate where a horizontal ray from the point intersects the line segment.
-      let x = (line[1].x - line[0].x) * (point.y - line[0].y) / (line[1].y - line[0].y) + line[0].x;
-
-      // Check if the point lies to the left of the intersection.
-      if point.x < x {
-        // Toggle the inside flag.
-        inside = !inside;
-      }
-    }
-  }
-  inside
-}
-
-pub trait Transform {
-  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError>;
-}
-
-impl Transform for spatial_ref::CoordTransform {
-  fn transform(&self, coord: Coord) -> Result<Coord, gdal::errors::GdalError> {
-    let mut x = [coord.x];
-    let mut y = [coord.y];
-    self.transform_coords(&mut x, &mut y, &mut [])?;
-    Ok(Coord::new(x[0], y[0]))
+    self.bounds.contains(coord.0)
   }
 }
 

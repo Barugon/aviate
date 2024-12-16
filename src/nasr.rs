@@ -164,7 +164,7 @@ impl AirportReader {
   /// > **NOTE**: this is required for all queries other than `airport`.
   /// - `proj4`: PROJ4 text
   /// - `bounds`: chart bounds.
-  pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::ChartBounds) {
+  pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::ChtBounds) {
     let request = AirportRequest::SpatialRef(Some((proj4, bounds)));
     self.tx.send(request).unwrap();
   }
@@ -226,7 +226,7 @@ impl AirportReader {
 }
 
 enum AirportRequest {
-  SpatialRef(Option<(String, geom::ChartBounds)>),
+  SpatialRef(Option<(String, geom::ChtBounds)>),
   Airport(String),
   Nearby(geom::Cht, f64, bool),
   Search(String, bool),
@@ -251,14 +251,14 @@ struct ToChart {
   trans: spatial_ref::CoordTransform,
 
   /// Chart bounds.
-  bounds: geom::ChartBounds,
+  bounds: geom::ChtBounds,
 }
 
 impl ToChart {
   fn new(
     proj4: &str,
     dd_sr: &spatial_ref::SpatialRef,
-    bounds: geom::ChartBounds,
+    bounds: geom::ChtBounds,
   ) -> Result<Self, errors::GdalError> {
     // Create a transformation from decimal degrees to chart coordinates and a bounds object.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;

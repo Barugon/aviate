@@ -177,13 +177,13 @@ impl Transformation {
   }
 
   /// Get the bounds as chart coordinates.
-  pub fn get_chart_bounds(&self) -> geom::ChartBounds {
+  pub fn get_chart_bounds(&self) -> geom::ChtBounds {
     // Convert the pixel coordinates to chart coordinates.
     let mut cht_poly = Vec::with_capacity(self.bounds.len());
     for point in self.bounds.iter() {
       cht_poly.push(*self.px_to_chart(point));
     }
-    geom::ChartBounds::new(geom::ChtVec(cht_poly))
+    geom::ChtBounds::new(geom::ChtVec(cht_poly))
   }
 
   /// Convert a pixel coordinate to a chart coordinate.
