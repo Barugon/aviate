@@ -1,12 +1,8 @@
 fn main() {
   // This script is only needed for GDAL static builds.
-  let Some(build_static) = option_env!("GDAL_STATIC") else {
+  if option_env!("GDAL_STATIC").unwrap_or("0") != "1" {
     return;
   };
-
-  if build_static != "1" {
-    return;
-  }
 
   // Use the correct C++ standard library.
   if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "android" {
