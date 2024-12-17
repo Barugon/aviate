@@ -19,7 +19,6 @@ fn main() {
   let libs = [
     "crypto",
     "curl",
-    "geos",
     "geotiff",
     "json-c",
     "lzma",
