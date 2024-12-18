@@ -91,11 +91,7 @@ impl Items {
 
   fn set(&mut self, key: &str, item: Variant) {
     let existing = self.items.get_or_nil(key);
-    if item.try_to::<Dictionary>().is_ok() {
-      if Json::stringify(&existing) == Json::stringify(&item) {
-        return;
-      }
-    } else if existing == item {
+    if Json::stringify(&existing) == Json::stringify(&item) {
       return;
     }
 
