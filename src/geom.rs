@@ -92,35 +92,35 @@ impl Extent {
 }
 
 pub struct Bounds {
-  extent: Extent,
-  polygon: Vec<Coord>,
+  ext: Extent,
+  poly: Vec<Coord>,
 }
 
 impl Bounds {
-  pub fn new(polygon: Vec<Coord>) -> Self {
-    assert!(!polygon.is_empty());
-    if let Some(extent) = polygon_as_extent(&polygon) {
+  pub fn new(poly: Vec<Coord>) -> Self {
+    assert!(!poly.is_empty());
+    if let Some(ext) = polygon_as_extent(&poly) {
       // A simple extent check will do.
-      let polygon = Vec::new();
-      return Self { extent, polygon };
+      let poly = Vec::new();
+      return Self { ext, poly };
     }
-    let extent = Extent::from_polygon(&polygon);
-    Self { extent, polygon }
+    let ext = Extent::from_polygon(&poly);
+    Self { ext, poly }
   }
 
   pub fn contains(&self, coord: Coord) -> bool {
-    if self.extent.contains(coord) {
-      if self.polygon.is_empty() {
+    if self.ext.contains(coord) {
+      if self.poly.is_empty() {
         return true;
       }
-      return polygon_contains(&self.polygon, coord);
+      return polygon_contains(&self.poly, coord);
     }
     false
   }
 }
 
 /// Check if a polygon is an exact rectangle. If so then return it as an extent.
-pub fn polygon_as_extent(poly: &[Coord]) -> Option<Extent> {
+fn polygon_as_extent(poly: &[Coord]) -> Option<Extent> {
   if poly.len() == 4 {
     if poly[0].y == poly[1].y {
       if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
@@ -138,7 +138,7 @@ pub fn polygon_as_extent(poly: &[Coord]) -> Option<Extent> {
 }
 
 /// Check if a point is contained in a polygon.
-pub fn polygon_contains(poly: &[Coord], point: Coord) -> bool {
+fn polygon_contains(poly: &[Coord], point: Coord) -> bool {
   let mut inside = false;
   let count = poly.len();
   for idx in 0..count {
