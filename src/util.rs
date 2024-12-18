@@ -182,6 +182,7 @@ impl WinInfo {
 
   pub fn to_variant(&self) -> Variant {
     let mut dict = Dictionary::new();
+    dict.set(WinInfo::MAXED_KEY, Variant::from(self.maxed));
 
     if let Some(pos) = &self.pos {
       dict.set(WinInfo::POS_KEY, pos.to_variant());
@@ -191,7 +192,6 @@ impl WinInfo {
       dict.set(WinInfo::SIZE_KEY, size.to_variant());
     }
 
-    dict.set(WinInfo::MAXED_KEY, Variant::from(self.maxed));
     Variant::from(dict)
   }
 
