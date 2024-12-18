@@ -48,9 +48,9 @@ impl MainWidget {
   }
 
   #[func]
-  fn toggle_show_bounds(&mut self, night_mode: bool) {
-    self.chart_widget.bind_mut().set_show_bounds(night_mode);
-    self.config.set_show_bounds(night_mode);
+  fn toggle_show_bounds(&mut self, show_bounds: bool) {
+    self.chart_widget.bind_mut().set_show_bounds(show_bounds);
+    self.config.set_show_bounds(show_bounds);
   }
 
   #[func]
