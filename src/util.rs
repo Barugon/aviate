@@ -113,7 +113,9 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
 
           // Check for chart data.
           if ext.eq_ignore_ascii_case("tfw") {
-            tfws.insert(file);
+            if let Some(stem) = file.file_stem() {
+              tfws.insert(path::PathBuf::from(stem));
+            }
           } else if ext.eq_ignore_ascii_case("tif") {
             tifs.push(file);
           }
@@ -122,8 +124,10 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
         // Only accept TIFF files that have matching TFW files.
         let mut files = Vec::with_capacity(cmp::min(tifs.len(), tfws.len()));
         for file in tifs {
-          if tfws.contains(&file.with_extension("tfw")) {
-            files.push(file);
+          if let Some(stem) = file.file_stem() {
+            if tfws.contains(path::Path::new(stem)) {
+              files.push(file);
+            }
           }
         }
 
@@ -302,7 +306,7 @@ pub fn stem_str(path: &path::Path) -> Option<&str> {
   path.file_stem()?.to_str()
 }
 
-/// Return the folder of a path as a `String`.
+/// Return the folder of a path as a `GString`.
 pub fn folder_gstring<P: AsRef<path::Path>>(path: P) -> Option<GString> {
   Some(folder_str(path.as_ref())?.into())
 }
@@ -332,6 +336,7 @@ pub fn store_text(path: &GString, text: &GString) {
   file.store_string(text);
 }
 
+/// Request app permissions on Android.
 pub fn request_permissions() {
   Os::singleton().request_permissions();
 }
