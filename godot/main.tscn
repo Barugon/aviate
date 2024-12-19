@@ -1,9 +1,23 @@
-[gd_scene load_steps=7 format=3 uid="uid://b1gmyyw2nkaa6"]
+[gd_scene load_steps=9 format=3 uid="uid://b1gmyyw2nkaa6"]
 
 [ext_resource type="Texture2D" uid="uid://cgyovs1e1fkm8" path="res://find_icon.svg" id="1_lhk6r"]
 
 [sub_resource type="Theme" id="Theme_julhx"]
 default_font_size = 14
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aku1g"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(0.180392, 0.180392, 0.180392, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_nlyeh"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(0.180392, 0.180392, 0.180392, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1aepe"]
 bg_color = Color(0.301961, 0.301961, 0.301961, 1)
@@ -48,29 +62,23 @@ theme_override_constants/separation = 2
 
 [node name="ToolbarPanel" type="PanelContainer" parent="VBoxContainer"]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_aku1g")
 
-[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/ToolbarPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 5
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 5
-theme_override_constants/margin_bottom = 5
-
-[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/ToolbarPanel/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/ToolbarPanel"]
 layout_mode = 2
 
-[node name="SidebarButton" type="CheckButton" parent="VBoxContainer/ToolbarPanel/MarginContainer/HBoxContainer"]
+[node name="SidebarButton" type="CheckButton" parent="VBoxContainer/ToolbarPanel/HBoxContainer"]
 layout_mode = 2
 tooltip_text = "Hide side panel"
 button_pressed = true
 
-[node name="AirportLabel" type="Label" parent="VBoxContainer/ToolbarPanel/MarginContainer/HBoxContainer"]
+[node name="AirportLabel" type="Label" parent="VBoxContainer/ToolbarPanel/HBoxContainer"]
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.466667, 0.466667, 0.466667, 1)
 text = "APT"
 
-[node name="FindButton" type="Button" parent="VBoxContainer/ToolbarPanel/MarginContainer/HBoxContainer"]
+[node name="FindButton" type="Button" parent="VBoxContainer/ToolbarPanel/HBoxContainer"]
 visible = false
 layout_mode = 2
 tooltip_text = "Find airports on this chart"
@@ -84,34 +92,28 @@ theme_override_constants/separation = 2
 
 [node name="SidebarPanel" type="PanelContainer" parent="VBoxContainer/HBoxContainer"]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_nlyeh")
 
-[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/HBoxContainer/SidebarPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 5
-theme_override_constants/margin_top = 5
-theme_override_constants/margin_right = 5
-theme_override_constants/margin_bottom = 5
-
-[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HBoxContainer/SidebarPanel"]
 layout_mode = 2
 
-[node name="OpenButton" type="Button" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+[node name="OpenButton" type="Button" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 text = "Open Zip File"
 
-[node name="Filler" type="Control" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+[node name="Filler" type="Control" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 theme_override_styles/separator = SubResource("StyleBoxFlat_1aepe")
 
-[node name="NightModeButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+[node name="NightModeButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 text = "Night Mode"
 
-[node name="BoundsButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/MarginContainer/VBoxContainer"]
+[node name="BoundsButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 text = "Show Bounds"
 
