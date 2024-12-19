@@ -1,6 +1,6 @@
 fn main() {
   // This script is only needed for GDAL static builds.
-  if option_env!("GDAL_STATIC").unwrap_or("0") != "1" {
+  if std::env::var("GDAL_STATIC").unwrap_or_default() != "1" {
     return;
   };
 
