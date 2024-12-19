@@ -10,4 +10,4 @@ NASR data (airports, class airspace boundaries, etc) is updated every 28 days an
 
 The GUI for Aviate was originally egui but there's no path forward for mobile devices, so it was rewritten to use Godot's GUI.
 
-![Screenshot From 2024-12-08 20-26-53](https://github.com/user-attachments/assets/af6bbb78-24b7-420c-98db-90f11a69debb)
+![Screenshot From 2024-12-19 10-11-11](https://github.com/user-attachments/assets/82cdbc61-fe91-4715-8ae6-f5cff0070f21)
