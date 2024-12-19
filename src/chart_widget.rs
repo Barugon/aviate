@@ -22,21 +22,23 @@ pub struct ChartWidget {
 
 impl ChartWidget {
   pub fn open_raster_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
-    let file = path::Path::new(file);
-    let helicopter = util::stem_str(file).unwrap().ends_with(" HEL");
-
     // Concatenate the VSI prefix and the file path.
     let path = ["/vsizip/", path].concat();
     let path = path::Path::new(path.as_str()).join(file);
 
     // Create a new raster reader.
     let raster_reader = chart::RasterReader::new(path)?;
+    self.helicopter = raster_reader.chart_name().ends_with(" HEL");
     self.raster_reader = Some(raster_reader);
     self.display_info.origin = geom::Pos::default();
     self.display_info.zoom = 1.0;
-    self.helicopter = helicopter;
     self.request_image();
     Ok(())
+  }
+
+  pub fn chart_name(&self) -> Option<&str> {
+    let raster_reader = self.raster_reader.as_ref()?;
+    Some(raster_reader.chart_name())
   }
 
   /// True if a helicopter chart is currently open.

@@ -6,6 +6,7 @@ use sync::{atomic, mpsc};
 /// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/)
 ///  in zipped GEO-TIFF format.
 pub struct RasterReader {
+  chart_name: String,
   transformation: Transformation,
   tx: mpsc::Sender<(sync::Arc<atomic::AtomicBool>, ImagePart)>,
   rx: mpsc::Receiver<RasterReply>,
@@ -22,6 +23,7 @@ impl RasterReader {
   fn _new(path: &path::Path) -> Result<Self, util::Error> {
     // Open the chart source.
     let (source, transformation, palette) = RasterSource::open(path)?;
+    let chart_name = util::stem_str(path).unwrap().into();
 
     // Create the communication channels.
     let (tx, trx) = mpsc::channel();
@@ -66,11 +68,17 @@ impl RasterReader {
       .unwrap();
 
     Ok(Self {
+      chart_name,
       transformation,
       tx,
       rx,
       cancel: cell::Cell::new(None),
     })
+  }
+
+  /// Get the chart name.
+  pub fn chart_name(&self) -> &str {
+    &self.chart_name
   }
 
   /// Get the transformation.

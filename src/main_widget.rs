@@ -173,6 +173,14 @@ impl MainWidget {
             airport_reader.set_chart_spatial_ref(proj4, bounds);
           }
         }
+
+        if let Some(chart_name) = self.chart_widget.bind().chart_name() {
+          let mut chart_label = self.get_child::<Label>("ChartLabel");
+          chart_label.set_text(chart_name);
+
+          let mut status = self.get_child::<HBoxContainer>("ChartStatus");
+          status.set_visible(true);
+        }
       }
       Err(err) => {
         self.show_alert(err.as_ref());
