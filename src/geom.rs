@@ -172,140 +172,6 @@ impl Transform for spatial_ref::CoordTransform {
   }
 }
 
-/// Pixel coordinate.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Px(pub Coord);
-
-impl Px {
-  pub fn new(x: f64, y: f64) -> Self {
-    Self(Coord { x, y })
-  }
-}
-
-impl ops::Deref for Px {
-  type Target = Coord;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-/// Vector of pixel coordinates.
-pub struct PxVec(pub Vec<Coord>);
-
-impl ops::Deref for PxVec {
-  type Target = Vec<Coord>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-impl PxVec {
-  pub fn iter(&self) -> PxIter<'_> {
-    PxIter {
-      iter: self.0.iter(),
-    }
-  }
-}
-
-pub struct PxIter<'a> {
-  iter: core::slice::Iter<'a, Coord>,
-}
-
-impl Iterator for PxIter<'_> {
-  type Item = Px;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    Some(Px(*self.iter.next()?))
-  }
-}
-
-/// Decimal degree coordinate.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct DD(pub Coord);
-
-impl DD {
-  pub fn new(x: f64, y: f64) -> Self {
-    Self(Coord { x, y })
-  }
-}
-
-impl ops::Deref for DD {
-  type Target = Coord;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-/// Chart coordinate.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Cht(pub Coord);
-
-impl Cht {
-  #[allow(unused)]
-  pub fn new(x: f64, y: f64) -> Self {
-    Self(Coord { x, y })
-  }
-}
-
-impl ops::Deref for Cht {
-  type Target = Coord;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-/// Vector of chart coordinates.
-pub struct ChtVec(pub Vec<Coord>);
-
-impl ops::Deref for ChtVec {
-  type Target = Vec<Coord>;
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
-  }
-}
-
-impl ChtVec {
-  #[allow(unused)]
-  pub fn iter(&self) -> ChtIter<'_> {
-    ChtIter {
-      iter: self.0.iter(),
-    }
-  }
-}
-
-pub struct ChtIter<'a> {
-  iter: core::slice::Iter<'a, Coord>,
-}
-
-impl Iterator for ChtIter<'_> {
-  type Item = Cht;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    Some(Cht(*self.iter.next()?))
-  }
-}
-
-pub struct ChtBounds {
-  bounds: Bounds,
-}
-
-impl ChtBounds {
-  pub fn new(polygon: ChtVec) -> Self {
-    Self {
-      bounds: Bounds::new(polygon.0),
-    }
-  }
-
-  pub fn contains(&self, coord: Cht) -> bool {
-    self.bounds.contains(coord.0)
-  }
-}
-
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Pos {
   pub x: i32,
@@ -420,7 +286,7 @@ impl Size {
     self.w > 0 && self.h > 0
   }
 
-  pub fn contains(&self, coord: Px) -> bool {
+  pub fn contains(&self, coord: Coord) -> bool {
     let w = self.w as f64;
     let h = self.h as f64;
     coord.x >= 0.0 && coord.x < w && coord.y >= 0.0 && coord.y < h

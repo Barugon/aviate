@@ -68,7 +68,7 @@ impl ChartWidget {
     }
   }
 
-  pub fn goto_coord(&mut self, coord: geom::DD) {
+  pub fn goto_coord(&mut self, coord: geom::Coord) {
     let Some(raster_reader) = &self.raster_reader else {
       return;
     };

@@ -114,7 +114,7 @@ pub enum RasterReply {
   Error(ImagePart, util::Error),
 }
 
-/// Transformations between pixel, chart and decimal degree coordinates.
+/// Transformations between pixel, chart and decimal-degree coordinates.
 pub struct Transformation {
   // Full size of the chart raster in pixels.
   px_size: geom::Size,
@@ -128,14 +128,14 @@ pub struct Transformation {
   // Geo-transformation from pixels to chart coordinates.
   from_px: gdal::GeoTransform,
 
-  // Coordinate transformation from chart coordinates to decimal degrees.
+  // Coordinate transformation from chart coordinates to decimal-degree coordinates.
   to_dd: spatial_ref::CoordTransform,
 
-  // Coordinate transformation from decimal degrees to chart coordinates.
+  // Coordinate transformation from decimal-degree coordinates to chart coordinates.
   from_dd: spatial_ref::CoordTransform,
 
   // Bounds in pixel coordinates.
-  bounds: geom::PxVec,
+  bounds: Vec<geom::Coord>,
 }
 
 impl Transformation {
@@ -180,56 +180,56 @@ impl Transformation {
   }
 
   /// The bounds as pixel coordinates.
-  pub fn pixel_bounds(&self) -> &geom::PxVec {
+  pub fn pixel_bounds(&self) -> &Vec<geom::Coord> {
     &self.bounds
   }
 
   /// Get the bounds as chart coordinates.
-  pub fn get_chart_bounds(&self) -> geom::ChtBounds {
+  pub fn get_chart_bounds(&self) -> geom::Bounds {
     // Convert the pixel coordinates to chart coordinates.
     let mut cht_poly = Vec::with_capacity(self.bounds.len());
     for point in self.bounds.iter() {
-      cht_poly.push(*self.px_to_chart(point));
+      cht_poly.push(self.px_to_chart(*point));
     }
-    geom::ChtBounds::new(geom::ChtVec(cht_poly))
+    geom::Bounds::new(cht_poly)
   }
 
   /// Convert a pixel coordinate to a chart coordinate.
   /// - `coord`: pixel coordinate
-  pub fn px_to_chart(&self, coord: geom::Px) -> geom::Cht {
-    geom::Cht(gdal::GeoTransformEx::apply(&self.from_px, coord.x, coord.y).into())
+  pub fn px_to_chart(&self, coord: geom::Coord) -> geom::Coord {
+    gdal::GeoTransformEx::apply(&self.from_px, coord.x, coord.y).into()
   }
 
   /// Convert a chart coordinate to a pixel coordinate.
   /// - `coord`: chart coordinate
-  pub fn chart_to_px(&self, coord: geom::Cht) -> geom::Px {
-    geom::Px(gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into())
+  pub fn chart_to_px(&self, coord: geom::Coord) -> geom::Coord {
+    gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into()
   }
 
-  /// Convert a chart coordinate to a decimal degree coordinate.
+  /// Convert a chart coordinate to a decimal-degree coordinate.
   /// - `coord`: chart coordinate
-  pub fn chart_to_dd(&self, coord: geom::Cht) -> Result<geom::DD, gdal::errors::GdalError> {
+  pub fn chart_to_dd(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     use geom::Transform;
-    Ok(geom::DD(self.to_dd.transform(*coord)?))
+    self.to_dd.transform(coord)
   }
 
-  /// Convert a decimal degree coordinate to a chart coordinate.
-  /// - `coord`: decimal degree coordinate
-  pub fn dd_to_chart(&self, coord: geom::DD) -> Result<geom::Cht, gdal::errors::GdalError> {
+  /// Convert a decimal-degree coordinate to a chart coordinate.
+  /// - `coord`: decimal-degree coordinate
+  pub fn dd_to_chart(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     use geom::Transform;
-    Ok(geom::Cht(self.from_dd.transform(*coord)?))
+    self.from_dd.transform(coord)
   }
 
-  /// Convert a pixel coordinate to a decimal degree coordinate.
+  /// Convert a pixel coordinate to a decimal-degree coordinate.
   /// - `coord`: pixel coordinate
   #[allow(unused)]
-  pub fn px_to_dd(&self, coord: geom::Px) -> Result<geom::DD, gdal::errors::GdalError> {
+  pub fn px_to_dd(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     self.chart_to_dd(self.px_to_chart(coord))
   }
 
-  /// Convert a decimal degree coordinate to a pixel coordinate.
-  /// - `coord`: decimal degree coordinate
-  pub fn dd_to_px(&self, coord: geom::DD) -> Result<geom::Px, gdal::errors::GdalError> {
+  /// Convert a decimal-degree coordinate to a pixel coordinate.
+  /// - `coord`: decimal-degree coordinate
+  pub fn dd_to_px(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
     Ok(self.chart_to_px(self.dd_to_chart(coord)?))
   }
 }
