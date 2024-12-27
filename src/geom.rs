@@ -121,7 +121,7 @@ impl Bounds {
 
 /// Check if a polygon is an exact rectangle. If so then return it as an extent.
 fn polygon_as_extent(poly: &[Coord]) -> Option<Extent> {
-  if poly.len() == 4 {
+  fn test_coordinates(poly: &[Coord]) -> Option<Extent> {
     if poly[0].y == poly[1].y {
       if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
         return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
@@ -133,8 +133,14 @@ fn polygon_as_extent(poly: &[Coord]) -> Option<Extent> {
     {
       return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
     }
+    None
   }
-  None
+
+  match poly.len() {
+    4 => test_coordinates(poly),
+    5 if poly[4] == poly[0] => test_coordinates(poly),
+    _ => None,
+  }
 }
 
 /// Check if a point is contained in a polygon.
@@ -457,7 +463,7 @@ mod test {
   fn polygon_contains() {
     use super::*;
 
-    let points = vec![
+    let points = [
       Coord::new(0.0, 0.0),
       Coord::new(100.0, 0.0),
       Coord::new(100.0, 100.0),
@@ -471,5 +477,56 @@ mod test {
     assert!(polygon_contains(&points, Coord::new(20.0, 10.0)));
     assert!(polygon_contains(&points, Coord::new(80.0, 80.0)));
     assert!(!polygon_contains(&points, Coord::new(20.0, 50.0)));
+  }
+
+  #[test]
+  fn polygon_as_extent() {
+    use super::*;
+
+    let points = [
+      Coord::new(0.0, 0.0),
+      Coord::new(100.0, 0.0),
+      Coord::new(100.0, 100.0),
+      Coord::new(0.0, 100.0),
+    ];
+
+    assert!(polygon_as_extent(&points).is_some());
+
+    let points = [
+      Coord::new(0.0, 0.0),
+      Coord::new(100.0, 0.0),
+      Coord::new(100.0, 100.0),
+      Coord::new(0.0, 100.0),
+      Coord::new(0.0, 0.0),
+    ];
+
+    assert!(polygon_as_extent(&points).is_some());
+
+    let points = [
+      Coord::new(0.0, 0.0),
+      Coord::new(100.0, 0.0),
+      Coord::new(100.0, 100.0),
+    ];
+
+    assert!(polygon_as_extent(&points).is_none());
+
+    let points = [
+      Coord::new(0.0, 0.0),
+      Coord::new(100.0, 1.0),
+      Coord::new(100.0, 100.0),
+      Coord::new(0.0, 100.0),
+    ];
+
+    assert!(polygon_as_extent(&points).is_none());
+
+    let points = [
+      Coord::new(0.0, 0.0),
+      Coord::new(100.0, 0.0),
+      Coord::new(100.0, 100.0),
+      Coord::new(0.0, 100.0),
+      Coord::new(0.0, 50.0),
+    ];
+
+    assert!(polygon_as_extent(&points).is_none());
   }
 }
