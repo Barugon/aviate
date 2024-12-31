@@ -64,6 +64,12 @@ impl ops::Mul<f64> for Coord {
   }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ExtentType {
+  Contained,
+  Exact,
+}
+
 pub struct Extent {
   xr: ops::RangeInclusive<f64>,
   yr: ops::RangeInclusive<f64>,
@@ -74,7 +80,32 @@ impl Extent {
     Self { xr, yr }
   }
 
-  pub fn from_polygon(poly: &[Coord]) -> Self {
+  /// Create an extent from a polygon. Also returns if the polygon is an exact rectangle or contained.
+  pub fn from_polygon(poly: &[Coord]) -> (Self, ExtentType) {
+    fn test_coordinates(poly: &[Coord]) -> Option<Extent> {
+      if poly[0].y == poly[1].y {
+        if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
+          return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
+        }
+      } else if poly[0].x == poly[1].x
+        && poly[1].y == poly[2].y
+        && poly[2].x == poly[3].x
+        && poly[3].y == poly[0].y
+      {
+        return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
+      }
+      None
+    }
+
+    // Check if a polygon is an exact rectangle.
+    if let Some(extent) = match poly.len() {
+      4 => test_coordinates(poly),
+      5 if poly[4] == poly[0] => test_coordinates(poly),
+      _ => None,
+    } {
+      return (extent, ExtentType::Exact);
+    }
+
     let mut min = Coord::new(f64::MAX, f64::MAX);
     let mut max = Coord::new(f64::MIN, f64::MIN);
     for coord in poly.iter() {
@@ -83,7 +114,10 @@ impl Extent {
       max.x = max.x.max(coord.x);
       max.y = max.y.max(coord.y);
     }
-    Self::new(min.x..=max.x, min.y..=max.y)
+    (
+      Self::new(min.x..=max.x, min.y..=max.y),
+      ExtentType::Contained,
+    )
   }
 
   fn contains(&self, coord: Coord) -> bool {
@@ -99,13 +133,16 @@ pub struct Bounds {
 impl Bounds {
   pub fn new(poly: Vec<Coord>) -> Self {
     assert!(!poly.is_empty());
-    if let Some(ext) = polygon_as_extent(&poly) {
+
+    let (ext, ext_type) = Extent::from_polygon(&poly);
+    match ext_type {
+      ExtentType::Contained => Self { ext, poly },
       // A simple extent check will do.
-      let poly = Vec::new();
-      return Self { ext, poly };
+      ExtentType::Exact => {
+        let poly = Vec::new();
+        Self { ext, poly }
+      }
     }
-    let ext = Extent::from_polygon(&poly);
-    Self { ext, poly }
   }
 
   pub fn contains(&self, coord: Coord) -> bool {
@@ -116,30 +153,6 @@ impl Bounds {
       return polygon_contains(&self.poly, coord);
     }
     false
-  }
-}
-
-/// Check if a polygon is an exact rectangle. If so then return it as an extent.
-fn polygon_as_extent(poly: &[Coord]) -> Option<Extent> {
-  fn test_coordinates(poly: &[Coord]) -> Option<Extent> {
-    if poly[0].y == poly[1].y {
-      if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
-        return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
-      }
-    } else if poly[0].x == poly[1].x
-      && poly[1].y == poly[2].y
-      && poly[2].x == poly[3].x
-      && poly[3].y == poly[0].y
-    {
-      return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
-    }
-    None
-  }
-
-  match poly.len() {
-    4 => test_coordinates(poly),
-    5 if poly[4] == poly[0] => test_coordinates(poly),
-    _ => None,
   }
 }
 
@@ -490,7 +503,7 @@ mod test {
       Coord::new(0.0, 100.0),
     ];
 
-    assert!(polygon_as_extent(&points).is_some());
+    assert!(Extent::from_polygon(&points).1 == ExtentType::Exact);
 
     let points = [
       Coord::new(0.0, 0.0),
@@ -500,7 +513,7 @@ mod test {
       Coord::new(0.0, 0.0),
     ];
 
-    assert!(polygon_as_extent(&points).is_some());
+    assert!(Extent::from_polygon(&points).1 == ExtentType::Exact);
 
     let points = [
       Coord::new(0.0, 0.0),
@@ -508,7 +521,7 @@ mod test {
       Coord::new(100.0, 100.0),
     ];
 
-    assert!(polygon_as_extent(&points).is_none());
+    assert!(Extent::from_polygon(&points).1 == ExtentType::Contained);
 
     let points = [
       Coord::new(0.0, 0.0),
@@ -517,7 +530,7 @@ mod test {
       Coord::new(0.0, 100.0),
     ];
 
-    assert!(polygon_as_extent(&points).is_none());
+    assert!(Extent::from_polygon(&points).1 == ExtentType::Contained);
 
     let points = [
       Coord::new(0.0, 0.0),
@@ -527,6 +540,6 @@ mod test {
       Coord::new(0.0, 50.0),
     ];
 
-    assert!(polygon_as_extent(&points).is_none());
+    assert!(Extent::from_polygon(&points).1 == ExtentType::Contained);
   }
 }
