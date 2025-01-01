@@ -103,21 +103,20 @@ impl Extent {
       5 if poly[4] == poly[0] => test_coordinates(poly),
       _ => None,
     } {
-      return (extent, ExtentType::Exact);
-    }
+      (extent, ExtentType::Exact)
+    } else {
+      let mut min = Coord::new(f64::MAX, f64::MAX);
+      let mut max = Coord::new(f64::MIN, f64::MIN);
+      for coord in poly.iter() {
+        min.x = min.x.min(coord.x);
+        min.y = min.y.min(coord.y);
+        max.x = max.x.max(coord.x);
+        max.y = max.y.max(coord.y);
+      }
 
-    let mut min = Coord::new(f64::MAX, f64::MAX);
-    let mut max = Coord::new(f64::MIN, f64::MIN);
-    for coord in poly.iter() {
-      min.x = min.x.min(coord.x);
-      min.y = min.y.min(coord.y);
-      max.x = max.x.max(coord.x);
-      max.y = max.y.max(coord.y);
+      let extent = Self::new(min.x..=max.x, min.y..=max.y);
+      (extent, ExtentType::Contained)
     }
-    (
-      Self::new(min.x..=max.x, min.y..=max.y),
-      ExtentType::Contained,
-    )
   }
 
   pub fn contains(&self, coord: Coord) -> bool {
