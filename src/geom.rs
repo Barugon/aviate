@@ -71,8 +71,8 @@ pub enum ExtentType {
 }
 
 pub struct Extent {
-  xr: ops::RangeInclusive<f64>,
-  yr: ops::RangeInclusive<f64>,
+  pub xr: ops::RangeInclusive<f64>,
+  pub yr: ops::RangeInclusive<f64>,
 }
 
 impl Extent {
@@ -126,8 +126,8 @@ impl Extent {
 }
 
 pub struct Bounds {
-  ext: Extent,
-  poly: Vec<Coord>,
+  pub ext: Extent,
+  pub poly: Vec<Coord>,
 }
 
 impl Bounds {
