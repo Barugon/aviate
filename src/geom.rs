@@ -137,8 +137,8 @@ impl Bounds {
     let (ext, ext_type) = Extent::from_polygon(&poly);
     match ext_type {
       ExtentType::Contained => Self { ext, poly },
-      // A simple extent check will do.
       ExtentType::Exact => {
+        // A simple extent check will do.
         let poly = Vec::new();
         Self { ext, poly }
       }
