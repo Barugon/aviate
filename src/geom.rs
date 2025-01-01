@@ -76,7 +76,7 @@ pub struct Extent {
 }
 
 impl Extent {
-  fn new(xr: ops::RangeInclusive<f64>, yr: ops::RangeInclusive<f64>) -> Self {
+  pub fn new(xr: ops::RangeInclusive<f64>, yr: ops::RangeInclusive<f64>) -> Self {
     Self { xr, yr }
   }
 
@@ -120,7 +120,7 @@ impl Extent {
     )
   }
 
-  fn contains(&self, coord: Coord) -> bool {
+  pub fn contains(&self, coord: Coord) -> bool {
     self.xr.contains(&coord.x) && self.yr.contains(&coord.y)
   }
 }
