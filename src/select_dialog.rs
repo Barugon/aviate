@@ -53,10 +53,10 @@ impl SelectDialog {
       item.set_expand_right(0, true);
       if let Some(pos) = choice.find('(') {
         let (name, info) = choice.split_at(pos);
-        item.set_text(0, name);
-        item.set_text(1, info);
+        item.set_text(0, name.trim());
+        item.set_text(1, info.trim());
       } else {
-        item.set_text(0, choice);
+        item.set_text(0, choice.trim());
       }
     }
 
