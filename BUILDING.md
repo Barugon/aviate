@@ -26,7 +26,7 @@ cd vcpkg
 ```sh
 export CC=clang
 export CXX=clang++
-./vcpkg install gdal[core]:x64-linux
+./vcpkg install gdal[core,geos]:x64-linux
 ```
 
 - Build for Android
@@ -34,7 +34,7 @@ export CXX=clang++
 ```sh
 unset CC CXX
 export ANDROID_NDK_HOME=<path/to/android-ndk>
-./vcpkg install gdal[core]:arm64-android
+./vcpkg install gdal[core,geos]:arm64-android
 ```
 
 ### Build project with statically linked gdal

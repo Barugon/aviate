@@ -16,6 +16,8 @@ fn main() {
     "crypto",
     "curl",
     "geotiff",
+    "geos",
+    "geos_c",
     "json-c",
     "lzma",
     "proj",
