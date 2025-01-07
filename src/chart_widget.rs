@@ -254,8 +254,10 @@ impl ChartWidget {
       dest.push(point.into());
     }
 
-    // Close off the polygon.
-    dest.push(*dest.first().unwrap());
+    if dest.first() != dest.last() {
+      // Close off the polygon.
+      dest.push(*dest.first().unwrap());
+    }
 
     // Draw it as a polyline.
     let mut this = self.base_mut();
