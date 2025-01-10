@@ -1,4 +1,8 @@
 fn main() {
+  // Temporary fix for warnings in rustc v1.84.0.
+  // TODO: remove after next gdext release.
+  println!("cargo::rustc-check-cfg=cfg(before_api, values(\"4.3\"))");
+
   // This script is only needed for GDAL static builds.
   if std::env::var("GDAL_STATIC").unwrap_or_default() != "1" {
     return;
