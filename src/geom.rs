@@ -87,11 +87,7 @@ impl Extent {
         if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
           return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
         }
-      } else if poly[0].x == poly[1].x
-        && poly[1].y == poly[2].y
-        && poly[2].x == poly[3].x
-        && poly[3].y == poly[0].y
-      {
+      } else if poly[0].x == poly[1].x && poly[1].y == poly[2].y && poly[2].x == poly[3].x && poly[3].y == poly[0].y {
         return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
       }
       None
@@ -514,11 +510,7 @@ mod test {
 
     assert!(Extent::from_polygon(&points).1 == ExtentType::Exact);
 
-    let points = [
-      Coord::new(0.0, 0.0),
-      Coord::new(100.0, 0.0),
-      Coord::new(100.0, 100.0),
-    ];
+    let points = [Coord::new(0.0, 0.0), Coord::new(100.0, 0.0), Coord::new(100.0, 100.0)];
 
     assert!(Extent::from_polygon(&points).1 == ExtentType::Contained);
 

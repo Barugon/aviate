@@ -1,9 +1,9 @@
 use crate::{chart_widget, config, find_dialog, nasr, select_dialog, util};
 use godot::{
   classes::{
-    display_server::WindowMode, notify::ControlNotification, AcceptDialog, Button, CheckButton,
-    Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label,
-    MarginContainer, OptionButton, PanelContainer, Tree, Window,
+    display_server::WindowMode, notify::ControlNotification, AcceptDialog, Button, CheckButton, Control, DisplayServer,
+    FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label, MarginContainer, OptionButton,
+    PanelContainer, Tree, Window,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -33,11 +33,7 @@ impl MainWidget {
       panel.set_visible(visible);
 
       let mut button = self.get_child::<CheckButton>("SidebarButton");
-      button.set_tooltip_text(if visible {
-        "Hide side panel"
-      } else {
-        "Show side panel"
-      });
+      button.set_tooltip_text(if visible { "Hide side panel" } else { "Show side panel" });
     }
   }
 
@@ -539,8 +535,7 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>) {
 
 /// Test if a key event has CMD or CTRL modifiers.
 fn cmd_or_ctrl(event: &Gd<InputEventKey>) -> bool {
-  event.get_modifiers_mask() == KeyModifierMask::CTRL
-    || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
+  event.get_modifiers_mask() == KeyModifierMask::CTRL || event.get_modifiers_mask() == KeyModifierMask::CMD_OR_CTRL
 }
 
 /// Get an appropriate scale value.

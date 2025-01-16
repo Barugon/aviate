@@ -43,6 +43,9 @@
     "vcpkg",
     "vsizip"
   ],
+  "editor.rulers": [
+    120
+  ],
   "editor.tabSize": 2,
   "task.autoDetect": "off"
 }

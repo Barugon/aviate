@@ -2,8 +2,7 @@ use crate::geom;
 use gdal::raster;
 use godot::{
   classes::{
-    display_server::WindowMode, file_access::ModeFlags, os::SystemDir, Control, DisplayServer,
-    FileAccess, Os, Window,
+    display_server::WindowMode, file_access::ModeFlags, os::SystemDir, Control, DisplayServer, FileAccess, Os, Window,
   },
   prelude::*,
 };
@@ -169,12 +168,8 @@ impl WinInfo {
 
   pub fn from_variant(value: Option<Variant>) -> Self {
     if let Some(value) = value.and_then(|v| v.try_to::<Dictionary>().ok()) {
-      let pos = value
-        .get(WinInfo::POS_KEY)
-        .and_then(geom::Pos::from_variant);
-      let size = value
-        .get(WinInfo::SIZE_KEY)
-        .and_then(geom::Size::from_variant);
+      let pos = value.get(WinInfo::POS_KEY).and_then(geom::Pos::from_variant);
+      let size = value.get(WinInfo::SIZE_KEY).and_then(geom::Size::from_variant);
       let maxed = value
         .get(WinInfo::MAXED_KEY)
         .and_then(|v| v.try_to::<bool>().ok())
@@ -263,11 +258,7 @@ pub fn check_color(color: raster::RgbaEntry) -> bool {
 /// Convert a GDAL `RgbaEntry` to a `[f32; 3]`.
 pub fn color_f32(color: &raster::RgbaEntry) -> [f32; 3] {
   const SCALE: f32 = 1.0 / u8::MAX as f32;
-  [
-    color.r as f32 * SCALE,
-    color.g as f32 * SCALE,
-    color.b as f32 * SCALE,
-  ]
+  [color.r as f32 * SCALE, color.g as f32 * SCALE, color.b as f32 * SCALE]
 }
 
 /// Convert a GDAL `RgbaEntry` to a luminance inverted `[f32; 3]`.

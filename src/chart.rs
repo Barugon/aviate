@@ -3,8 +3,8 @@ use gdal::{raster, spatial_ref};
 use std::{any, cell, path, sync, thread};
 use sync::{atomic, mpsc};
 
-/// RasterReader is used for opening and reading [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/)
-///  in zipped GEO-TIFF format.
+/// RasterReader is used for opening and reading
+/// [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
 pub struct RasterReader {
   chart_name: String,
   transformation: Transformation,
@@ -271,9 +271,7 @@ impl RasterSource {
 
   /// Open a chart data source.
   /// - `path`: raster file path
-  fn open(
-    path: &path::Path,
-  ) -> Result<(Self, Transformation, Vec<gdal::raster::RgbaEntry>), util::Error> {
+  fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<gdal::raster::RgbaEntry>), util::Error> {
     match gdal::Dataset::open_ex(path, Self::open_options()) {
       Ok(dataset) => {
         // Get and check the dataset's spatial reference.
@@ -490,10 +488,6 @@ impl RasterSource {
       }
     }
 
-    Ok(Some(util::ImageData {
-      w: dw,
-      h: dh,
-      px: dst,
-    }))
+    Ok(Some(util::ImageData { w: dw, h: dh, px: dst }))
   }
 }

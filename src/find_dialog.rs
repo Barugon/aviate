@@ -1,8 +1,6 @@
 use crate::util;
 use godot::{
-  classes::{
-    notify::WindowNotification, Button, IWindow, InputEvent, InputEventKey, LineEdit, Window,
-  },
+  classes::{notify::WindowNotification, Button, IWindow, InputEvent, InputEventKey, LineEdit, Window},
   global::{Key, KeyModifierMask},
   prelude::*,
 };
@@ -102,9 +100,7 @@ impl IWindow for FindDialog {
       return;
     };
 
-    if key_event.get_keycode() == Key::ESCAPE
-      && key_event.get_modifiers_mask() == KeyModifierMask::default()
-    {
+    if key_event.get_keycode() == Key::ESCAPE && key_event.get_modifiers_mask() == KeyModifierMask::default() {
       self.base_mut().hide();
     }
   }

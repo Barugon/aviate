@@ -2,8 +2,7 @@ use crate::{chart, geom, util};
 use godot::{
   classes::{
     image::Format, notify::ControlNotification, Control, IControl, Image, ImageTexture, InputEvent,
-    InputEventMagnifyGesture, InputEventMouseButton, InputEventMouseMotion, InputEventScreenTouch,
-    Texture2D,
+    InputEventMagnifyGesture, InputEventMouseButton, InputEventMouseMotion, InputEventScreenTouch, Texture2D,
   },
   global::{MouseButton, MouseButtonMask},
   prelude::*,

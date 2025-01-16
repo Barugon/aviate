@@ -124,9 +124,7 @@ impl IWindow for SelectDialog {
       return;
     };
 
-    if key_event.get_keycode() == Key::ESCAPE
-      && key_event.get_modifiers_mask() == KeyModifierMask::default()
-    {
+    if key_event.get_keycode() == Key::ESCAPE && key_event.get_modifiers_mask() == KeyModifierMask::default() {
       self.base_mut().hide();
     }
   }

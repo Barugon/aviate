@@ -7,8 +7,9 @@ use sync::{atomic, mpsc};
 
 // NASR = National Airspace System Resources
 
-/// AirportReader is used for opening and reading [NASR 28 day subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/)
-/// airport data.
+/// AirportReader is used for opening and reading
+/// [NASR 28 day subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/) airport
+/// data.
 pub struct AirportReader {
   request_count: sync::Arc<atomic::AtomicI32>,
   airport_status: AirportStatusSync,
@@ -195,10 +196,7 @@ impl AirportReader {
   #[allow(unused)]
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
     if dist >= 0.0 {
-      self
-        .tx
-        .send(AirportRequest::Nearby(coord, dist, nph))
-        .unwrap();
+      self.tx.send(AirportRequest::Nearby(coord, dist, nph)).unwrap();
       self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
     }
   }
@@ -255,11 +253,7 @@ struct ToChart {
 }
 
 impl ToChart {
-  fn new(
-    proj4: &str,
-    dd_sr: &spatial_ref::SpatialRef,
-    bounds: geom::Bounds,
-  ) -> Result<Self, errors::GdalError> {
+  fn new(proj4: &str, dd_sr: &spatial_ref::SpatialRef, bounds: geom::Bounds) -> Result<Self, errors::GdalError> {
     // Create a transformation from decimal-degree coordinates to chart coordinates and a bounds object.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
