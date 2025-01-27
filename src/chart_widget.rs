@@ -330,7 +330,7 @@ impl IControl for ChartWidget {
     };
 
     if let Ok(event) = event.clone().try_cast::<InputEventMouseMotion>() {
-      if event.get_button_mask() == MouseButtonMask::LEFT {
+      if event.get_button_mask() == MouseButtonMask::LEFT && !self.display_info.touch.multi {
         let delta = event.get_screen_relative() / self.display_info.scale;
         let pos = self.display_info.origin - delta.into();
         self.set_pos(pos);
@@ -394,6 +394,7 @@ impl DisplayInfo {
 struct Touch {
   touch: [Option<Vector2>; 2],
   pos: Option<Vector2>,
+  multi: bool,
 }
 
 impl Touch {
@@ -410,6 +411,12 @@ impl Touch {
       if let [Some(pt1), Some(pt2)] = &self.touch {
         self.pos = Some((*pt1 + *pt2) * 0.5);
       }
+
+      // Toggle multi flag.
+      if self.touch[0].is_some() == self.touch[1].is_some() {
+        self.multi = self.touch[0].is_some();
+      }
+
       return;
     }
 
