@@ -368,7 +368,7 @@ impl RasterSource {
       return Ok(None);
     }
 
-    /// Process a source image row into an intermediate result.
+    /// Process a source image row and accumulate into an intermediate result.
     fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
       let mut dst_iter = dst.iter_mut();
       let mut src_iter = src.iter();
@@ -471,7 +471,7 @@ impl RasterSource {
         // Process the final amount from this source row.
         process_row(&mut int_row, &src_row, pal, scale, remain);
 
-        // Output the final destination row.
+        // Output the destination row.
         for rgb in &mut int_row {
           dst.push(util::color(*rgb));
           *rgb = [0.0, 0.0, 0.0];
