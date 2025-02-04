@@ -351,7 +351,7 @@ impl AirportSource {
     })
   }
 
-  // Create the airport ID index.
+  /// Create the airport ID index.
   fn create_basic_index(&mut self) -> bool {
     use vector::LayerAccess;
 
