@@ -80,7 +80,7 @@ impl Extent {
     Self { xr, yr }
   }
 
-  /// Create an extent from a polygon. Also returns if the polygon is an exact rectangle or contained.
+  /// Create an extent from a polygon. Also returns whether the polygon is an exact rectangle or contained.
   pub fn from_polygon(poly: &[Coord]) -> (Self, ExtentType) {
     fn test_coordinates(poly: &[Coord]) -> Option<Extent> {
       if poly[0].y == poly[1].y {
