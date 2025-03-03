@@ -2,7 +2,7 @@ use crate::geom;
 use gdal::raster;
 use godot::{
   classes::{
-    display_server::WindowMode, file_access::ModeFlags, os::SystemDir, Control, DisplayServer, FileAccess, Os, Window,
+    Control, DisplayServer, FileAccess, Os, Window, display_server::WindowMode, file_access::ModeFlags, os::SystemDir,
   },
   prelude::*,
 };

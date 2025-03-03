@@ -1,6 +1,6 @@
 use crate::util;
 use godot::{
-  classes::{notify::WindowNotification, Button, IWindow, InputEvent, InputEventKey, LineEdit, Window},
+  classes::{Button, IWindow, InputEvent, InputEventKey, LineEdit, Window, notify::WindowNotification},
   global::{Key, KeyModifierMask},
   prelude::*,
 };
