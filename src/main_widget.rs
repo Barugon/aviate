@@ -1,9 +1,9 @@
 use crate::{chart_widget, config, find_dialog, nasr, select_dialog, util};
 use godot::{
   classes::{
-    display_server::WindowMode, notify::ControlNotification, AcceptDialog, Button, CheckButton, Control, DisplayServer,
-    FileDialog, HBoxContainer, IControl, InputEvent, InputEventKey, Label, MarginContainer, OptionButton,
-    PanelContainer, Tree, Window,
+    AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent,
+    InputEventKey, Label, MarginContainer, OptionButton, PanelContainer, Tree, Window, display_server::WindowMode,
+    notify::ControlNotification,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -511,8 +511,12 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>) {
   let mut button = children.at(7).try_cast::<Button>().unwrap();
   button.set_visible(false);
 
+  // Filter button.
+  let mut button = children.at(8).try_cast::<Button>().unwrap();
+  button.set_visible(false);
+
   // Locations.
-  let mut hbox = children.at(8).try_cast::<HBoxContainer>().unwrap();
+  let mut hbox = children.at(9).try_cast::<HBoxContainer>().unwrap();
   hbox.set_visible(false);
 
   // Tree theme overrides.
@@ -521,7 +525,7 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>) {
   tree.add_theme_constant_override("draw_guides", 0);
   tree.add_theme_constant_override("v_separation", 2);
 
-  let hbox = vbox_children.at(3).try_cast::<HBoxContainer>().unwrap();
+  let hbox = vbox_children.at(4).try_cast::<HBoxContainer>().unwrap();
   let children = hbox.get_children();
 
   // Filters.
