@@ -243,8 +243,8 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_rcs2l")
 
 [node name="Tree" type="Tree" parent="SelectDialog/VBoxContainer/ItemsContainer"]
 layout_mode = 2
-theme_override_constants/draw_guides = 0
 theme_override_constants/v_separation = 2
+theme_override_constants/draw_guides = 0
 columns = 2
 hide_folding = true
 hide_root = true
