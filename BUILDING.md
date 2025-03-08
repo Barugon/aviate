@@ -45,7 +45,7 @@ export ANDROID_NDK_HOME=<path/to/android-ndk>
 export GDAL_HOME=<path/to/vcpkg/installed/x64-linux>
 export GDAL_VERSION=<x.y.z>
 export GDAL_STATIC=1
-cargo build --target=x86_64-unknown-linux-gnu --release
+cargo build --release
 ```
 
 - Build for Android
