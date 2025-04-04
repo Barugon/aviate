@@ -324,8 +324,8 @@ impl AirportStatusSync {
 
 struct AirportSource {
   dataset: gdal::Dataset,
-  id_map: collections::HashMap<String, u64>,
-  name_vec: Vec<(String, u64)>,
+  id_map: collections::HashMap<Box<str>, u64>,
+  name_vec: Vec<(Box<str>, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
 }
 
@@ -362,7 +362,7 @@ impl AirportSource {
       if let Some(fid) = feature.fid() {
         // Add the airport IDs to the ID index.
         if let Some(id) = feature.get_string(AirportInfo::AIRPORT_ID) {
-          id_map.insert(id, fid);
+          id_map.insert(id.into(), fid);
         }
       }
     }
@@ -392,7 +392,7 @@ impl AirportSource {
         if to_chart.bounds.contains(coord) {
           // Add the airport name to the name vector.
           if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
-            name_vec.push((name, fid));
+            name_vec.push((name.into(), fid));
           }
 
           loc_vec.push(LocIdx { coord, fid })
