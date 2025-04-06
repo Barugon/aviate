@@ -1,16 +1,15 @@
 use crate::{config, geom, util};
 use gdal::{raster, spatial_ref};
-use std::{any, cell, path, sync, thread};
-use sync::{atomic, mpsc};
+use std::{any, cell, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading
 /// [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
 pub struct RasterReader {
   chart_name: String,
   transformation: Transformation,
-  tx: mpsc::Sender<(sync::Arc<atomic::AtomicBool>, ImagePart)>,
+  tx: mpsc::Sender<(util::Cancel, ImagePart)>,
   rx: mpsc::Receiver<RasterReply>,
-  cancel: cell::Cell<Option<sync::Arc<atomic::AtomicBool>>>,
+  cancel: cell::Cell<Option<util::Cancel>>,
 }
 
 impl RasterReader {
@@ -90,11 +89,11 @@ impl RasterReader {
   /// - `part`: the area to read from the source image.
   pub fn read_image(&self, part: ImagePart) {
     if part.is_valid() {
-      if let Some(cancel) = self.cancel.take() {
-        cancel.store(true, atomic::Ordering::Relaxed);
+      if let Some(mut cancel) = self.cancel.take() {
+        cancel.cancel();
       }
 
-      let cancel = sync::Arc::new(atomic::AtomicBool::new(false));
+      let cancel = util::Cancel::default();
       self.cancel.replace(Some(cancel.clone()));
       self.tx.send((cancel, part)).unwrap();
     }
@@ -362,7 +361,7 @@ impl RasterSource {
     &self,
     part: &ImagePart,
     pal: &[[f32; 3]],
-    cancel: sync::Arc<atomic::AtomicBool>,
+    cancel: util::Cancel,
   ) -> Result<Option<util::ImageData>, gdal::errors::GdalError> {
     if !part.is_valid() {
       return Ok(None);
@@ -443,7 +442,7 @@ impl RasterSource {
 
     loop {
       // Check if the operation has been canceled.
-      if cancel.load(atomic::Ordering::Relaxed) {
+      if cancel.canceled() {
         return Ok(None);
       }
 

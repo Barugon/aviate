@@ -6,7 +6,10 @@ use godot::{
   },
   prelude::*,
 };
-use std::{borrow, cmp, collections, ops, path};
+use std::{
+  borrow, cmp, collections, ops, path,
+  sync::{self, atomic},
+};
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
@@ -14,6 +17,21 @@ pub const ZOOM_RANGE: ops::RangeInclusive<f32> = 1.0 / 8.0..=1.0;
 pub const TITLE_HEIGHT: i32 = 32;
 pub const BORDER_WIDTH: i32 = 8;
 pub const BORDER_HEIGHT: i32 = 6;
+
+#[derive(Clone, Default)]
+pub struct Cancel {
+  canceled: sync::Arc<atomic::AtomicBool>,
+}
+
+impl Cancel {
+  pub fn cancel(&mut self) {
+    self.canceled.store(true, atomic::Ordering::Relaxed);
+  }
+
+  pub fn canceled(&self) -> bool {
+    self.canceled.load(atomic::Ordering::Relaxed)
+  }
+}
 
 /// Error message as either `&'static str` or `String`.
 pub type Error = borrow::Cow<'static, str>;
