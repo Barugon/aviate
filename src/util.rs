@@ -215,6 +215,7 @@ impl ToI32 for f64 {
 
 impl ToI32 for Variant {
   fn to_i32(self) -> Option<i32> {
+    // JSON values are read as f64.
     self.try_to::<f64>().ok()?.to_i32()
   }
 }
