@@ -122,10 +122,6 @@ text = "Open Zip File"
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
-layout_mode = 2
-theme_override_styles/separator = SubResource("StyleBoxFlat_1aepe")
-
 [node name="NightModeButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 text = "Night Mode"
@@ -133,6 +129,22 @@ text = "Night Mode"
 [node name="BoundsButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 text = "Show Bounds"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/separator = SubResource("StyleBoxFlat_1aepe")
+
+[node name="ChartButton" type="LinkButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "VFR Charts"
+uri = "https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr"
+
+[node name="NASRButton" type="LinkButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "NASR Data"
+uri = "https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription"
 
 [node name="ChartWidget" type="ChartWidget" parent="VBoxContainer/HBoxContainer"]
 clip_contents = true
