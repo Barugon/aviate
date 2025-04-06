@@ -82,7 +82,7 @@ impl Extent {
 
   /// Create an extent from a polygon. Also returns whether the polygon is an exact rectangle or contained.
   pub fn from_polygon(poly: &[Coord]) -> (Self, ExtentType) {
-    fn test_coordinates(poly: &[Coord]) -> Option<Extent> {
+    fn check_exact(poly: &[Coord]) -> Option<Extent> {
       if poly[0].y == poly[1].y {
         if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
           return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
@@ -95,8 +95,8 @@ impl Extent {
 
     // Check if a polygon is an exact rectangle.
     if let Some(extent) = match poly.len() {
-      4 => test_coordinates(poly),
-      5 if poly[4] == poly[0] => test_coordinates(poly),
+      4 => check_exact(poly),
+      5 if poly[4] == poly[0] => check_exact(poly),
       _ => None,
     } {
       (extent, ExtentType::Exact)
@@ -156,12 +156,14 @@ fn polygon_contains(poly: &[Coord], point: Coord) -> bool {
   let mut inside = false;
   let count = poly.len();
   for idx in 0..count {
-    let line = [poly[idx], poly[(idx + 1) % count]];
+    // Line segment start and end points.
+    let start = poly[idx];
+    let end = poly[(idx + 1) % count];
 
     // Check if the point is between the Y coordinates of the current line segment.
-    if (line[0].y > point.y) != (line[1].y > point.y) {
+    if (start.y > point.y) != (end.y > point.y) {
       // Calculate the X coordinate where a horizontal ray from the point intersects the line segment.
-      let x = (line[1].x - line[0].x) * (point.y - line[0].y) / (line[1].y - line[0].y) + line[0].x;
+      let x = (end.x - start.x) * (point.y - start.y) / (end.y - start.y) + start.x;
 
       // Check if the point lies to the left of the intersection.
       if point.x < x {
