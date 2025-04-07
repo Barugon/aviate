@@ -190,7 +190,7 @@ impl MainWidget {
     let path = path::Path::new(path.as_str());
     let path = path.join(csv).join("APT_BASE.csv");
 
-    match nasr::AirportReader::new(path) {
+    match nasr::AirportReader::new(&path) {
       Ok(airport_reader) => {
         if let Some(transformation) = self.chart_widget.bind().transformation() {
           // Send the chart spatial reference to the airport reader.

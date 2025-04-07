@@ -20,11 +20,7 @@ pub struct AirportReader {
 impl AirportReader {
   /// Create a new NASR airport reader.
   /// - `path`: path to the airport CSV file.
-  pub fn new<P: AsRef<path::Path>>(path: P) -> Result<Self, util::Error> {
-    AirportReader::_new(path.as_ref())
-  }
-
-  fn _new(path: &path::Path) -> Result<Self, util::Error> {
+  pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     let mut source = match AirportSource::open(path) {
       Ok(source) => source,
       Err(err) => {

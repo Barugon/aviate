@@ -26,7 +26,7 @@ impl ChartWidget {
     let path = path::Path::new(path.as_str()).join(file);
 
     // Create a new raster reader.
-    let raster_reader = chart::RasterReader::new(path)?;
+    let raster_reader = chart::RasterReader::new(&path)?;
     self.helicopter = raster_reader.chart_name().ends_with(" HEL");
     self.raster_reader = Some(raster_reader);
     self.display_info.origin = geom::Pos::default();

@@ -15,11 +15,7 @@ pub struct RasterReader {
 impl RasterReader {
   /// Create a new chart raster reader.
   /// - `path`: chart file path
-  pub fn new<P: AsRef<path::Path>>(path: P) -> Result<Self, util::Error> {
-    RasterReader::_new(path.as_ref())
-  }
-
-  fn _new(path: &path::Path) -> Result<Self, util::Error> {
+  pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     // Open the chart source.
     let (source, transformation, palette) = RasterSource::open(path)?;
     let chart_name = util::stem_str(path).unwrap().into();
