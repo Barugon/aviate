@@ -21,8 +21,8 @@ impl RasterReader {
     let chart_name = util::stem_str(path).unwrap().into();
 
     // Create the communication channels.
-    let (tx, trx) = mpsc::channel();
-    let (ttx, rx) = mpsc::channel();
+    let (tx, trx) = mpsc::channel::<(util::Cancel, ImagePart)>();
+    let (ttx, rx) = mpsc::channel::<RasterReply>();
 
     // Create the thread.
     thread::Builder::new()
@@ -40,9 +40,7 @@ impl RasterReader {
         };
 
         // Wait for a message. Exit when the connection is closed.
-        while let Ok(request) = trx.recv() {
-          let (cancel, part): (_, ImagePart) = request;
-
+        while let Ok((cancel, part)) = trx.recv() {
           // Choose the palette.
           let pal = if part.dark { &dark } else { &light };
 
