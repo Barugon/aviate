@@ -10,8 +10,8 @@ use std::{any, cell, path, sync::mpsc, thread};
 pub struct RasterReader {
   chart_name: String,
   transformation: Transformation,
-  tx: mpsc::Sender<(util::Cancel, ImagePart)>,
-  rx: mpsc::Receiver<RasterReply>,
+  sender: mpsc::Sender<(util::Cancel, ImagePart)>,
+  receiver: mpsc::Receiver<RasterReply>,
   cancel: cell::Cell<Option<util::Cancel>>,
 }
 
@@ -24,8 +24,8 @@ impl RasterReader {
     let chart_name = util::stem_str(path).unwrap().into();
 
     // Create the communication channels.
-    let (tx, trx) = mpsc::channel::<(util::Cancel, ImagePart)>();
-    let (ttx, rx) = mpsc::channel::<RasterReply>();
+    let (sender, thread_receiver) = mpsc::channel::<(util::Cancel, ImagePart)>();
+    let (thread_sender, receiver) = mpsc::channel::<RasterReply>();
 
     // Create the thread.
     thread::Builder::new()
@@ -43,7 +43,7 @@ impl RasterReader {
         };
 
         // Wait for a message. Exit when the connection is closed.
-        while let Ok((cancel, part)) = trx.recv() {
+        while let Ok((cancel, part)) = thread_receiver.recv() {
           // Choose the palette.
           let pal = if part.dark { &dark } else { &light };
 
@@ -51,12 +51,12 @@ impl RasterReader {
           match source.read(&part, pal, cancel) {
             Ok(image) => {
               if let Some(image) = image {
-                ttx.send(RasterReply::Image(part, image)).unwrap();
+                thread_sender.send(RasterReply::Image(part, image)).unwrap();
               }
             }
             Err(err) => {
               let text = format!("{err}");
-              ttx.send(RasterReply::Error(part, text.into())).unwrap();
+              thread_sender.send(RasterReply::Error(part, text.into())).unwrap();
             }
           }
         }
@@ -66,8 +66,8 @@ impl RasterReader {
     Ok(Self {
       chart_name,
       transformation,
-      tx,
-      rx,
+      sender,
+      receiver,
       cancel: cell::Cell::new(None),
     })
   }
@@ -92,13 +92,13 @@ impl RasterReader {
 
       let cancel = util::Cancel::default();
       self.cancel.replace(Some(cancel.clone()));
-      self.tx.send((cancel, part)).unwrap();
+      self.sender.send((cancel, part)).unwrap();
     }
   }
 
   /// Get the next available reply.
   pub fn get_reply(&self) -> Option<RasterReply> {
-    self.rx.try_recv().ok()
+    self.receiver.try_recv().ok()
   }
 }
 
