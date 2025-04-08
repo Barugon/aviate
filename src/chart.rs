@@ -1,5 +1,8 @@
 use crate::{config, geom, util};
-use gdal::{raster, spatial_ref};
+use gdal::{
+  raster,
+  spatial_ref::{self, SpatialRef},
+};
 use std::{any, cell, path, sync::mpsc, thread};
 
 /// RasterReader is used for opening and reading
@@ -262,6 +265,21 @@ impl RasterSource {
     }
   }
 
+  fn check_spatial_ref(sr: SpatialRef) -> Result<SpatialRef, util::Error> {
+    match sr.to_proj4() {
+      Ok(proj4) => {
+        let proj4 = proj4.to_lowercase();
+        for item in ["+proj=lcc", "+datum=nad83", "+units=m"] {
+          if !proj4.contains(item) {
+            return Err("Unable to open chart:\ninvalid spatial reference".into());
+          }
+        }
+      }
+      Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+    }
+    Ok(sr)
+  }
+
   /// Open a chart data source.
   /// - `path`: raster file path
   fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<gdal::raster::RgbaEntry>), util::Error> {
@@ -269,20 +287,7 @@ impl RasterSource {
       Ok(dataset) => {
         // Get and check the dataset's spatial reference.
         let cht_sr = match dataset.spatial_ref() {
-          Ok(sr) => {
-            match sr.to_proj4() {
-              Ok(proj4) => {
-                let proj4 = proj4.to_lowercase();
-                for item in ["+proj=lcc", "+datum=nad83", "+units=m"] {
-                  if !proj4.contains(item) {
-                    return Err("Unable to open chart:\ninvalid spatial reference".into());
-                  }
-                }
-              }
-              Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
-            }
-            sr
-          }
+          Ok(sr) => Self::check_spatial_ref(sr)?,
           Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
         };
 
@@ -309,30 +314,36 @@ impl RasterSource {
             let rasterband = dataset.rasterband(index).unwrap();
 
             // The color interpretation for a FAA chart is PaletteIndex.
-            if rasterband.color_interpretation() == raster::ColorInterpretation::PaletteIndex {
-              if let Some(color_table) = rasterband.color_table() {
-                // The color table must have 256 entries.
-                let size = color_table.entry_count();
-                if size != 256 {
-                  return Err("Unable to open chart:\ninvalid color table".into());
-                }
-
-                // Collect the color entries as RGB.
-                let mut palette = Vec::with_capacity(size);
-                for index in 0..size {
-                  if let Some(color) = color_table.entry_as_rgb(index) {
-                    // All components must be in 0..256 range.
-                    if util::check_color(color) {
-                      palette.push(color);
-                      continue;
-                    }
-                  }
-                  return Err("Unable to open chart:\ninvalid color table".into());
-                }
-                return Ok((index, palette));
-              }
-              return Err("Unable to open chart:\ncolor table not found".into());
+            if rasterband.color_interpretation() != raster::ColorInterpretation::PaletteIndex {
+              continue;
             }
+
+            let Some(color_table) = rasterband.color_table() else {
+              return Err("Unable to open chart:\ncolor table not found".into());
+            };
+
+            // The color table must have 256 entries.
+            let size = color_table.entry_count();
+            if size != 256 {
+              return Err("Unable to open chart:\ninvalid color table".into());
+            }
+
+            // Collect the color entries as RGB.
+            let mut palette = Vec::with_capacity(size);
+            for index in 0..size {
+              let Some(color) = color_table.entry_as_rgb(index) else {
+                return Err("Unable to open chart:\ninvalid color table".into());
+              };
+
+              // All components must be in 0..256 range.
+              if !util::check_color(color) {
+                return Err("Unable to open chart:\ncolor table contains invalid colors".into());
+              }
+
+              palette.push(color);
+            }
+
+            return Ok((index, palette));
           }
           Err("Unable to open chart:\nraster layer not found".into())
         }()?;
