@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 dev = []
 
 [dependencies]
-gdal = {version = "0.17", features = ["bindgen"]}
+gdal = {version = "0.18", features = ["bindgen"]}
 godot = {version = "0.2", features = ["experimental-threads"]}
 rstar = "0.12"
 
