@@ -9,6 +9,7 @@
     "cdylib",
     "consts",
     "cpan",
+    "defn",
     "devel",
     "egui",
     "epsg",
