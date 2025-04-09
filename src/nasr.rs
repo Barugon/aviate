@@ -13,15 +13,15 @@ use sync::{atomic, mpsc};
 pub struct AirportReader {
   request_count: sync::Arc<atomic::AtomicI32>,
   airport_status: AirportStatusSync,
-  tx: mpsc::Sender<AirportRequest>,
-  rx: mpsc::Receiver<AirportReply>,
+  sender: mpsc::Sender<AirportRequest>,
+  receiver: mpsc::Receiver<AirportReply>,
 }
 
 impl AirportReader {
   /// Create a new NASR airport reader.
   /// - `path`: path to the airport CSV file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
-    let mut source = match AirportSource::open(path) {
+    let airport_source = match AirportSource::open(path) {
       Ok(source) => source,
       Err(err) => {
         let err = format!("Unable to open airport data source:\n{err}");
@@ -31,114 +31,23 @@ impl AirportReader {
 
     let airport_status = AirportStatusSync::new();
     let request_count = sync::Arc::new(atomic::AtomicI32::new(0));
-    let (tx, trx) = mpsc::channel();
-    let (ttx, rx) = mpsc::channel();
+    let (sender, thread_receiver) = mpsc::channel();
+    let (thread_sender, receiver) = mpsc::channel();
 
     // Create the thread.
     thread::Builder::new()
       .name(any::type_name::<AirportSource>().into())
       .spawn({
-        let mut airport_status = airport_status.clone();
+        let airport_status = airport_status.clone();
         let request_count = request_count.clone();
+        let sender = thread_sender;
+        let receiver = thread_receiver;
         move || {
-          // Create the airport basic index.
-          if source.create_basic_index() {
-            airport_status.set_has_basic_index();
-          }
-
-          // Create a spatial reference for decimal-degree coordinates.
-          let dd_sr = {
-            // FAA uses NAD83 for decimal-degree coordinates.
-            let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
-            dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
-            dd_sr
-          };
-
-          // Chart transformation.
-          let mut to_chart = None;
-
-          let send = {
-            move |reply: AirportReply, dec: bool| {
-              ttx.send(reply).unwrap();
-              if dec {
-                assert!(request_count.fetch_sub(1, atomic::Ordering::Relaxed) > 0);
-              }
-            }
-          };
+          let mut request_processor = RequestProcessor::new(airport_source, airport_status, request_count, sender);
 
           // Wait for a message. Exit when the connection is closed.
-          while let Ok(request) = trx.recv() {
-            match request {
-              AirportRequest::SpatialRef(spatial_info) => {
-                airport_status.set_has_basic_index();
-                source.clear_advanced_indexes();
-                to_chart = None;
-
-                if let Some((proj4, bounds)) = spatial_info {
-                  match ToChart::new(&proj4, &dd_sr, bounds) {
-                    Ok(trans) => {
-                      // Create the airport advanced indexes.
-                      if source.create_advanced_indexes(&trans) {
-                        airport_status.set_has_advanced_indexes();
-                        to_chart = Some(trans);
-                      }
-                    }
-                    Err(err) => {
-                      let err = format!("Unable to create transformation:\n{err}");
-                      send(AirportReply::Error(err.into()), false);
-                    }
-                  }
-                }
-              }
-              AirportRequest::Airport(id) => {
-                let id = id.trim().to_uppercase();
-                let reply = if let Some(info) = source.airport(&id) {
-                  AirportReply::Airport(info)
-                } else {
-                  let err = format!("No airport IDs match\n'{id}'");
-                  AirportReply::Error(err.into())
-                };
-                send(reply, true);
-              }
-              AirportRequest::Nearby(coord, dist, nph) => {
-                if to_chart.is_some() {
-                  let infos = source.nearby(coord, dist, nph);
-                  send(AirportReply::Nearby(infos), true);
-                } else {
-                  let err = "Chart transformation is required to find nearby airports";
-                  send(AirportReply::Error(err.into()), true);
-                }
-              }
-              AirportRequest::Search(term, nph) => {
-                if let Some(to_chart) = to_chart.as_ref() {
-                  let term = term.trim().to_uppercase();
-
-                  // Search for an airport ID first.
-                  let reply = if let Some(info) = source.airport(&term) {
-                    // The airport ID index is not pre-filtered, so we need to check against the chart bounds.
-                    if to_chart.contains(info.coord) {
-                      AirportReply::Airport(info)
-                    } else {
-                      let err = format!("{}\nis not on this chart", info.desc);
-                      AirportReply::Error(err.into())
-                    }
-                  } else {
-                    // Airport ID not found, search the airport names.
-                    let infos = source.search(&term, nph);
-                    if infos.is_empty() {
-                      let err = format!("Nothing on this chart matches\n'{term}'");
-                      AirportReply::Error(err.into())
-                    } else {
-                      AirportReply::Search(infos)
-                    }
-                  };
-                  send(reply, true);
-                } else {
-                  let err = "Chart transformation is required for airport search";
-                  send(AirportReply::Error(err.into()), true);
-                }
-              }
-            }
+          while let Ok(request) = receiver.recv() {
+            request_processor.process_request(request);
           }
         }
       })
@@ -147,8 +56,8 @@ impl AirportReader {
     Ok(Self {
       request_count,
       airport_status,
-      tx,
-      rx,
+      sender,
+      receiver,
     })
   }
 
@@ -163,14 +72,14 @@ impl AirportReader {
   /// - `bounds`: chart bounds.
   pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
     let request = AirportRequest::SpatialRef(Some((proj4, bounds)));
-    self.tx.send(request).unwrap();
+    self.sender.send(request).unwrap();
   }
 
   /// Clear the chart spatial reference.
   #[allow(unused)]
   pub fn clear_spatial_ref(&self) {
     let request = AirportRequest::SpatialRef(None);
-    self.tx.send(request).unwrap();
+    self.sender.send(request).unwrap();
   }
 
   /// Lookup airport information using it's identifier.
@@ -179,8 +88,8 @@ impl AirportReader {
   #[allow(unused)]
   pub fn airport(&self, id: String) {
     if !id.is_empty() {
-      self.tx.send(AirportRequest::Airport(id)).unwrap();
       self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
+      self.sender.send(AirportRequest::Airport(id)).unwrap();
     }
   }
 
@@ -192,8 +101,8 @@ impl AirportReader {
   #[allow(unused)]
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
     if dist >= 0.0 {
-      self.tx.send(AirportRequest::Nearby(coord, dist, nph)).unwrap();
       self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
+      self.sender.send(AirportRequest::Nearby(coord, dist, nph)).unwrap();
     }
   }
 
@@ -203,8 +112,8 @@ impl AirportReader {
   /// - `nph`: include non-public heliports
   pub fn search(&self, term: String, nph: bool) {
     if !term.is_empty() {
-      self.tx.send(AirportRequest::Search(term, nph)).unwrap();
       self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
+      self.sender.send(AirportRequest::Search(term, nph)).unwrap();
     }
   }
 
@@ -215,7 +124,120 @@ impl AirportReader {
 
   /// Get the next available reply.
   pub fn get_reply(&self) -> Option<AirportReply> {
-    self.rx.try_recv().ok()
+    self.receiver.try_recv().ok()
+  }
+}
+
+struct RequestProcessor {
+  request_count: sync::Arc<atomic::AtomicI32>,
+  sender: mpsc::Sender<AirportReply>,
+  source: AirportSource,
+  status: AirportStatusSync,
+  dd_sr: spatial_ref::SpatialRef,
+  to_chart: Option<ToChart>,
+}
+
+impl RequestProcessor {
+  fn new(
+    mut source: AirportSource,
+    mut status: AirportStatusSync,
+    request_count: sync::Arc<atomic::AtomicI32>,
+    sender: mpsc::Sender<AirportReply>,
+  ) -> Self {
+    // Create the airport basic index.
+    if source.create_basic_index() {
+      status.set_has_basic_index();
+    }
+
+    // Create a spatial reference for decimal-degree coordinates.
+    // NOTE: FAA uses NAD83 for decimal-degree coordinates.
+    let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
+    dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
+
+    Self {
+      request_count,
+      sender,
+      source,
+      status,
+      dd_sr,
+      to_chart: None,
+    }
+  }
+
+  fn send(&self, reply: AirportReply, dec: bool) {
+    self.sender.send(reply).unwrap();
+    if dec {
+      assert!(self.request_count.fetch_sub(1, atomic::Ordering::Relaxed) > 0);
+    }
+  }
+
+  fn process_request(&mut self, request: AirportRequest) {
+    match request {
+      AirportRequest::SpatialRef(spatial_info) => {
+        self.status.set_has_basic_index();
+        self.source.clear_advanced_indexes();
+        self.to_chart = None;
+
+        if let Some((proj4, bounds)) = spatial_info {
+          match ToChart::new(&proj4, &self.dd_sr, bounds) {
+            Ok(trans) => {
+              // Create the airport advanced indexes.
+              if self.source.create_advanced_indexes(&trans) {
+                self.status.set_has_advanced_indexes();
+                self.to_chart = Some(trans);
+              }
+            }
+            Err(err) => {
+              let reply = AirportReply::Error(format!("Unable to create transformation:\n{err}").into());
+              self.send(reply, false);
+            }
+          }
+        }
+      }
+      AirportRequest::Airport(id) => {
+        let id = id.trim().to_uppercase();
+        let reply = if let Some(info) = self.source.airport(&id) {
+          AirportReply::Airport(info)
+        } else {
+          AirportReply::Error(format!("No airport IDs match\n'{id}'").into())
+        };
+        self.send(reply, true);
+      }
+      AirportRequest::Nearby(coord, dist, nph) => {
+        let reply = if self.to_chart.is_some() {
+          AirportReply::Nearby(self.source.nearby(coord, dist, nph))
+        } else {
+          AirportReply::Error("Chart transformation is required to find nearby airports".into())
+        };
+        self.send(reply, true);
+      }
+      AirportRequest::Search(term, nph) => {
+        let reply = if let Some(to_chart) = self.to_chart.as_ref() {
+          let term = term.trim().to_uppercase();
+
+          // Search for an airport ID first.
+          if let Some(info) = self.source.airport(&term) {
+            // The airport ID index is not pre-filtered, so we need to check against the chart bounds.
+            if to_chart.contains(info.coord) {
+              AirportReply::Airport(info)
+            } else {
+              AirportReply::Error(format!("{}\nis not on this chart", info.desc).into())
+            }
+          } else {
+            // Airport ID not found, search the airport names.
+            let infos = self.source.search(&term, nph);
+            if infos.is_empty() {
+              AirportReply::Error(format!("Nothing on this chart matches\n'{term}'").into())
+            } else {
+              AirportReply::Search(infos)
+            }
+          }
+        } else {
+          AirportReply::Error("Chart transformation is required for airport search".into())
+        };
+        self.send(reply, true);
+      }
+    }
   }
 }
 
