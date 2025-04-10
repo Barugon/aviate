@@ -342,6 +342,7 @@ impl AirportStatusSync {
 
 struct AirportSource {
   dataset: gdal::Dataset,
+  indexes: AirportFieldIndexes,
   id_map: collections::HashMap<Box<str>, u64>,
   name_vec: Vec<(Box<str>, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
@@ -361,8 +362,10 @@ impl AirportSource {
   /// - `path`: NASR airport CSV file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
+    let indexes = AirportFieldIndexes::new(&dataset)?;
     Ok(Self {
       dataset,
+      indexes,
       id_map: collections::HashMap::new(),
       name_vec: Vec::new(),
       sp_idx: rstar::RTree::new(),
@@ -377,11 +380,13 @@ impl AirportSource {
     let count = layer.feature_count();
     let mut id_map = collections::HashMap::with_capacity(count as usize);
     for feature in layer.features() {
-      if let Some(fid) = feature.fid() {
-        // Add the airport IDs to the ID index.
-        if let Some(id) = feature.get_string(AirportInfo::AIRPORT_ID) {
-          id_map.insert(id.into(), fid);
-        }
+      let Some(fid) = feature.fid() else {
+        continue;
+      };
+
+      // Add the airport IDs to the ID index.
+      if let Some(id) = feature.get_string(self.indexes.airport_id) {
+        id_map.insert(id.into(), fid);
       }
     }
 
@@ -398,29 +403,31 @@ impl AirportSource {
     let mut name_vec = Vec::new();
     let mut loc_vec = Vec::new();
     for feature in self.layer().features() {
-      if let Some(fid) = feature.fid() {
-        let Some(coord) = feature.get_coord() else {
-          continue;
-        };
+      let Some(fid) = feature.fid() else {
+        continue;
+      };
 
-        let Ok(coord) = to_chart.trans.transform(coord) else {
-          continue;
-        };
+      let Some(coord) = feature.get_coord(&self.indexes) else {
+        continue;
+      };
 
-        if to_chart.bounds.contains(coord) {
-          // Add the airport name to the name vector.
-          if let Some(name) = feature.get_string(AirportInfo::AIRPORT_NAME) {
-            name_vec.push((name.into(), fid));
-          }
+      let Ok(coord) = to_chart.trans.transform(coord) else {
+        continue;
+      };
 
-          loc_vec.push(LocIdx { coord, fid })
+      if to_chart.bounds.contains(coord) {
+        // Add the airport name to the name vector.
+        if let Some(name) = feature.get_string(self.indexes.airport_name) {
+          name_vec.push((name.into(), fid));
         }
+
+        // Add the coordinate to the location vector.
+        loc_vec.push(LocIdx { coord, fid })
       }
     }
 
     self.name_vec = name_vec;
     self.sp_idx = rstar::RTree::bulk_load(loc_vec);
-
     !self.name_vec.is_empty() && self.sp_idx.size() > 0
   }
 
@@ -434,10 +441,9 @@ impl AirportSource {
   fn airport(&self, id: &str) -> Option<AirportInfo> {
     use vector::LayerAccess;
     let layer = self.layer();
-    if let Some(fid) = self.id_map.get(id) {
-      return layer.feature(*fid).and_then(AirportInfo::new);
-    }
-    None
+    let fid = self.id_map.get(id)?;
+    let feature = layer.feature(*fid)?;
+    AirportInfo::new(feature, &self.indexes)
   }
 
   /// Find airports within a search radius.
@@ -462,10 +468,16 @@ impl AirportSource {
 
     let mut airports = Vec::with_capacity(fids.len());
     for fid in fids {
-      if let Some(info) = layer.feature(fid).and_then(AirportInfo::new) {
-        if nph || !info.non_public_heliport() {
-          airports.push(info);
-        }
+      let Some(feature) = layer.feature(fid) else {
+        continue;
+      };
+
+      let Some(info) = AirportInfo::new(feature, &self.indexes) else {
+        continue;
+      };
+
+      if nph || !info.non_public_heliport() {
+        airports.push(info);
       }
     }
 
@@ -483,12 +495,20 @@ impl AirportSource {
     let layer = self.layer();
     let mut airports = Vec::new();
     for (name, fid) in &self.name_vec {
-      if name.contains(term) {
-        if let Some(info) = layer.feature(*fid).and_then(AirportInfo::new) {
-          if nph || !info.non_public_heliport() {
-            airports.push(info);
-          }
-        }
+      if !name.contains(term) {
+        continue;
+      }
+
+      let Some(feature) = layer.feature(*fid) else {
+        continue;
+      };
+
+      let Some(info) = AirportInfo::new(feature, &self.indexes) else {
+        continue;
+      };
+
+      if nph || !info.non_public_heliport() {
+        airports.push(info);
       }
     }
 
@@ -498,6 +518,33 @@ impl AirportSource {
 
   fn layer(&self) -> vector::Layer {
     self.dataset.layer(0).unwrap()
+  }
+}
+
+struct AirportFieldIndexes {
+  airport_id: usize,
+  airport_name: usize,
+  site_type_code: usize,
+  ownership_type_code: usize,
+  facility_use_code: usize,
+  long_decimal: usize,
+  lat_decimal: usize,
+}
+
+impl AirportFieldIndexes {
+  fn new(dataset: &gdal::Dataset) -> Result<Self, errors::GdalError> {
+    use vector::LayerAccess;
+    let layer = dataset.layer(0)?;
+    let defn = layer.defn();
+    Ok(Self {
+      airport_id: defn.field_index("ARPT_ID")?,
+      airport_name: defn.field_index("ARPT_NAME")?,
+      site_type_code: defn.field_index("SITE_TYPE_CODE")?,
+      ownership_type_code: defn.field_index("OWNERSHIP_TYPE_CODE")?,
+      facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
+      long_decimal: defn.field_index("LONG_DECIMAL")?,
+      lat_decimal: defn.field_index("LAT_DECIMAL")?,
+    })
   }
 }
 
@@ -550,14 +597,14 @@ pub struct AirportInfo {
 }
 
 impl AirportInfo {
-  fn new(feature: vector::Feature) -> Option<Self> {
+  fn new(feature: vector::Feature, indexes: &AirportFieldIndexes) -> Option<Self> {
     let mut info = Self {
       fid: feature.fid()?,
-      id: feature.get_string(AirportInfo::AIRPORT_ID)?,
-      name: feature.get_string(AirportInfo::AIRPORT_NAME)?,
-      coord: feature.get_coord()?,
-      airport_type: feature.get_airport_type()?,
-      airport_use: feature.get_airport_use()?,
+      id: feature.get_string(indexes.airport_id)?,
+      name: feature.get_string(indexes.airport_name)?,
+      coord: feature.get_coord(indexes)?,
+      airport_type: feature.get_airport_type(indexes)?,
+      airport_use: feature.get_airport_use(indexes)?,
       desc: String::new(),
     };
 
@@ -585,18 +632,15 @@ impl AirportInfo {
   pub fn non_public_heliport(&self) -> bool {
     self.airport_type == AirportType::Helicopter && self.airport_use != AirportUse::Public
   }
-
-  const AIRPORT_ID: &'static str = "ARPT_ID";
-  const AIRPORT_NAME: &'static str = "ARPT_NAME";
 }
 
 trait GetF64 {
-  fn get_f64(&self, field: &str) -> Option<f64>;
+  fn get_f64(&self, index: usize) -> Option<f64>;
 }
 
 impl GetF64 for vector::Feature<'_> {
-  fn get_f64(&self, field: &str) -> Option<f64> {
-    match self.field_as_double_by_name(field) {
+  fn get_f64(&self, index: usize) -> Option<f64> {
+    match self.field_as_double(index) {
       Ok(val) => val,
       Err(err) => {
         godot_error!("{err}");
@@ -607,12 +651,12 @@ impl GetF64 for vector::Feature<'_> {
 }
 
 trait GetString {
-  fn get_string(&self, field: &str) -> Option<String>;
+  fn get_string(&self, index: usize) -> Option<String>;
 }
 
 impl GetString for vector::Feature<'_> {
-  fn get_string(&self, field: &str) -> Option<String> {
-    match self.field_as_string_by_name(field) {
+  fn get_string(&self, index: usize) -> Option<String> {
+    match self.field_as_string(index) {
       Ok(val) => val,
       Err(err) => {
         godot_error!("{err}");
@@ -647,12 +691,12 @@ impl AirportType {
 }
 
 trait GetAirportType {
-  fn get_airport_type(&self) -> Option<AirportType>;
+  fn get_airport_type(&self, indexes: &AirportFieldIndexes) -> Option<AirportType>;
 }
 
 impl GetAirportType for vector::Feature<'_> {
-  fn get_airport_type(&self) -> Option<AirportType> {
-    match self.get_string("SITE_TYPE_CODE")?.as_str() {
+  fn get_airport_type(&self, indexes: &AirportFieldIndexes) -> Option<AirportType> {
+    match self.get_string(indexes.site_type_code)?.as_str() {
       "A" => Some(AirportType::Airport),
       "B" => Some(AirportType::Balloon),
       "C" => Some(AirportType::Seaplane),
@@ -689,17 +733,17 @@ impl AirportUse {
 }
 
 trait GetAirportUse {
-  fn get_airport_use(&self) -> Option<AirportUse>;
+  fn get_airport_use(&self, indexes: &AirportFieldIndexes) -> Option<AirportUse>;
 }
 
 impl GetAirportUse for vector::Feature<'_> {
-  fn get_airport_use(&self) -> Option<AirportUse> {
-    match self.get_string("OWNERSHIP_TYPE_CODE")?.as_str() {
+  fn get_airport_use(&self, indexes: &AirportFieldIndexes) -> Option<AirportUse> {
+    match self.get_string(indexes.ownership_type_code)?.as_str() {
       "CG" => Some(AirportUse::CoastGuard),
       "MA" => Some(AirportUse::AirForce),
       "MN" => Some(AirportUse::Navy),
       "MR" => Some(AirportUse::Army),
-      "PU" | "PR" => Some(if self.get_string("FACILITY_USE_CODE")? == "PR" {
+      "PU" | "PR" => Some(if self.get_string(indexes.facility_use_code)? == "PR" {
         AirportUse::Private
       } else {
         AirportUse::Public
@@ -710,14 +754,14 @@ impl GetAirportUse for vector::Feature<'_> {
 }
 
 trait GetCoord {
-  fn get_coord(&self) -> Option<geom::Coord>;
+  fn get_coord(&self, indexes: &AirportFieldIndexes) -> Option<geom::Coord>;
 }
 
 impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self) -> Option<geom::Coord> {
+  fn get_coord(&self, indexes: &AirportFieldIndexes) -> Option<geom::Coord> {
     Some(geom::Coord::new(
-      self.get_f64("LONG_DECIMAL")?,
-      self.get_f64("LAT_DECIMAL")?,
+      self.get_f64(indexes.long_decimal)?,
+      self.get_f64(indexes.lat_decimal)?,
     ))
   }
 }
