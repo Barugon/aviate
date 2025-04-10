@@ -40,13 +40,12 @@ impl AirportReader {
       .spawn({
         let airport_status = airport_status.clone();
         let request_count = request_count.clone();
-        let sender = thread_sender;
-        let receiver = thread_receiver;
         move || {
-          let mut request_processor = RequestProcessor::new(airport_source, airport_status, request_count, sender);
+          let mut request_processor =
+            AirportRequestProcessor::new(airport_source, airport_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
-          while let Ok(request) = receiver.recv() {
+          while let Ok(request) = thread_receiver.recv() {
             request_processor.process_request(request);
           }
         }
@@ -128,7 +127,7 @@ impl AirportReader {
   }
 }
 
-struct RequestProcessor {
+struct AirportRequestProcessor {
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<AirportReply>,
   source: AirportSource,
@@ -137,7 +136,7 @@ struct RequestProcessor {
   to_chart: Option<ToChart>,
 }
 
-impl RequestProcessor {
+impl AirportRequestProcessor {
   fn new(
     mut source: AirportSource,
     mut status: AirportStatusSync,
