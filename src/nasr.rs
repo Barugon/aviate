@@ -444,7 +444,7 @@ impl AirportSource {
     let mut layer = self.layer();
     let fid = self.id_map.get(id)?;
     let feature = layer.feature(*fid)?;
-    let info = AirportInfo::new(feature, &self.indexes);
+    let info = AirportInfo::new(feature, &self.indexes, true);
     layer.reset_feature_reading();
     info
   }
@@ -475,13 +475,11 @@ impl AirportSource {
         continue;
       };
 
-      let Some(info) = AirportInfo::new(feature, &self.indexes) else {
+      let Some(info) = AirportInfo::new(feature, &self.indexes, nph) else {
         continue;
       };
 
-      if nph || !info.non_public_heliport() {
-        airports.push(info);
-      }
+      airports.push(info);
     }
 
     layer.reset_feature_reading();
@@ -507,13 +505,11 @@ impl AirportSource {
         continue;
       };
 
-      let Some(info) = AirportInfo::new(feature, &self.indexes) else {
+      let Some(info) = AirportInfo::new(feature, &self.indexes, nph) else {
         continue;
       };
 
-      if nph || !info.non_public_heliport() {
-        airports.push(info);
-      }
+      airports.push(info);
     }
 
     layer.reset_feature_reading();
@@ -602,14 +598,20 @@ pub struct AirportInfo {
 }
 
 impl AirportInfo {
-  fn new(feature: vector::Feature, indexes: &AirportFieldIndexes) -> Option<Self> {
+  fn new(feature: vector::Feature, indexes: &AirportFieldIndexes, nph: bool) -> Option<Self> {
+    let airport_type = feature.get_airport_type(indexes)?;
+    let airport_use = feature.get_airport_use(indexes)?;
+    if !nph && airport_type == AirportType::Helicopter && airport_use != AirportUse::Public {
+      return None;
+    }
+
     let mut info = Self {
       fid: feature.fid()?,
       id: feature.get_string(indexes.airport_id)?,
       name: feature.get_string(indexes.airport_name)?,
       coord: feature.get_coord(indexes)?,
-      airport_type: feature.get_airport_type(indexes)?,
-      airport_use: feature.get_airport_use(indexes)?,
+      airport_type,
+      airport_use,
       desc: String::new(),
     };
 
@@ -624,18 +626,12 @@ impl AirportInfo {
     Some(info)
   }
 
-  /// Returns a potentially shortened airport name.
-  pub fn short_name(&self) -> &str {
+  fn short_name(&self) -> &str {
     // Attempt to shorten the name by removing extra stuff.
     if let Some(name) = self.name.split(['/', '(']).next() {
       return name.trim_end();
     }
     &self.name
-  }
-
-  /// Returns true if this is a non-public heliport.
-  pub fn non_public_heliport(&self) -> bool {
-    self.airport_type == AirportType::Helicopter && self.airport_use != AirportUse::Public
   }
 }
 
