@@ -578,23 +578,11 @@ pub struct AirportInfo {
   #[allow(unused)]
   pub fid: u64,
 
-  /// Airport ID.
-  pub id: String,
-
-  /// Airport name.
-  pub name: String,
-
   /// Decimal-degree coordinate.
   pub coord: geom::Coord,
 
-  /// Airport type.
-  pub airport_type: AirportType,
-
-  /// Airport usage.
-  pub airport_use: AirportUse,
-
   /// Short description for UI lists.
-  pub desc: String,
+  pub desc: Box<str>,
 }
 
 impl AirportInfo {
@@ -605,33 +593,18 @@ impl AirportInfo {
       return None;
     }
 
-    let mut info = Self {
-      fid: feature.fid()?,
-      id: feature.get_string(indexes.airport_id)?,
-      name: feature.get_string(indexes.airport_name)?,
-      coord: feature.get_coord(indexes)?,
-      airport_type,
-      airport_use,
-      desc: String::new(),
+    let fid = feature.fid()?;
+    let id = feature.get_string(indexes.airport_id)?;
+    let name = feature.get_string(indexes.airport_name)?;
+    let coord = feature.get_coord(indexes)?;
+    let short_name = if let Some(name) = name.split(['/', '(']).next() {
+      name.trim_end()
+    } else {
+      &name
     };
 
-    info.desc = format!(
-      "{} ({}), {}, {}",
-      info.short_name(),
-      info.id,
-      info.airport_type.abv(),
-      info.airport_use.abv()
-    );
-
-    Some(info)
-  }
-
-  fn short_name(&self) -> &str {
-    // Attempt to shorten the name by removing extra stuff.
-    if let Some(name) = self.name.split(['/', '(']).next() {
-      return name.trim_end();
-    }
-    &self.name
+    let desc = format!("{} ({}), {}, {}", short_name, id, airport_type.abv(), airport_use.abv()).into();
+    Some(Self { fid, coord, desc })
   }
 }
 
@@ -679,7 +652,7 @@ pub enum AirportType {
 
 impl AirportType {
   /// Airport type abbreviation.
-  pub fn abv(&self) -> &'static str {
+  pub fn abv(&self) -> &str {
     match *self {
       Self::Airport => "A",
       Self::Balloon => "B",
@@ -721,7 +694,7 @@ pub enum AirportUse {
 
 impl AirportUse {
   /// Airport use abbreviation.
-  pub fn abv(&self) -> &'static str {
+  pub fn abv(&self) -> &str {
     match *self {
       Self::AirForce => "USAF",
       Self::Army => "ARMY",
