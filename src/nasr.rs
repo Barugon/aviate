@@ -402,7 +402,8 @@ impl AirportSource {
 
     let mut name_vec = Vec::new();
     let mut loc_vec = Vec::new();
-    for feature in self.layer().features() {
+    let mut layer = self.layer();
+    for feature in layer.features() {
       let Some(fid) = feature.fid() else {
         continue;
       };
@@ -440,10 +441,12 @@ impl AirportSource {
   /// - `id`: airport ID
   fn airport(&self, id: &str) -> Option<AirportInfo> {
     use vector::LayerAccess;
-    let layer = self.layer();
+    let mut layer = self.layer();
     let fid = self.id_map.get(id)?;
     let feature = layer.feature(*fid)?;
-    AirportInfo::new(feature, &self.indexes)
+    let info = AirportInfo::new(feature, &self.indexes);
+    layer.reset_feature_reading();
+    info
   }
 
   /// Find airports within a search radius.
@@ -453,7 +456,7 @@ impl AirportSource {
   /// - `nph`: include non-public heliports
   fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) -> Vec<AirportInfo> {
     use vector::LayerAccess;
-    let layer = self.layer();
+    let mut layer = self.layer();
     let coord = [coord.x, coord.y];
     let dsq = dist * dist;
 
@@ -481,6 +484,7 @@ impl AirportSource {
       }
     }
 
+    layer.reset_feature_reading();
     airports.sort_unstable_by(|a, b| a.desc.cmp(&b.desc));
     airports
   }
@@ -492,7 +496,7 @@ impl AirportSource {
   /// - `nph`: include non-public heliports
   fn search(&self, term: &str, nph: bool) -> Vec<AirportInfo> {
     use vector::LayerAccess;
-    let layer = self.layer();
+    let mut layer = self.layer();
     let mut airports = Vec::new();
     for (name, fid) in &self.name_vec {
       if !name.contains(term) {
@@ -512,6 +516,7 @@ impl AirportSource {
       }
     }
 
+    layer.reset_feature_reading();
     airports.sort_unstable_by(|a, b| a.desc.cmp(&b.desc));
     airports
   }
