@@ -435,7 +435,6 @@ impl RasterSource {
     let dw = dst_rect.size.w as usize;
     let dh = dst_rect.size.h as usize;
     let mut int_row = vec![[0.0, 0.0, 0.0]; dw];
-    let mut src_row = vec![0; sw];
     let mut dst = Vec::with_capacity(dw * dh);
     let mut portion = scale;
     let mut remain = 1.0;
@@ -443,7 +442,8 @@ impl RasterSource {
     let mut dy = 0;
 
     // Read the first source row.
-    raster.read_into_slice((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+    let src_buf = raster.read_as::<u8>((sx, sy), (sw, 1), (sw, 1), None)?;
+    let (_, mut src_row) = src_buf.into_shape_and_vec();
 
     loop {
       // Check if the operation has been canceled.
@@ -459,7 +459,7 @@ impl RasterSource {
       if sy == src_end {
         // Output this row if the end of the destination data hasn't been reached.
         if dy < dh {
-          for rgb in &mut int_row {
+          for rgb in &int_row {
             dst.push(util::color(*rgb));
           }
         }
