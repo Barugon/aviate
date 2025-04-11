@@ -254,7 +254,7 @@ pub enum AirportReply {
   /// Airport infos from a nearby search.
   Nearby(Vec<AirportInfo>),
 
-  /// Airport infos matching a name search.
+  /// Airport infos matching a name/ID search.
   Search(Vec<AirportInfo>),
 
   /// Request resulted in an error.
