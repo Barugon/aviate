@@ -1,6 +1,6 @@
 use crate::{config, geom, util};
 use gdal::{
-  raster,
+  errors, raster,
   spatial_ref::{self, SpatialRef},
 };
 use std::{any, cell, path, sync::mpsc, thread};
@@ -140,7 +140,7 @@ impl Transformation {
     px_size: geom::Size,
     chart_sr: spatial_ref::SpatialRef,
     from_px: gdal::GeoTransform,
-  ) -> Result<Self, gdal::errors::GdalError> {
+  ) -> errors::Result<Self> {
     // FAA uses NAD83.
     let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83)?;
 
@@ -204,14 +204,14 @@ impl Transformation {
 
   /// Convert a chart coordinate to a decimal-degree coordinate.
   /// - `coord`: chart coordinate
-  pub fn chart_to_dd(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+  pub fn chart_to_dd(&self, coord: geom::Coord) -> errors::Result<geom::Coord> {
     use geom::Transform;
     self.to_dd.transform(coord)
   }
 
   /// Convert a decimal-degree coordinate to a chart coordinate.
   /// - `coord`: decimal-degree coordinate
-  pub fn dd_to_chart(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+  pub fn dd_to_chart(&self, coord: geom::Coord) -> errors::Result<geom::Coord> {
     use geom::Transform;
     self.from_dd.transform(coord)
   }
@@ -219,13 +219,13 @@ impl Transformation {
   /// Convert a pixel coordinate to a decimal-degree coordinate.
   /// - `coord`: pixel coordinate
   #[allow(unused)]
-  pub fn px_to_dd(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+  pub fn px_to_dd(&self, coord: geom::Coord) -> errors::Result<geom::Coord> {
     self.chart_to_dd(self.px_to_chart(coord))
   }
 
   /// Convert a decimal-degree coordinate to a pixel coordinate.
   /// - `coord`: decimal-degree coordinate
-  pub fn dd_to_px(&self, coord: geom::Coord) -> Result<geom::Coord, gdal::errors::GdalError> {
+  pub fn dd_to_px(&self, coord: geom::Coord) -> errors::Result<geom::Coord> {
     Ok(self.chart_to_px(self.dd_to_chart(coord)?))
   }
 }
@@ -362,12 +362,7 @@ impl RasterSource {
     }
   }
 
-  fn read(
-    &self,
-    part: &ImagePart,
-    pal: &[[f32; 3]],
-    cancel: util::Cancel,
-  ) -> Result<Option<util::ImageData>, gdal::errors::GdalError> {
+  fn read(&self, part: &ImagePart, pal: &[[f32; 3]], cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
     if !part.is_valid() {
       return Ok(None);
     }
