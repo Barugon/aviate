@@ -23,8 +23,8 @@ impl Storage {
     util::WinInfo::from_variant(self.get_value(Storage::WIN_INFO_KEY))
   }
 
-  pub fn set_night_mode(&mut self, dark: bool) {
-    let value = Variant::from(dark);
+  pub fn set_night_mode(&mut self, night_mode: bool) {
+    let value = Variant::from(night_mode);
     self.set_value(Storage::NIGHT_MODE_KEY, value);
   }
 
