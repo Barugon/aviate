@@ -54,8 +54,8 @@ impl ChartWidget {
   }
 
   pub fn set_night_mode(&mut self, dark: bool) {
-    if self.display_info.dark != dark {
-      self.display_info.dark = dark;
+    if self.display_info.night_mode != dark {
+      self.display_info.night_mode = dark;
       self.request_image();
     }
   }
@@ -118,10 +118,16 @@ impl ChartWidget {
       return;
     };
 
+    let pal_type = if self.display_info.night_mode {
+      chart::PaletteType::Dark
+    } else {
+      chart::PaletteType::Light
+    };
+
     let pos = self.display_info.origin;
     let size = self.base().get_size().into();
     let rect = geom::Rect { pos, size };
-    let part = chart::ImagePart::new(rect, self.display_info.zoom, self.display_info.dark);
+    let part = chart::ImagePart::new(rect, self.display_info.zoom, pal_type);
     raster_reader.read_image(part);
   }
 
@@ -372,7 +378,7 @@ struct DisplayInfo {
   rect: geom::Rect,
   zoom: f32,
   scale: f32,
-  dark: bool,
+  night_mode: bool,
   bounds: bool,
 }
 
@@ -384,7 +390,7 @@ impl DisplayInfo {
       rect: geom::Rect::default(),
       zoom: 1.0,
       scale: 1.0,
-      dark: false,
+      night_mode: false,
       bounds: false,
     }
   }

@@ -45,7 +45,10 @@ impl RasterReader {
         // Wait for a message. Exit when the connection is closed.
         while let Ok((cancel, part)) = thread_receiver.recv() {
           // Choose the palette.
-          let pal = if part.dark { &dark } else { &light };
+          let pal = match part.pal_type {
+            PaletteType::Light => &light,
+            PaletteType::Dark => &dark,
+          };
 
           // Read the image data.
           match source.read(&part, pal, cancel) {
@@ -230,17 +233,23 @@ impl Transformation {
   }
 }
 
+#[derive(Clone, Debug)]
+pub enum PaletteType {
+  Light,
+  Dark,
+}
+
 /// The part of the image needed for display.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct ImagePart {
   pub rect: geom::Rect,
   pub zoom: f32,
-  pub dark: bool,
+  pub pal_type: PaletteType,
 }
 
 impl ImagePart {
-  pub fn new(rect: geom::Rect, zoom: f32, dark: bool) -> Self {
-    Self { rect, zoom, dark }
+  pub fn new(rect: geom::Rect, zoom: f32, pal_type: PaletteType) -> Self {
+    Self { rect, zoom, pal_type }
   }
 
   pub fn is_valid(&self) -> bool {
