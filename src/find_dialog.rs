@@ -18,13 +18,14 @@ impl FindDialog {
   fn confirmed(text: GString);
 
   #[func]
-  fn changed(&mut self, text: GString) {
-    self.ok.set_disabled(text.is_empty());
+  fn changed(&mut self, text: String) {
+    self.ok.set_disabled(text.trim().len() < 3);
   }
 
   #[func]
-  fn submit(&mut self, text: GString) {
-    if text.is_empty() {
+  fn submit(&mut self, text: String) {
+    let text = text.trim();
+    if text.len() < 3 {
       return;
     }
 
@@ -36,8 +37,9 @@ impl FindDialog {
 
   #[func]
   fn confirm(&mut self) {
-    let text = self.get_child::<LineEdit>("LineEdit").get_text();
-    if text.is_empty() {
+    let text = self.get_child::<LineEdit>("LineEdit").get_text().to_string();
+    let text = text.trim();
+    if text.len() < 3 {
       return;
     }
 
