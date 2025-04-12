@@ -30,6 +30,7 @@
     "polyline",
     "rasterband",
     "reloadable",
+    "rfind",
     "rstar",
     "rustc",
     "rustup",
