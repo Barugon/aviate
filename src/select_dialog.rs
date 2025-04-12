@@ -1,10 +1,10 @@
+use crate::util;
 use godot::{
   classes::{Button, IWindow, InputEvent, InputEventKey, Tree, Window},
   global::{Key, KeyModifierMask},
   prelude::*,
 };
-
-use crate::util;
+use std::borrow;
 
 #[derive(GodotClass)]
 #[class(base=Window)]
@@ -35,7 +35,7 @@ impl SelectDialog {
     button.set_disabled(false);
   }
 
-  pub fn show_choices<'a, I: Iterator<Item = &'a str>>(&mut self, choices: I) {
+  pub fn show_choices<'a, I: Iterator<Item = borrow::Cow<'a, str>>>(&mut self, choices: I) {
     // Disable the ok button.
     let mut button = self.get_child::<Button>("OkButton");
     button.set_disabled(true);
@@ -51,7 +51,7 @@ impl SelectDialog {
     for choice in choices {
       let mut item = self.tree.create_item_ex().parent(&root).done().unwrap();
       item.set_expand_right(0, true);
-      if let Some(pos) = choice.find('(') {
+      if let Some(pos) = choice.rfind('(') {
         let (name, info) = choice.split_at(pos);
         item.set_text(0, name.trim());
         item.set_text(1, info.trim());

@@ -134,7 +134,7 @@ impl MainWidget {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Chart");
 
-    let choices = files.iter().map(|f| util::stem_str(f).unwrap());
+    let choices = files.iter().map(|f| util::stem_str(f).unwrap().into());
     dialog.bind_mut().show_choices(choices);
 
     self.chart_info = Some((path, files));
@@ -150,7 +150,16 @@ impl MainWidget {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Airport");
 
-    let choices = airports.iter().map(|a| a.desc.as_ref());
+    let choices = airports.iter().map(|a| {
+      format!(
+        "{} ({}), {}, {}",
+        a.name,
+        a.id,
+        a.airport_type.abv(),
+        a.airport_use.abv()
+      )
+      .into()
+    });
     dialog.bind_mut().show_choices(choices);
 
     self.airport_infos = Some(airports);

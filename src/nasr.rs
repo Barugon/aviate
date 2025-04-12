@@ -220,7 +220,16 @@ impl AirportRequestProcessor {
             if to_chart.contains(info.coord) {
               AirportReply::Airport(info)
             } else {
-              AirportReply::Error(format!("{}\nis not on this chart", info.desc).into())
+              AirportReply::Error(
+                format!(
+                  "{} ({}), {}, {}\nis not on this chart",
+                  info.name,
+                  info.id,
+                  info.airport_type.abv(),
+                  info.airport_use.abv()
+                )
+                .into(),
+              )
             }
           } else {
             // Airport ID not found, search the airport names.
@@ -271,7 +280,7 @@ struct ToChart {
 
 impl ToChart {
   fn new(proj4: &str, dd_sr: &spatial_ref::SpatialRef, bounds: geom::Bounds) -> Result<Self, errors::GdalError> {
-    // Create a transformation from decimal-degree coordinates to chart coordinates and a bounds object.
+    // Create a transformation from decimal-degree coordinates to chart coordinates.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
     Ok(ToChart { trans, bounds })
@@ -465,7 +474,7 @@ impl AirportSource {
       fids.push(item.fid);
     }
 
-    // Sort the feature IDs so that lookups are sequential.
+    // Sort the feature IDs so that feature lookups are sequential.
     fids.sort_unstable();
 
     let mut airports = Vec::with_capacity(fids.len());
@@ -482,7 +491,7 @@ impl AirportSource {
     }
 
     layer.reset_feature_reading();
-    airports.sort_unstable_by(|a, b| a.desc.cmp(&b.desc));
+    airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     airports
   }
 
@@ -512,7 +521,7 @@ impl AirportSource {
     }
 
     layer.reset_feature_reading();
-    airports.sort_unstable_by(|a, b| a.desc.cmp(&b.desc));
+    airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     airports
   }
 
@@ -577,11 +586,20 @@ pub struct AirportInfo {
   #[allow(unused)]
   pub fid: u64,
 
+  /// Airport ID.
+  pub id: String,
+
+  /// Airport name.
+  pub name: String,
+
   /// Decimal-degree coordinate.
   pub coord: geom::Coord,
 
-  /// Short description for UI lists.
-  pub desc: Box<str>,
+  // Airport type.
+  pub airport_type: AirportType,
+
+  // Airport usage.
+  pub airport_use: AirportUse,
 }
 
 impl AirportInfo {
@@ -596,14 +614,15 @@ impl AirportInfo {
     let id = feature.get_string(indexes.airport_id)?;
     let name = feature.get_string(indexes.airport_name)?;
     let coord = feature.get_coord(indexes)?;
-    let short_name = if let Some(name) = name.split(['/', '(']).next() {
-      name.trim_end()
-    } else {
-      &name
-    };
 
-    let desc = format!("{} ({}), {}, {}", short_name, id, airport_type.abv(), airport_use.abv()).into();
-    Some(Self { fid, coord, desc })
+    Some(Self {
+      fid,
+      id,
+      name,
+      coord,
+      airport_type,
+      airport_use,
+    })
   }
 }
 
