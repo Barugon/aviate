@@ -450,9 +450,12 @@ impl AirportSource {
   fn airport(&self, id: &str) -> Option<AirportInfo> {
     use vector::LayerAccess;
     let mut layer = self.layer();
-    let fid = self.id_map.get(id)?;
-    let feature = layer.feature(*fid)?;
-    let info = AirportInfo::new(feature, &self.indexes, true);
+    let info = {
+      let fid = self.id_map.get(id)?;
+      let feature = layer.feature(*fid)?;
+      AirportInfo::new(&feature, &self.indexes, true)
+    };
+
     layer.reset_feature_reading();
     info
   }
@@ -470,8 +473,8 @@ impl AirportSource {
 
     // Collect the feature IDs.
     let mut fids = Vec::new();
-    for item in self.sp_idx.locate_within_distance(coord, dsq) {
-      fids.push(item.fid);
+    for &LocIdx { fid, .. } in self.sp_idx.locate_within_distance(coord, dsq) {
+      fids.push(fid);
     }
 
     // Sort the feature IDs so that feature lookups are sequential.
@@ -483,7 +486,7 @@ impl AirportSource {
         continue;
       };
 
-      let Some(info) = AirportInfo::new(feature, &self.indexes, nph) else {
+      let Some(info) = AirportInfo::new(&feature, &self.indexes, nph) else {
         continue;
       };
 
@@ -513,7 +516,7 @@ impl AirportSource {
         continue;
       };
 
-      let Some(info) = AirportInfo::new(feature, &self.indexes, nph) else {
+      let Some(info) = AirportInfo::new(&feature, &self.indexes, nph) else {
         continue;
       };
 
@@ -603,7 +606,7 @@ pub struct AirportInfo {
 }
 
 impl AirportInfo {
-  fn new(feature: vector::Feature, indexes: &AirportFieldIndexes, nph: bool) -> Option<Self> {
+  fn new(feature: &vector::Feature, indexes: &AirportFieldIndexes, nph: bool) -> Option<Self> {
     let airport_type = feature.get_airport_type(indexes)?;
     let airport_use = feature.get_airport_use(indexes)?;
     if !nph && airport_type == AirportType::Helicopter && airport_use != AirportUse::Public {
