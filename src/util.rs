@@ -267,11 +267,9 @@ pub struct ImageData {
 
 /// Check if a GDAL `RgbaEntry` will fit into a `[u8; 4]`.
 pub fn check_color(color: raster::RgbaEntry) -> bool {
-  const COMP_RANGE: ops::Range<i16> = 0..256;
-  COMP_RANGE.contains(&color.r)
-    && COMP_RANGE.contains(&color.g)
-    && COMP_RANGE.contains(&color.b)
-    && color.a == u8::MAX as i16
+  const MAX: i16 = u8::MAX as i16;
+  const COMP_RANGE: ops::RangeInclusive<i16> = 0..=MAX;
+  COMP_RANGE.contains(&color.r) && COMP_RANGE.contains(&color.g) && COMP_RANGE.contains(&color.b) && color.a == MAX
 }
 
 /// Convert a GDAL `RgbaEntry` to a `[f32; 3]`.
@@ -283,20 +281,17 @@ pub fn color_f32(color: &raster::RgbaEntry) -> [f32; 3] {
 
 /// Convert a GDAL `RgbaEntry` to a luminance inverted `[f32; 3]`.
 pub fn inverted_color_f32(color: &raster::RgbaEntry) -> [f32; 3] {
-  let r = color.r as f32;
-  let g = color.g as f32;
-  let b = color.b as f32;
+  let [r, g, b] = color_f32(color);
 
   // Convert to YCbCr and invert the luminance.
-  let y = 255.0 - (r * 0.299 + g * 0.587 + b * 0.114);
+  let y = 1.0 - (r * 0.299 + g * 0.587 + b * 0.114);
   let cb = b * 0.5 - r * 0.168736 - g * 0.331264;
   let cr = r * 0.5 - g * 0.418688 - b * 0.081312;
 
-  // Convert back to RGB in 0.0..=1.0 range.
-  const SCALE: f32 = 1.0 / u8::MAX as f32;
-  let r = (y + 1.402 * cr) * SCALE;
-  let g = (y - 0.344136 * cb - 0.714136 * cr) * SCALE;
-  let b = (y + 1.772 * cb) * SCALE;
+  // Convert back to RGB.
+  let r = y + 1.402 * cr;
+  let g = y - 0.344136 * cb - 0.714136 * cr;
+  let b = y + 1.772 * cb;
 
   [r, g, b]
 }
