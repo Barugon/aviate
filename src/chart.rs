@@ -10,7 +10,7 @@ use std::{any, cell, path, sync::mpsc, thread};
 pub struct RasterReader {
   chart_name: String,
   transformation: Transformation,
-  sender: mpsc::Sender<(util::Cancel, ImagePart)>,
+  sender: mpsc::Sender<(ImagePart, util::Cancel)>,
   receiver: mpsc::Receiver<RasterReply>,
   cancel: cell::Cell<Option<util::Cancel>>,
 }
@@ -24,7 +24,7 @@ impl RasterReader {
     let chart_name = util::stem_str(path).unwrap().into();
 
     // Create the communication channels.
-    let (sender, thread_receiver) = mpsc::channel::<(util::Cancel, ImagePart)>();
+    let (sender, thread_receiver) = mpsc::channel::<(ImagePart, util::Cancel)>();
     let (thread_sender, receiver) = mpsc::channel::<RasterReply>();
 
     // Create the thread.
@@ -43,7 +43,7 @@ impl RasterReader {
         };
 
         // Wait for a message. Exit when the connection is closed.
-        while let Ok((cancel, part)) = thread_receiver.recv() {
+        while let Ok((part, cancel)) = thread_receiver.recv() {
           // Choose the palette.
           let pal = match part.pal_type {
             PaletteType::Light => &light,
@@ -95,7 +95,7 @@ impl RasterReader {
 
       let cancel = util::Cancel::default();
       self.cancel.replace(Some(cancel.clone()));
-      self.sender.send((cancel, part)).unwrap();
+      self.sender.send((part, cancel)).unwrap();
     }
   }
 
