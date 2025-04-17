@@ -277,16 +277,15 @@ impl RasterSource {
   fn check_spatial_ref(sr: SpatialRef) -> Result<SpatialRef, util::Error> {
     match sr.to_proj4() {
       Ok(proj4) => {
-        let proj4 = proj4.to_lowercase();
-        for item in ["+proj=lcc", "+datum=nad83", "+units=m"] {
+        for item in ["+proj=lcc", "+datum=NAD83", "+units=m"] {
           if !proj4.contains(item) {
             return Err("Unable to open chart:\ninvalid spatial reference".into());
           }
         }
+        Ok(sr)
       }
-      Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+      Err(err) => Err(format!("Unable to open chart:\n{err}").into()),
     }
-    Ok(sr)
   }
 
   /// Open a chart data source.
