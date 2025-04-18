@@ -1,5 +1,4 @@
 use crate::{geom, util};
-use core::f64;
 use gdal::{errors, spatial_ref, vector};
 use godot::global::godot_error;
 use std::{any, collections, path, sync, thread};
