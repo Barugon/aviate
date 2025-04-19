@@ -276,12 +276,6 @@ impl MainWidget {
 impl IControl for MainWidget {
   fn init(base: Base<Control>) -> Self {
     util::request_permissions();
-
-    let airport_status = AirportStatus {
-      index: nasr::AirportIndex::None,
-      pending: false,
-    };
-
     Self {
       base,
       config: config::Storage::new(),
@@ -291,7 +285,7 @@ impl IControl for MainWidget {
       airport_label: OnReady::manual(),
       airport_reader: None,
       airport_infos: None,
-      airport_status,
+      airport_status: AirportStatus::default(),
     }
   }
 
@@ -396,38 +390,16 @@ impl IControl for MainWidget {
       return;
     };
 
-    // Check if the index level has changed.
-    let index = airport_reader.get_index_level();
-    match self.airport_status.index {
-      nasr::AirportIndex::None => {
-        if index > nasr::AirportIndex::None {
-          // Show the APT label.
-          self.airport_label.set_visible(true);
-          self.airport_status.index = nasr::AirportIndex::Basic;
-        }
-      }
-      nasr::AirportIndex::Basic => {
-        match index.cmp(&nasr::AirportIndex::Basic) {
-          std::cmp::Ordering::Less => {
-            // Hide the APT label.
-            self.airport_label.set_visible(false);
-            self.airport_status.index = nasr::AirportIndex::None;
-          }
-          std::cmp::Ordering::Greater => {
-            // Show the find button.
-            self.find_button.set_visible(true);
-            self.airport_status.index = nasr::AirportIndex::Advanced;
-          }
-          std::cmp::Ordering::Equal => (),
-        }
-      }
-      nasr::AirportIndex::Advanced => {
-        if index < nasr::AirportIndex::Advanced {
-          // Hide the find button.
-          self.find_button.set_visible(false);
-          self.airport_status.index = nasr::AirportIndex::Basic;
-        }
-      }
+    if !self.airport_status.reader {
+      self.airport_label.set_visible(true);
+      self.airport_status.reader = true;
+    }
+
+    // Check if the indexing has changed.
+    let indexed = airport_reader.is_indexed();
+    if self.airport_status.indexed != indexed {
+      self.find_button.set_visible(indexed);
+      self.airport_status.indexed = indexed;
     }
 
     // Check if there are pending requests.
@@ -497,8 +469,10 @@ impl IControl for MainWidget {
   }
 }
 
+#[derive(Default)]
 struct AirportStatus {
-  index: nasr::AirportIndex,
+  reader: bool,
+  indexed: bool,
   pending: bool,
 }
 

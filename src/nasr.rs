@@ -11,7 +11,7 @@ use sync::{atomic, mpsc};
 /// data.
 pub struct AirportReader {
   request_count: sync::Arc<atomic::AtomicI32>,
-  airport_status: AirportStatusSync,
+  index_status: AirportIndexStatus,
   sender: mpsc::Sender<AirportRequest>,
   receiver: mpsc::Receiver<AirportReply>,
 }
@@ -28,7 +28,7 @@ impl AirportReader {
       }
     };
 
-    let airport_status = AirportStatusSync::new();
+    let index_status = AirportIndexStatus::new();
     let request_count = sync::Arc::new(atomic::AtomicI32::new(0));
     let (sender, thread_receiver) = mpsc::channel();
     let (thread_sender, receiver) = mpsc::channel();
@@ -37,7 +37,7 @@ impl AirportReader {
     thread::Builder::new()
       .name(any::type_name::<AirportSource>().into())
       .spawn({
-        let airport_status = airport_status.clone();
+        let airport_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
           let mut request_processor =
@@ -53,15 +53,15 @@ impl AirportReader {
 
     Ok(Self {
       request_count,
-      airport_status,
+      index_status,
       sender,
       receiver,
     })
   }
 
-  /// Get the airport index level.
-  pub fn get_index_level(&self) -> AirportIndex {
-    self.airport_status.get()
+  /// Returns true if the airport source is indexed.
+  pub fn is_indexed(&self) -> bool {
+    self.index_status.is_indexed()
   }
 
   /// Set the chart spatial reference using a PROJ4 string.
@@ -150,17 +150,17 @@ pub struct AirportInfo {
 }
 
 impl AirportInfo {
-  fn new(feature: &vector::Feature, indexes: &AirportFieldIndexes, nph: bool) -> Option<Self> {
-    let airport_type = feature.get_airport_type(indexes)?;
-    let airport_use = feature.get_airport_use(indexes)?;
+  fn new(feature: &vector::Feature, fields: &AirportFields, nph: bool) -> Option<Self> {
+    let airport_type = feature.get_airport_type(fields)?;
+    let airport_use = feature.get_airport_use(fields)?;
     if !nph && airport_type == AirportType::Helicopter && airport_use != AirportUse::Public {
       return None;
     }
 
     let fid = feature.fid()?;
-    let id = feature.get_string(indexes.airport_id)?;
-    let name = feature.get_string(indexes.airport_name)?;
-    let coord = feature.get_coord(indexes)?;
+    let id = feature.get_string(fields.airport_id)?;
+    let name = feature.get_string(fields.airport_name)?;
+    let coord = feature.get_coord(fields)?;
 
     Some(Self {
       fid,
@@ -221,17 +221,6 @@ impl AirportUse {
   }
 }
 
-#[derive(Eq, Ord, PartialEq, PartialOrd)]
-pub enum AirportIndex {
-  None,
-
-  /// Airport ID index is ready.
-  Basic,
-
-  /// Name and spatial indexes are ready.
-  Advanced,
-}
-
 pub enum AirportReply {
   /// Airport info from ID search.
   Airport(AirportInfo),
@@ -247,36 +236,31 @@ pub enum AirportReply {
 }
 
 struct AirportRequestProcessor {
+  index_status: AirportIndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<AirportReply>,
   source: AirportSource,
-  status: AirportStatusSync,
   dd_sr: spatial_ref::SpatialRef,
   to_chart: Option<ToChart>,
 }
 
 impl AirportRequestProcessor {
   fn new(
-    mut source: AirportSource,
-    mut status: AirportStatusSync,
+    source: AirportSource,
+    index_status: AirportIndexStatus,
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<AirportReply>,
   ) -> Self {
-    // Create the airport basic index.
-    if source.create_basic_index() {
-      status.set_has_basic_index();
-    }
-
     // Create a spatial reference for decimal-degree coordinates.
     // NOTE: FAA uses NAD83 for decimal-degree coordinates.
     let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
     dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
 
     Self {
+      index_status,
       request_count,
       sender,
       source,
-      status,
       dd_sr,
       to_chart: None,
     }
@@ -292,16 +276,16 @@ impl AirportRequestProcessor {
   fn process_request(&mut self, request: AirportRequest) {
     match request {
       AirportRequest::SpatialRef(spatial_info) => {
-        self.status.set_has_basic_index();
-        self.source.clear_advanced_indexes();
+        self.index_status.set_is_indexed(false);
+        self.source.clear_indexes();
         self.to_chart = None;
 
         if let Some((proj4, bounds)) = spatial_info {
           match ToChart::new(&proj4, &self.dd_sr, bounds) {
             Ok(trans) => {
-              // Create the airport advanced indexes.
-              if self.source.create_advanced_indexes(&trans) {
-                self.status.set_has_advanced_indexes();
+              // Create the airport indexes.
+              if self.source.create_indexes(&trans) {
+                self.index_status.set_is_indexed(true);
                 self.to_chart = Some(trans);
               }
             }
@@ -313,16 +297,20 @@ impl AirportRequestProcessor {
         }
       }
       AirportRequest::Airport(id) => {
-        let id = id.trim().to_uppercase();
-        let reply = if let Some(info) = self.source.airport(&id) {
-          AirportReply::Airport(info)
+        let reply = if self.index_status.is_indexed() {
+          let id = id.trim().to_uppercase();
+          if let Some(info) = self.source.airport(&id) {
+            AirportReply::Airport(info)
+          } else {
+            AirportReply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
+          }
         } else {
-          AirportReply::Error(format!("No airport IDs match\n'{id}'").into())
+          AirportReply::Error("Chart transformation is required for airport ID search".into())
         };
         self.send(reply, true);
       }
       AirportRequest::Nearby(coord, dist, nph) => {
-        let reply = if self.to_chart.is_some() {
+        let reply = if self.index_status.is_indexed() {
           AirportReply::Nearby(self.source.nearby(coord, dist, nph))
         } else {
           AirportReply::Error("Chart transformation is required to find nearby airports".into())
@@ -330,26 +318,12 @@ impl AirportRequestProcessor {
         self.send(reply, true);
       }
       AirportRequest::Search(term, nph) => {
-        let reply = if let Some(to_chart) = self.to_chart.as_ref() {
+        let reply = if self.index_status.is_indexed() {
           let term = term.trim().to_uppercase();
 
           // Search for an airport ID first.
           if let Some(info) = self.source.airport(&term) {
-            // The airport ID index is not pre-filtered, so we need to check against the chart bounds.
-            if to_chart.contains(info.coord) {
-              AirportReply::Airport(info)
-            } else {
-              AirportReply::Error(
-                format!(
-                  "{} ({}), {}, {}\nis not on this chart",
-                  info.name,
-                  info.id,
-                  info.airport_type.abv(),
-                  info.airport_use.abv()
-                )
-                .into(),
-              )
-            }
+            AirportReply::Airport(info)
           } else {
             // Airport ID not found, search the airport names.
             let infos = self.source.search(&term, nph);
@@ -390,61 +364,32 @@ impl ToChart {
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
     Ok(ToChart { trans, bounds })
   }
-
-  /// Test if a decimal-degree coordinate is within the chart bounds.
-  fn contains(&self, coord: geom::Coord) -> bool {
-    use geom::Transform;
-
-    // Convert to a chart coordinate.
-    match self.trans.transform(coord) {
-      Ok(coord) => return self.bounds.contains(coord),
-      Err(err) => godot_error!("{err}"),
-    }
-    false
-  }
 }
 
 #[derive(Clone)]
-struct AirportStatusSync {
-  status: sync::Arc<atomic::AtomicU8>,
+struct AirportIndexStatus {
+  indexed: sync::Arc<atomic::AtomicBool>,
 }
 
-impl AirportStatusSync {
+impl AirportIndexStatus {
   fn new() -> Self {
-    let status = atomic::AtomicU8::new(AirportIndex::None as u8);
     Self {
-      status: sync::Arc::new(status),
+      indexed: sync::Arc::new(atomic::AtomicBool::new(false)),
     }
   }
 
-  fn set_has_basic_index(&mut self) {
-    self.set(AirportIndex::Basic);
+  fn set_is_indexed(&mut self, indexed: bool) {
+    self.indexed.store(indexed, atomic::Ordering::Relaxed);
   }
 
-  fn set_has_advanced_indexes(&mut self) {
-    self.set(AirportIndex::Advanced);
-  }
-
-  fn set(&mut self, status: AirportIndex) {
-    self.status.store(status as u8, atomic::Ordering::Relaxed);
-  }
-
-  fn get(&self) -> AirportIndex {
-    const NONE: u8 = AirportIndex::None as u8;
-    const BASIC: u8 = AirportIndex::Basic as u8;
-    const SPATIAL: u8 = AirportIndex::Advanced as u8;
-    match self.status.load(atomic::Ordering::Relaxed) {
-      NONE => AirportIndex::None,
-      BASIC => AirportIndex::Basic,
-      SPATIAL => AirportIndex::Advanced,
-      _ => unreachable!(),
-    }
+  fn is_indexed(&self) -> bool {
+    self.indexed.load(atomic::Ordering::Relaxed)
   }
 }
 
 struct AirportSource {
   dataset: gdal::Dataset,
-  indexes: AirportFieldIndexes,
+  fields: AirportFields,
   id_map: collections::HashMap<Box<str>, u64>,
   name_vec: Vec<(Box<str>, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
@@ -464,53 +409,29 @@ impl AirportSource {
   /// - `path`: NASR airport CSV file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
-    let indexes = AirportFieldIndexes::new(&dataset)?;
+    let fields = AirportFields::new(&dataset)?;
     Ok(Self {
       dataset,
-      indexes,
+      fields,
       id_map: collections::HashMap::new(),
       name_vec: Vec::new(),
       sp_idx: rstar::RTree::new(),
     })
   }
 
-  /// Create the airport ID index.
-  fn create_basic_index(&mut self) -> bool {
-    use vector::LayerAccess;
-
-    let mut layer = self.layer();
-    let count = layer.feature_count();
-    let mut id_map = collections::HashMap::with_capacity(count as usize);
-    for feature in layer.features() {
-      let Some(fid) = feature.fid() else {
-        continue;
-      };
-
-      // Add the airport IDs to the ID index.
-      if let Some(id) = feature.get_string(self.indexes.airport_id) {
-        id_map.insert(id.into(), fid);
-      }
-    }
-
-    self.id_map = id_map;
-    !self.id_map.is_empty()
-  }
-
-  /// Create the name and spatial indexes.
+  /// Create the airport indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
-  fn create_advanced_indexes(&mut self, to_chart: &ToChart) -> bool {
+  fn create_indexes(&mut self, to_chart: &ToChart) -> bool {
     use geom::Transform;
     use vector::LayerAccess;
 
+    let mut id_map = collections::HashMap::new();
     let mut name_vec = Vec::new();
     let mut loc_vec = Vec::new();
     let mut layer = self.layer();
-    for feature in layer.features() {
-      let Some(fid) = feature.fid() else {
-        continue;
-      };
 
-      let Some(coord) = feature.get_coord(&self.indexes) else {
+    for feature in layer.features() {
+      let Some(coord) = feature.get_coord(&self.fields) else {
         continue;
       };
 
@@ -518,23 +439,36 @@ impl AirportSource {
         continue;
       };
 
-      if to_chart.bounds.contains(coord) {
-        // Add the airport name to the name vector.
-        if let Some(name) = feature.get_string(self.indexes.airport_name) {
-          name_vec.push((name.into(), fid));
-        }
-
-        // Add the coordinate to the location vector.
-        loc_vec.push(LocIdx { coord, fid })
+      // Airport must be on the current chart.
+      if !to_chart.bounds.contains(coord) {
+        continue;
       }
+
+      let Some(fid) = feature.fid() else {
+        continue;
+      };
+
+      let Some(id) = feature.get_string(self.fields.airport_id) else {
+        continue;
+      };
+
+      let Some(name) = feature.get_string(self.fields.airport_name) else {
+        continue;
+      };
+
+      id_map.insert(id.into(), fid);
+      name_vec.push((name.into(), fid));
+      loc_vec.push(LocIdx { coord, fid })
     }
 
+    self.id_map = id_map;
     self.name_vec = name_vec;
     self.sp_idx = rstar::RTree::bulk_load(loc_vec);
-    !self.name_vec.is_empty() && self.sp_idx.size() > 0
+    !self.id_map.is_empty() && !self.name_vec.is_empty() && self.sp_idx.size() > 0
   }
 
-  fn clear_advanced_indexes(&mut self) {
+  fn clear_indexes(&mut self) {
+    self.id_map = collections::HashMap::new();
     self.name_vec = Vec::new();
     self.sp_idx = rstar::RTree::new();
   }
@@ -547,7 +481,7 @@ impl AirportSource {
     let info = {
       let fid = self.id_map.get(id)?;
       let feature = layer.feature(*fid)?;
-      AirportInfo::new(&feature, &self.indexes, true)
+      AirportInfo::new(&feature, &self.fields, true)
     };
 
     layer.reset_feature_reading();
@@ -580,7 +514,7 @@ impl AirportSource {
         continue;
       };
 
-      let Some(info) = AirportInfo::new(&feature, &self.indexes, nph) else {
+      let Some(info) = AirportInfo::new(&feature, &self.fields, nph) else {
         continue;
       };
 
@@ -610,7 +544,7 @@ impl AirportSource {
         continue;
       };
 
-      let Some(info) = AirportInfo::new(&feature, &self.indexes, nph) else {
+      let Some(info) = AirportInfo::new(&feature, &self.fields, nph) else {
         continue;
       };
 
@@ -627,7 +561,7 @@ impl AirportSource {
   }
 }
 
-struct AirportFieldIndexes {
+struct AirportFields {
   airport_id: usize,
   airport_name: usize,
   site_type_code: usize,
@@ -637,7 +571,7 @@ struct AirportFieldIndexes {
   lat_decimal: usize,
 }
 
-impl AirportFieldIndexes {
+impl AirportFields {
   fn new(dataset: &gdal::Dataset) -> Result<Self, errors::GdalError> {
     use vector::LayerAccess;
     let layer = dataset.layer(0)?;
@@ -709,12 +643,12 @@ impl GetString for vector::Feature<'_> {
 }
 
 trait GetAirportType {
-  fn get_airport_type(&self, indexes: &AirportFieldIndexes) -> Option<AirportType>;
+  fn get_airport_type(&self, fields: &AirportFields) -> Option<AirportType>;
 }
 
 impl GetAirportType for vector::Feature<'_> {
-  fn get_airport_type(&self, indexes: &AirportFieldIndexes) -> Option<AirportType> {
-    match self.get_string(indexes.site_type_code)?.as_str() {
+  fn get_airport_type(&self, fields: &AirportFields) -> Option<AirportType> {
+    match self.get_string(fields.site_type_code)?.as_str() {
       "A" => Some(AirportType::Airport),
       "B" => Some(AirportType::Balloon),
       "C" => Some(AirportType::Seaplane),
@@ -727,17 +661,17 @@ impl GetAirportType for vector::Feature<'_> {
 }
 
 trait GetAirportUse {
-  fn get_airport_use(&self, indexes: &AirportFieldIndexes) -> Option<AirportUse>;
+  fn get_airport_use(&self, fields: &AirportFields) -> Option<AirportUse>;
 }
 
 impl GetAirportUse for vector::Feature<'_> {
-  fn get_airport_use(&self, indexes: &AirportFieldIndexes) -> Option<AirportUse> {
-    match self.get_string(indexes.ownership_type_code)?.as_str() {
+  fn get_airport_use(&self, fields: &AirportFields) -> Option<AirportUse> {
+    match self.get_string(fields.ownership_type_code)?.as_str() {
       "CG" => Some(AirportUse::CoastGuard),
       "MA" => Some(AirportUse::AirForce),
       "MN" => Some(AirportUse::Navy),
       "MR" => Some(AirportUse::Army),
-      "PU" | "PR" => Some(if self.get_string(indexes.facility_use_code)? == "PR" {
+      "PU" | "PR" => Some(if self.get_string(fields.facility_use_code)? == "PR" {
         AirportUse::Private
       } else {
         AirportUse::Public
@@ -748,14 +682,14 @@ impl GetAirportUse for vector::Feature<'_> {
 }
 
 trait GetCoord {
-  fn get_coord(&self, indexes: &AirportFieldIndexes) -> Option<geom::Coord>;
+  fn get_coord(&self, fields: &AirportFields) -> Option<geom::Coord>;
 }
 
 impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self, indexes: &AirportFieldIndexes) -> Option<geom::Coord> {
+  fn get_coord(&self, fields: &AirportFields) -> Option<geom::Coord> {
     Some(geom::Coord::new(
-      self.get_f64(indexes.long_decimal)?,
-      self.get_f64(indexes.lat_decimal)?,
+      self.get_f64(fields.long_decimal)?,
+      self.get_f64(fields.lat_decimal)?,
     ))
   }
 }
