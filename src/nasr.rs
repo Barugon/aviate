@@ -126,6 +126,126 @@ impl AirportReader {
   }
 }
 
+/// Airport information.
+#[derive(Debug)]
+pub struct AirportInfo {
+  /// Feature record ID.
+  #[allow(unused)]
+  pub fid: u64,
+
+  /// Airport ID.
+  pub id: String,
+
+  /// Airport name.
+  pub name: String,
+
+  /// Decimal-degree coordinate.
+  pub coord: geom::Coord,
+
+  // Airport type.
+  pub airport_type: AirportType,
+
+  // Airport usage.
+  pub airport_use: AirportUse,
+}
+
+impl AirportInfo {
+  fn new(feature: &vector::Feature, indexes: &AirportFieldIndexes, nph: bool) -> Option<Self> {
+    let airport_type = feature.get_airport_type(indexes)?;
+    let airport_use = feature.get_airport_use(indexes)?;
+    if !nph && airport_type == AirportType::Helicopter && airport_use != AirportUse::Public {
+      return None;
+    }
+
+    let fid = feature.fid()?;
+    let id = feature.get_string(indexes.airport_id)?;
+    let name = feature.get_string(indexes.airport_name)?;
+    let coord = feature.get_coord(indexes)?;
+
+    Some(Self {
+      fid,
+      id,
+      name,
+      coord,
+      airport_type,
+      airport_use,
+    })
+  }
+}
+
+#[derive(Eq, Debug, PartialEq)]
+pub enum AirportType {
+  Airport,
+  Balloon,
+  Glider,
+  Helicopter,
+  Seaplane,
+  Ultralight,
+}
+
+impl AirportType {
+  /// Airport type abbreviation.
+  pub fn abv(&self) -> &str {
+    match *self {
+      Self::Airport => "A",
+      Self::Balloon => "B",
+      Self::Glider => "G",
+      Self::Helicopter => "H",
+      Self::Seaplane => "S",
+      Self::Ultralight => "U",
+    }
+  }
+}
+
+#[derive(Eq, Debug, PartialEq)]
+pub enum AirportUse {
+  AirForce,
+  Army,
+  CoastGuard,
+  Navy,
+  Private,
+  Public,
+}
+
+impl AirportUse {
+  /// Airport use abbreviation.
+  pub fn abv(&self) -> &str {
+    match *self {
+      Self::AirForce => "USAF",
+      Self::Army => "ARMY",
+      Self::CoastGuard => "USCG",
+      Self::Navy => "USN",
+      Self::Private => "PVT",
+      Self::Public => "PUB",
+    }
+  }
+}
+
+#[derive(Eq, Ord, PartialEq, PartialOrd)]
+pub enum AirportIndex {
+  None,
+
+  /// Airport ID index is ready.
+  Basic,
+
+  /// Name and spatial indexes are ready.
+  Advanced,
+}
+
+pub enum AirportReply {
+  /// Airport info from ID search.
+  Airport(AirportInfo),
+
+  /// Airport infos from a nearby search.
+  Nearby(Vec<AirportInfo>),
+
+  /// Airport infos matching a name/ID search.
+  Search(Vec<AirportInfo>),
+
+  /// Request resulted in an error.
+  Error(util::Error),
+}
+
 struct AirportRequestProcessor {
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<AirportReply>,
@@ -255,20 +375,6 @@ enum AirportRequest {
   Search(String, bool),
 }
 
-pub enum AirportReply {
-  /// Airport info from ID search.
-  Airport(AirportInfo),
-
-  /// Airport infos from a nearby search.
-  Nearby(Vec<AirportInfo>),
-
-  /// Airport infos matching a name/ID search.
-  Search(Vec<AirportInfo>),
-
-  /// Request resulted in an error.
-  Error(util::Error),
-}
-
 struct ToChart {
   /// Coordinate transformation from decimal-degree coordinates to chart coordinates.
   trans: spatial_ref::CoordTransform,
@@ -296,17 +402,6 @@ impl ToChart {
     }
     false
   }
-}
-
-#[derive(Eq, Ord, PartialEq, PartialOrd)]
-pub enum AirportIndex {
-  None,
-
-  /// Airport ID index is ready.
-  Basic,
-
-  /// Name and spatial indexes are ready.
-  Advanced,
 }
 
 #[derive(Clone)]
@@ -581,53 +676,6 @@ impl rstar::PointDistance for LocIdx {
   }
 }
 
-/// Airport information.
-#[derive(Debug)]
-pub struct AirportInfo {
-  /// Feature record ID.
-  #[allow(unused)]
-  pub fid: u64,
-
-  /// Airport ID.
-  pub id: String,
-
-  /// Airport name.
-  pub name: String,
-
-  /// Decimal-degree coordinate.
-  pub coord: geom::Coord,
-
-  // Airport type.
-  pub airport_type: AirportType,
-
-  // Airport usage.
-  pub airport_use: AirportUse,
-}
-
-impl AirportInfo {
-  fn new(feature: &vector::Feature, indexes: &AirportFieldIndexes, nph: bool) -> Option<Self> {
-    let airport_type = feature.get_airport_type(indexes)?;
-    let airport_use = feature.get_airport_use(indexes)?;
-    if !nph && airport_type == AirportType::Helicopter && airport_use != AirportUse::Public {
-      return None;
-    }
-
-    let fid = feature.fid()?;
-    let id = feature.get_string(indexes.airport_id)?;
-    let name = feature.get_string(indexes.airport_name)?;
-    let coord = feature.get_coord(indexes)?;
-
-    Some(Self {
-      fid,
-      id,
-      name,
-      coord,
-      airport_type,
-      airport_use,
-    })
-  }
-}
-
 trait GetF64 {
   fn get_f64(&self, index: usize) -> Option<f64>;
 }
@@ -660,30 +708,6 @@ impl GetString for vector::Feature<'_> {
   }
 }
 
-#[derive(Eq, Debug, PartialEq)]
-pub enum AirportType {
-  Airport,
-  Balloon,
-  Glider,
-  Helicopter,
-  Seaplane,
-  Ultralight,
-}
-
-impl AirportType {
-  /// Airport type abbreviation.
-  pub fn abv(&self) -> &str {
-    match *self {
-      Self::Airport => "A",
-      Self::Balloon => "B",
-      Self::Glider => "G",
-      Self::Helicopter => "H",
-      Self::Seaplane => "S",
-      Self::Ultralight => "U",
-    }
-  }
-}
-
 trait GetAirportType {
   fn get_airport_type(&self, indexes: &AirportFieldIndexes) -> Option<AirportType>;
 }
@@ -698,30 +722,6 @@ impl GetAirportType for vector::Feature<'_> {
       "H" => Some(AirportType::Helicopter),
       "U" => Some(AirportType::Ultralight),
       _ => None,
-    }
-  }
-}
-
-#[derive(Eq, Debug, PartialEq)]
-pub enum AirportUse {
-  AirForce,
-  Army,
-  CoastGuard,
-  Navy,
-  Private,
-  Public,
-}
-
-impl AirportUse {
-  /// Airport use abbreviation.
-  pub fn abv(&self) -> &str {
-    match *self {
-      Self::AirForce => "USAF",
-      Self::Army => "ARMY",
-      Self::CoastGuard => "USCG",
-      Self::Navy => "USN",
-      Self::Private => "PVT",
-      Self::Public => "PUB",
     }
   }
 }
