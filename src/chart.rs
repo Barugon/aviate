@@ -10,7 +10,7 @@ use std::{any, cell, path, sync::mpsc, thread};
 pub struct RasterReader {
   chart_name: String,
   transformation: Transformation,
-  sender: mpsc::Sender<(ImagePart, util::Cancel)>,
+  sender: mpsc::Sender<RasterRequest>,
   receiver: mpsc::Receiver<RasterReply>,
   cancel: cell::Cell<Option<util::Cancel>>,
 }
@@ -24,7 +24,7 @@ impl RasterReader {
     let chart_name = util::stem_str(path).unwrap().into();
 
     // Create the communication channels.
-    let (sender, thread_receiver) = mpsc::channel::<(ImagePart, util::Cancel)>();
+    let (sender, thread_receiver) = mpsc::channel::<RasterRequest>();
     let (thread_sender, receiver) = mpsc::channel::<RasterReply>();
 
     // Create the thread.
@@ -43,23 +43,34 @@ impl RasterReader {
         };
 
         // Wait for a message. Exit when the connection is closed.
-        while let Ok((part, cancel)) = thread_receiver.recv() {
+        while let Ok(request) = thread_receiver.recv() {
+          let request = {
+            let mut request = request;
+
+            // Get to the most recent request.
+            while let Ok(try_request) = thread_receiver.try_recv() {
+              request = try_request;
+            }
+            request
+          };
+
           // Choose the palette.
-          let pal = match part.pal_type {
+          let pal = match request.part.pal_type {
             PaletteType::Light => &light,
             PaletteType::Dark => &dark,
           };
 
           // Read the image data.
-          match source.read(&part, pal, cancel) {
+          match source.read(&request.part, pal, request.cancel) {
             Ok(image) => {
               if let Some(image) = image {
-                thread_sender.send(RasterReply::Image(part, image)).unwrap();
+                let reply = RasterReply::Image(request.part, image);
+                thread_sender.send(reply).unwrap();
               }
             }
             Err(err) => {
-              let text = format!("{err}");
-              thread_sender.send(RasterReply::Error(part, text.into())).unwrap();
+              let reply = RasterReply::Error(request.part, format!("{err}").into());
+              thread_sender.send(reply).unwrap();
             }
           }
         }
@@ -95,7 +106,7 @@ impl RasterReader {
 
       let cancel = util::Cancel::default();
       self.cancel.replace(Some(cancel.clone()));
-      self.sender.send((part, cancel)).unwrap();
+      self.sender.send(RasterRequest { part, cancel }).unwrap();
     }
   }
 
@@ -255,6 +266,11 @@ impl ImagePart {
   pub fn is_valid(&self) -> bool {
     self.rect.size.is_valid() && util::ZOOM_RANGE.contains(&self.zoom)
   }
+}
+
+struct RasterRequest {
+  part: ImagePart,
+  cancel: util::Cancel,
 }
 
 /// Chart raster data source.
