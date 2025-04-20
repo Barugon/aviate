@@ -65,7 +65,7 @@ impl AirportReader {
   }
 
   /// Set the chart spatial reference using a PROJ4 string.
-  /// > **NOTE**: this is required for all queries other than `airport`.
+  /// > **NOTE**: this is required for all queries.
   /// - `proj4`: PROJ4 text
   /// - `bounds`: chart bounds.
   pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
@@ -79,7 +79,6 @@ impl AirportReader {
   }
 
   /// Lookup airport information using it's identifier.
-  /// > **NOTE**: Ignores chart boundaries and does not require a chart spatial reference.
   /// - `id`: airport id
   #[allow(unused)]
   pub fn airport(&self, id: String) {
@@ -88,7 +87,6 @@ impl AirportReader {
   }
 
   /// Request nearby airports.
-  /// > **NOTE**: requires a chart spatial reference.
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
@@ -99,7 +97,6 @@ impl AirportReader {
   }
 
   /// Find an airport by ID or airport(s) by (partial) name match.
-  /// > **NOTE**: requires a chart spatial reference.
   /// - `term`: search term
   /// - `nph`: include non-public heliports
   pub fn search(&self, term: String, nph: bool) {
