@@ -82,7 +82,7 @@ impl Extent {
 
   /// Create an extent from a polygon. Also returns whether the polygon is an exact rectangle or contained.
   pub fn from_polygon(poly: &[Coord]) -> (Self, ExtentType) {
-    fn check_exact(poly: &[Coord]) -> Option<Extent> {
+    fn exact(poly: &[Coord]) -> Option<Extent> {
       if poly[0].y == poly[1].y {
         if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
           return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
@@ -95,8 +95,8 @@ impl Extent {
 
     // Check if a polygon is an exact rectangle.
     if let Some(extent) = match poly.len() {
-      4 => check_exact(poly),
-      5 if poly[4] == poly[0] => check_exact(poly),
+      4 => exact(poly),
+      5 if poly[4] == poly[0] => exact(poly),
       _ => None,
     } {
       (extent, ExtentType::Exact)
@@ -141,13 +141,7 @@ impl Bounds {
   }
 
   pub fn contains(&self, coord: Coord) -> bool {
-    if self.ext.contains(coord) {
-      if self.poly.is_empty() {
-        return true;
-      }
-      return polygon_contains(&self.poly, coord);
-    }
-    false
+    self.ext.contains(coord) && (self.poly.is_empty() || polygon_contains(&self.poly, coord))
   }
 }
 
