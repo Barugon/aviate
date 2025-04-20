@@ -69,15 +69,13 @@ impl AirportReader {
   /// - `proj4`: PROJ4 text
   /// - `bounds`: chart bounds.
   pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
-    let request = AirportRequest::SpatialRef(Some((proj4, bounds)));
-    self.sender.send(request).unwrap();
+    self.send(AirportRequest::SpatialRef(Some((proj4, bounds))), false);
   }
 
   /// Clear the chart spatial reference.
   #[allow(unused)]
   pub fn clear_spatial_ref(&self) {
-    let request = AirportRequest::SpatialRef(None);
-    self.sender.send(request).unwrap();
+    self.send(AirportRequest::SpatialRef(None), false);
   }
 
   /// Lookup airport information using it's identifier.
@@ -85,10 +83,8 @@ impl AirportReader {
   /// - `id`: airport id
   #[allow(unused)]
   pub fn airport(&self, id: String) {
-    if !id.is_empty() {
-      self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
-      self.sender.send(AirportRequest::Airport(id)).unwrap();
-    }
+    assert!(!id.is_empty());
+    self.send(AirportRequest::Airport(id), true);
   }
 
   /// Request nearby airports.
@@ -98,10 +94,8 @@ impl AirportReader {
   /// - `nph`: include non-public heliports
   #[allow(unused)]
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
-    if dist >= 0.0 {
-      self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
-      self.sender.send(AirportRequest::Nearby(coord, dist, nph)).unwrap();
-    }
+    assert!(dist >= 0.0);
+    self.send(AirportRequest::Nearby(coord, dist, nph), true);
   }
 
   /// Find an airport by ID or airport(s) by (partial) name match.
@@ -109,10 +103,8 @@ impl AirportReader {
   /// - `term`: search term
   /// - `nph`: include non-public heliports
   pub fn search(&self, term: String, nph: bool) {
-    if !term.is_empty() {
-      self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
-      self.sender.send(AirportRequest::Search(term, nph)).unwrap();
-    }
+    assert!(!term.is_empty());
+    self.send(AirportRequest::Search(term, nph), true);
   }
 
   /// The number of pending airport requests.
@@ -123,6 +115,13 @@ impl AirportReader {
   /// Get the next available reply.
   pub fn get_reply(&self) -> Option<AirportReply> {
     self.receiver.try_recv().ok()
+  }
+
+  fn send(&self, reply: AirportRequest, inc: bool) {
+    if inc {
+      self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
+    }
+    self.sender.send(reply).unwrap();
   }
 }
 
@@ -150,7 +149,8 @@ pub struct AirportInfo {
 }
 
 impl AirportInfo {
-  fn new(feature: &vector::Feature, fields: &AirportFields, nph: bool) -> Option<Self> {
+  fn new(feature: Option<&vector::Feature>, fields: &AirportFields, nph: bool) -> Option<Self> {
+    let feature = feature?;
     let airport_type = feature.get_airport_type(fields)?;
     let airport_use = feature.get_airport_use(fields)?;
     if !nph && airport_type == AirportType::Helicopter && airport_use != AirportUse::Public {
@@ -276,69 +276,82 @@ impl AirportRequestProcessor {
   fn process_request(&mut self, request: AirportRequest) {
     match request {
       AirportRequest::SpatialRef(spatial_info) => {
-        self.index_status.set_is_indexed(false);
-        self.source.clear_indexes();
-        self.to_chart = None;
-
-        if let Some((proj4, bounds)) = spatial_info {
-          match ToChart::new(&proj4, &self.dd_sr, bounds) {
-            Ok(trans) => {
-              // Create the airport indexes.
-              if self.source.create_indexes(&trans) {
-                self.index_status.set_is_indexed(true);
-                self.to_chart = Some(trans);
-              }
-            }
-            Err(err) => {
-              let reply = AirportReply::Error(format!("Unable to create transformation:\n{err}").into());
-              self.send(reply, false);
-            }
-          }
-        }
+        self.set_spatial_ref(spatial_info);
       }
       AirportRequest::Airport(id) => {
-        let reply = if self.index_status.is_indexed() {
-          let id = id.trim().to_uppercase();
-          if let Some(info) = self.source.airport(&id) {
-            AirportReply::Airport(info)
-          } else {
-            AirportReply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
-          }
-        } else {
-          AirportReply::Error("Chart transformation is required for airport ID search".into())
-        };
-        self.send(reply, true);
+        self.send(self.airport_query(&id), true);
       }
       AirportRequest::Nearby(coord, dist, nph) => {
-        let reply = if self.index_status.is_indexed() {
-          AirportReply::Nearby(self.source.nearby(coord, dist, nph))
-        } else {
-          AirportReply::Error("Chart transformation is required to find nearby airports".into())
-        };
-        self.send(reply, true);
+        self.send(self.nearby_query(coord, dist, nph), true);
       }
       AirportRequest::Search(term, nph) => {
-        let reply = if self.index_status.is_indexed() {
-          let term = term.trim().to_uppercase();
-
-          // Search for an airport ID first.
-          if let Some(info) = self.source.airport(&term) {
-            AirportReply::Airport(info)
-          } else {
-            // Airport ID not found, search the airport names.
-            let infos = self.source.search(&term, nph);
-            if infos.is_empty() {
-              AirportReply::Error(format!("Nothing on this chart matches\n'{term}'").into())
-            } else {
-              AirportReply::Search(infos)
-            }
-          }
-        } else {
-          AirportReply::Error("Chart transformation is required for airport search".into())
-        };
-        self.send(reply, true);
+        self.send(self.search_query(&term, nph), true);
       }
     }
+  }
+
+  fn set_spatial_ref(&mut self, spatial_info: Option<(String, geom::Bounds)>) {
+    // Clear airport indexes.
+    self.index_status.set_is_indexed(false);
+    self.source.clear_indexes();
+    self.to_chart = None;
+
+    let Some((proj4, bounds)) = spatial_info else {
+      return;
+    };
+
+    match ToChart::new(&proj4, &self.dd_sr, bounds) {
+      Ok(trans) => {
+        // Create new airport indexes.
+        if self.source.create_indexes(&trans) {
+          self.index_status.set_is_indexed(true);
+          self.to_chart = Some(trans);
+        }
+      }
+      Err(err) => {
+        let reply = AirportReply::Error(format!("Unable to create transformation:\n{err}").into());
+        self.send(reply, false);
+      }
+    }
+  }
+
+  fn airport_query(&self, id: &str) -> AirportReply {
+    if !self.index_status.is_indexed() {
+      return AirportReply::Error("Chart transformation is required for airport ID search".into());
+    }
+
+    let id = id.trim().to_uppercase();
+    if let Some(info) = self.source.airport(&id) {
+      return AirportReply::Airport(info);
+    }
+    AirportReply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
+  }
+
+  fn nearby_query(&self, coord: geom::Coord, dist: f64, nph: bool) -> AirportReply {
+    if !self.index_status.is_indexed() {
+      return AirportReply::Error("Chart transformation is required to find nearby airports".into());
+    }
+    AirportReply::Nearby(self.source.nearby(coord, dist, nph))
+  }
+
+  fn search_query(&self, term: &str, nph: bool) -> AirportReply {
+    if !self.index_status.is_indexed() {
+      return AirportReply::Error("Chart transformation is required for airport search".into());
+    }
+
+    // Search for an airport ID first.
+    let term = term.trim().to_uppercase();
+    if let Some(info) = self.source.airport(&term) {
+      return AirportReply::Airport(info);
+    }
+
+    // Airport ID not found, search the airport names.
+    let infos = self.source.search(&term, nph);
+    if infos.is_empty() {
+      return AirportReply::Error(format!("Nothing on this chart matches\n'{term}'").into());
+    }
+
+    AirportReply::Search(infos)
   }
 }
 
@@ -439,7 +452,6 @@ impl AirportSource {
         continue;
       };
 
-      // Airport must be on the current chart.
       if !to_chart.bounds.contains(coord) {
         continue;
       }
@@ -480,8 +492,7 @@ impl AirportSource {
     let mut layer = self.layer();
     let info = {
       let fid = self.id_map.get(id)?;
-      let feature = layer.feature(*fid)?;
-      AirportInfo::new(&feature, &self.fields, true)
+      AirportInfo::new(layer.feature(*fid).as_ref(), &self.fields, true)
     };
 
     layer.reset_feature_reading();
@@ -489,7 +500,6 @@ impl AirportSource {
   }
 
   /// Find airports within a search radius.
-  /// > **NOTE**: requires advanced indexes.
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
@@ -510,11 +520,7 @@ impl AirportSource {
 
     let mut airports = Vec::with_capacity(fids.len());
     for fid in fids {
-      let Some(feature) = layer.feature(fid) else {
-        continue;
-      };
-
-      let Some(info) = AirportInfo::new(&feature, &self.fields, nph) else {
+      let Some(info) = AirportInfo::new(layer.feature(fid).as_ref(), &self.fields, nph) else {
         continue;
       };
 
@@ -522,12 +528,13 @@ impl AirportSource {
     }
 
     layer.reset_feature_reading();
+
+    // Sort ascending by name.
     airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     airports
   }
 
   /// Search for airports with names that contain the specified text.
-  /// > **NOTE**: requires advanced indexes.
   /// - `term`: search text
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `nph`: include non-public heliports
@@ -540,11 +547,7 @@ impl AirportSource {
         continue;
       }
 
-      let Some(feature) = layer.feature(*fid) else {
-        continue;
-      };
-
-      let Some(info) = AirportInfo::new(&feature, &self.fields, nph) else {
+      let Some(info) = AirportInfo::new(layer.feature(*fid).as_ref(), &self.fields, nph) else {
         continue;
       };
 
@@ -552,6 +555,8 @@ impl AirportSource {
     }
 
     layer.reset_feature_reading();
+
+    // Sort ascending by name.
     airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     airports
   }
