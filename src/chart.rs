@@ -100,7 +100,7 @@ impl RasterReader {
   /// - `part`: the area to read from the source image.
   pub fn read_image(&self, part: ImagePart) {
     assert!(part.is_valid());
-    self.cancel_read();
+    self.cancel_request();
 
     let cancel = util::Cancel::default();
     self.cancel.replace(Some(cancel.clone()));
@@ -112,7 +112,7 @@ impl RasterReader {
     self.receiver.try_recv().ok()
   }
 
-  fn cancel_read(&self) {
+  fn cancel_request(&self) {
     if let Some(mut cancel) = self.cancel.take() {
       cancel.cancel();
     }
@@ -121,7 +121,7 @@ impl RasterReader {
 
 impl Drop for RasterReader {
   fn drop(&mut self) {
-    self.cancel_read();
+    self.cancel_request();
   }
 }
 
