@@ -28,6 +28,7 @@ impl Cancel {
     self.canceled.store(true, atomic::Ordering::Relaxed);
   }
 
+  #[inline]
   pub fn canceled(&self) -> bool {
     self.canceled.load(atomic::Ordering::Relaxed)
   }
