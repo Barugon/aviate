@@ -44,16 +44,6 @@ impl RasterReader {
 
         // Wait for a message. Exit when the connection is closed.
         while let Ok(request) = thread_receiver.recv() {
-          let request = {
-            let mut request = request;
-
-            // Get to the most recent request.
-            while let Ok(try_request) = thread_receiver.try_recv() {
-              request = try_request;
-            }
-            request
-          };
-
           // Choose the palette.
           let pal = match request.part.pal_type {
             PaletteType::Light => &light,
@@ -396,7 +386,7 @@ impl RasterSource {
   }
 
   fn read(&self, part: &ImagePart, pal: &[[f32; 3]], cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
-    if !part.is_valid() {
+    if !part.is_valid() || cancel.canceled() {
       return Ok(None);
     }
 
