@@ -99,12 +99,12 @@ impl RasterReader {
   /// Kick-off an image read operation.
   /// - `part`: the area to read from the source image.
   pub fn read_image(&self, part: ImagePart) {
-    if part.is_valid() {
-      self.cancel_read();
-      let cancel = util::Cancel::default();
-      self.cancel.replace(Some(cancel.clone()));
-      self.sender.send(RasterRequest { part, cancel }).unwrap();
-    }
+    assert!(part.is_valid());
+    self.cancel_read();
+
+    let cancel = util::Cancel::default();
+    self.cancel.replace(Some(cancel.clone()));
+    self.sender.send(RasterRequest { part, cancel }).unwrap();
   }
 
   /// Get the next available reply.
