@@ -546,12 +546,8 @@ impl AirportSource {
     let coord = [coord.x, coord.y];
     let dsq = dist * dist;
 
-    // Collect the feature IDs.
-    let mut fids = Vec::new();
-    for &LocIdx { fid, .. } in self.sp_idx.locate_within_distance(coord, dsq) {
-      fids.push(fid);
-    }
-
+    // Get the feature IDs within the search radius.
+    let mut fids: Vec<u64> = self.sp_idx.locate_within_distance(coord, dsq).map(|i| i.fid).collect();
     if cancel.canceled() {
       return Vec::new();
     }
