@@ -1,7 +1,7 @@
 use crate::{geom, util};
 use gdal::{errors, spatial_ref, vector};
 use godot::global::godot_error;
-use std::{any, collections, path, sync, thread};
+use std::{any, cell, collections, path, sync, thread};
 use sync::{atomic, mpsc};
 
 // NASR = National Airspace System Resources
@@ -14,6 +14,7 @@ pub struct AirportReader {
   index_status: AirportIndexStatus,
   sender: mpsc::Sender<AirportRequest>,
   receiver: mpsc::Receiver<AirportReply>,
+  cancel: cell::Cell<Option<util::Cancel>>,
 }
 
 impl AirportReader {
@@ -56,6 +57,7 @@ impl AirportReader {
       index_status,
       sender,
       receiver,
+      cancel: cell::Cell::new(None),
     })
   }
 
@@ -69,13 +71,19 @@ impl AirportReader {
   /// - `proj4`: PROJ4 text
   /// - `bounds`: chart bounds.
   pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
-    self.send(AirportRequest::SpatialRef(Some((proj4, bounds))), false);
+    self.cancel_request();
+    let cancel = util::Cancel::default();
+    self.cancel.set(Some(cancel.clone()));
+    self.send(AirportRequest::SpatialRef(Some((proj4, bounds)), cancel), false);
   }
 
   /// Clear the chart spatial reference.
   #[allow(unused)]
   pub fn clear_spatial_ref(&self) {
-    self.send(AirportRequest::SpatialRef(None), false);
+    self.cancel_request();
+    let cancel = util::Cancel::default();
+    self.cancel.set(Some(cancel.clone()));
+    self.send(AirportRequest::SpatialRef(None, cancel), false);
   }
 
   /// Lookup airport information using it's identifier.
@@ -83,7 +91,10 @@ impl AirportReader {
   #[allow(unused)]
   pub fn airport(&self, id: String) {
     assert!(!id.is_empty());
-    self.send(AirportRequest::Airport(id), true);
+    self.cancel_request();
+    let cancel = util::Cancel::default();
+    self.cancel.set(Some(cancel.clone()));
+    self.send(AirportRequest::Airport(id, cancel), true);
   }
 
   /// Request nearby airports.
@@ -93,7 +104,10 @@ impl AirportReader {
   #[allow(unused)]
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
     assert!(dist >= 0.0);
-    self.send(AirportRequest::Nearby(coord, dist, nph), true);
+    self.cancel_request();
+    let cancel = util::Cancel::default();
+    self.cancel.set(Some(cancel.clone()));
+    self.send(AirportRequest::Nearby(coord, dist, nph, cancel), true);
   }
 
   /// Find an airport by ID or airport(s) by (partial) name match.
@@ -101,7 +115,10 @@ impl AirportReader {
   /// - `nph`: include non-public heliports
   pub fn search(&self, term: String, nph: bool) {
     assert!(!term.is_empty());
-    self.send(AirportRequest::Search(term, nph), true);
+    self.cancel_request();
+    let cancel = util::Cancel::default();
+    self.cancel.set(Some(cancel.clone()));
+    self.send(AirportRequest::Search(term, nph, cancel), true);
   }
 
   /// The number of pending airport requests.
@@ -119,6 +136,18 @@ impl AirportReader {
       self.request_count.fetch_add(1, atomic::Ordering::Relaxed);
     }
     self.sender.send(reply).unwrap();
+  }
+
+  fn cancel_request(&self) {
+    if let Some(mut cancel) = self.cancel.take() {
+      cancel.cancel();
+    }
+  }
+}
+
+impl Drop for AirportReader {
+  fn drop(&mut self) {
+    self.cancel_request();
   }
 }
 
@@ -263,8 +292,11 @@ impl AirportRequestProcessor {
     }
   }
 
-  fn send(&self, reply: AirportReply, dec: bool) {
-    self.sender.send(reply).unwrap();
+  fn send(&self, reply: AirportReply, dec: bool, cancel: util::Cancel) {
+    if !cancel.canceled() {
+      self.sender.send(reply).unwrap();
+    }
+
     if dec {
       assert!(self.request_count.fetch_sub(1, atomic::Ordering::Relaxed) > 0);
     }
@@ -272,22 +304,22 @@ impl AirportRequestProcessor {
 
   fn process_request(&mut self, request: AirportRequest) {
     match request {
-      AirportRequest::SpatialRef(spatial_info) => {
-        self.set_spatial_ref(spatial_info);
+      AirportRequest::SpatialRef(spatial_info, cancel) => {
+        self.set_spatial_ref(spatial_info, cancel);
       }
-      AirportRequest::Airport(id) => {
-        self.send(self.airport_query(&id), true);
+      AirportRequest::Airport(id, cancel) => {
+        self.send(self.airport_query(&id, cancel.clone()), true, cancel);
       }
-      AirportRequest::Nearby(coord, dist, nph) => {
-        self.send(self.nearby_query(coord, dist, nph), true);
+      AirportRequest::Nearby(coord, dist, nph, cancel) => {
+        self.send(self.nearby_query(coord, dist, nph, cancel.clone()), true, cancel);
       }
-      AirportRequest::Search(term, nph) => {
-        self.send(self.search_query(&term, nph), true);
+      AirportRequest::Search(term, nph, cancel) => {
+        self.send(self.search_query(&term, nph, cancel.clone()), true, cancel);
       }
     }
   }
 
-  fn set_spatial_ref(&mut self, spatial_info: Option<(String, geom::Bounds)>) {
+  fn set_spatial_ref(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
     // Clear airport indexes.
     self.index_status.set_is_indexed(false);
     self.source.clear_indexes();
@@ -300,50 +332,50 @@ impl AirportRequestProcessor {
     match ToChart::new(&proj4, &self.dd_sr, bounds) {
       Ok(trans) => {
         // Create new airport indexes.
-        if self.source.create_indexes(&trans) {
+        if self.source.create_indexes(&trans, cancel) {
           self.index_status.set_is_indexed(true);
           self.to_chart = Some(trans);
         }
       }
       Err(err) => {
         let reply = AirportReply::Error(format!("Unable to create transformation:\n{err}").into());
-        self.send(reply, false);
+        self.send(reply, false, cancel);
       }
     }
   }
 
-  fn airport_query(&self, id: &str) -> AirportReply {
+  fn airport_query(&self, id: &str, cancel: util::Cancel) -> AirportReply {
     if !self.index_status.is_indexed() {
       return AirportReply::Error("Chart transformation is required for airport ID search".into());
     }
 
     let id = id.trim().to_uppercase();
-    if let Some(info) = self.source.airport(&id) {
+    if let Some(info) = self.source.airport(&id, cancel) {
       return AirportReply::Airport(info);
     }
     AirportReply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
-  fn nearby_query(&self, coord: geom::Coord, dist: f64, nph: bool) -> AirportReply {
+  fn nearby_query(&self, coord: geom::Coord, dist: f64, nph: bool, cancel: util::Cancel) -> AirportReply {
     if !self.index_status.is_indexed() {
       return AirportReply::Error("Chart transformation is required to find nearby airports".into());
     }
-    AirportReply::Nearby(self.source.nearby(coord, dist, nph))
+    AirportReply::Nearby(self.source.nearby(coord, dist, nph, cancel))
   }
 
-  fn search_query(&self, term: &str, nph: bool) -> AirportReply {
+  fn search_query(&self, term: &str, nph: bool, cancel: util::Cancel) -> AirportReply {
     if !self.index_status.is_indexed() {
       return AirportReply::Error("Chart transformation is required for airport search".into());
     }
 
     // Search for an airport ID first.
     let term = term.trim().to_uppercase();
-    if let Some(info) = self.source.airport(&term) {
+    if let Some(info) = self.source.airport(&term, cancel.clone()) {
       return AirportReply::Airport(info);
     }
 
     // Airport ID not found, search the airport names.
-    let infos = self.source.search(&term, nph);
+    let infos = self.source.search(&term, nph, cancel);
     if infos.is_empty() {
       return AirportReply::Error(format!("Nothing on this chart matches\n'{term}'").into());
     }
@@ -353,10 +385,10 @@ impl AirportRequestProcessor {
 }
 
 enum AirportRequest {
-  SpatialRef(Option<(String, geom::Bounds)>),
-  Airport(String),
-  Nearby(geom::Coord, f64, bool),
-  Search(String, bool),
+  SpatialRef(Option<(String, geom::Bounds)>, util::Cancel),
+  Airport(String, util::Cancel),
+  Nearby(geom::Coord, f64, bool, util::Cancel),
+  Search(String, bool, util::Cancel),
 }
 
 struct ToChart {
@@ -431,7 +463,7 @@ impl AirportSource {
 
   /// Create the airport indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
-  fn create_indexes(&mut self, to_chart: &ToChart) -> bool {
+  fn create_indexes(&mut self, to_chart: &ToChart, cancel: util::Cancel) -> bool {
     use geom::Transform;
     use vector::LayerAccess;
 
@@ -441,6 +473,10 @@ impl AirportSource {
     let mut layer = self.layer();
 
     for feature in layer.features() {
+      if cancel.canceled() {
+        return false;
+      }
+
       let Some(coord) = feature.get_coord(&self.fields) else {
         continue;
       };
@@ -484,11 +520,15 @@ impl AirportSource {
 
   /// Get `AirportInfo` for the specified airport ID.
   /// - `id`: airport ID
-  fn airport(&self, id: &str) -> Option<AirportInfo> {
+  fn airport(&self, id: &str, cancel: util::Cancel) -> Option<AirportInfo> {
     use vector::LayerAccess;
     let mut layer = self.layer();
     let info = {
       let fid = self.id_map.get(id)?;
+      if cancel.canceled() {
+        return None;
+      }
+
       AirportInfo::new(layer.feature(*fid).as_ref(), &self.fields, true)
     };
 
@@ -500,7 +540,7 @@ impl AirportSource {
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
-  fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) -> Vec<AirportInfo> {
+  fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<AirportInfo> {
     use vector::LayerAccess;
     let mut layer = self.layer();
     let coord = [coord.x, coord.y];
@@ -512,11 +552,20 @@ impl AirportSource {
       fids.push(fid);
     }
 
+    if cancel.canceled() {
+      return Vec::new();
+    }
+
     // Sort the feature IDs so that feature lookups are sequential.
     fids.sort_unstable();
 
     let mut airports = Vec::with_capacity(fids.len());
     for fid in fids {
+      if cancel.canceled() {
+        layer.reset_feature_reading();
+        return Vec::new();
+      }
+
       let Some(info) = AirportInfo::new(layer.feature(fid).as_ref(), &self.fields, nph) else {
         continue;
       };
@@ -535,11 +584,16 @@ impl AirportSource {
   /// - `term`: search text
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `nph`: include non-public heliports
-  fn search(&self, term: &str, nph: bool) -> Vec<AirportInfo> {
+  fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<AirportInfo> {
     use vector::LayerAccess;
     let mut layer = self.layer();
     let mut airports = Vec::new();
     for (name, fid) in &self.name_vec {
+      if cancel.canceled() {
+        layer.reset_feature_reading();
+        return Vec::new();
+      }
+
       if !name.contains(term) {
         continue;
       }
