@@ -38,11 +38,11 @@ impl AirportReader {
     thread::Builder::new()
       .name(any::type_name::<AirportSource>().into())
       .spawn({
-        let airport_status = index_status.clone();
+        let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
           let mut request_processor =
-            AirportRequestProcessor::new(airport_source, airport_status, request_count, thread_sender);
+            AirportRequestProcessor::new(airport_source, index_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
           while let Ok(request) = thread_receiver.recv() {
