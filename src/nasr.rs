@@ -72,18 +72,17 @@ impl AirportReader {
   /// - `bounds`: chart bounds.
   pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
     self.cancel_request();
-    let cancel = util::Cancel::default();
-    self.cancel.set(Some(cancel.clone()));
-    self.send(AirportRequest::SpatialRef(Some((proj4, bounds)), cancel), false);
+    self.send(
+      AirportRequest::SpatialRef(Some((proj4, bounds)), self.init_cancel()),
+      false,
+    );
   }
 
   /// Clear the chart spatial reference.
   #[allow(unused)]
   pub fn clear_spatial_ref(&self) {
     self.cancel_request();
-    let cancel = util::Cancel::default();
-    self.cancel.set(Some(cancel.clone()));
-    self.send(AirportRequest::SpatialRef(None, cancel), false);
+    self.send(AirportRequest::SpatialRef(None, self.init_cancel()), false);
   }
 
   /// Lookup airport information using it's identifier.
@@ -92,9 +91,7 @@ impl AirportReader {
   pub fn airport(&self, id: String) {
     assert!(!id.is_empty());
     self.cancel_request();
-    let cancel = util::Cancel::default();
-    self.cancel.set(Some(cancel.clone()));
-    self.send(AirportRequest::Airport(id, cancel), true);
+    self.send(AirportRequest::Airport(id, self.init_cancel()), true);
   }
 
   /// Request nearby airports.
@@ -105,9 +102,7 @@ impl AirportReader {
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
     assert!(dist >= 0.0);
     self.cancel_request();
-    let cancel = util::Cancel::default();
-    self.cancel.set(Some(cancel.clone()));
-    self.send(AirportRequest::Nearby(coord, dist, nph, cancel), true);
+    self.send(AirportRequest::Nearby(coord, dist, nph, self.init_cancel()), true);
   }
 
   /// Find an airport by ID or airport(s) by (partial) name match.
@@ -116,9 +111,7 @@ impl AirportReader {
   pub fn search(&self, term: String, nph: bool) {
     assert!(!term.is_empty());
     self.cancel_request();
-    let cancel = util::Cancel::default();
-    self.cancel.set(Some(cancel.clone()));
-    self.send(AirportRequest::Search(term, nph, cancel), true);
+    self.send(AirportRequest::Search(term, nph, self.init_cancel()), true);
   }
 
   /// The number of pending airport requests.
@@ -142,6 +135,12 @@ impl AirportReader {
     if let Some(mut cancel) = self.cancel.take() {
       cancel.cancel();
     }
+  }
+
+  fn init_cancel(&self) -> util::Cancel {
+    let cancel = util::Cancel::default();
+    self.cancel.set(Some(cancel.clone()));
+    cancel
   }
 }
 
