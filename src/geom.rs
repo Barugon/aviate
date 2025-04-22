@@ -14,9 +14,9 @@ impl Coord {
   }
 
   pub fn from_variant(value: Variant) -> Option<Self> {
-    let value = value.try_to::<Array<Variant>>().ok()?;
-    let x = value.get(0)?.try_to::<f64>().ok()?;
-    let y = value.get(1)?.try_to::<f64>().ok()?;
+    let value: Array<Variant> = value.try_to().ok()?;
+    let x = value.get(0)?.try_to().ok()?;
+    let y = value.get(1)?.try_to().ok()?;
     Some(Self { x, y })
   }
 }
@@ -191,7 +191,7 @@ pub struct Pos {
 impl Pos {
   pub fn from_variant(value: Variant) -> Option<Self> {
     use crate::util::ToI32;
-    let value = value.try_to::<Array<Variant>>().ok()?;
+    let value: Array<Variant> = value.try_to().ok()?;
     let x = value.get(0)?.to_i32()?;
     let y = value.get(1)?.to_i32()?;
     Some(Self { x, y })
@@ -282,7 +282,7 @@ pub struct Size {
 impl Size {
   pub fn from_variant(value: Variant) -> Option<Self> {
     use crate::util::ToU32;
-    let value = value.try_to::<Array<Variant>>().ok()?;
+    let value: Array<Variant> = value.try_to().ok()?;
     let w = value.get(0)?.to_u32()?;
     let h = value.get(1)?.to_u32()?;
     Some(Self { w, h })
