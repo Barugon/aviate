@@ -150,16 +150,7 @@ impl MainWidget {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Airport");
 
-    let choices = airports.iter().map(|a| {
-      format!(
-        "{} ({}), {}, {}",
-        a.name,
-        a.id,
-        a.airport_type.abv(),
-        a.airport_use.abv()
-      )
-      .into()
-    });
+    let choices = airports.iter().map(|a| a.desc().into());
     dialog.bind_mut().show_choices(choices);
 
     self.airport_infos = Some(airports);

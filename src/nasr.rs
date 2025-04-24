@@ -204,6 +204,16 @@ impl AirportInfo {
       airport_use,
     })
   }
+
+  pub fn desc(&self) -> String {
+    format!(
+      "{} ({}), {}, {}",
+      self.name,
+      self.id,
+      self.airport_type.abv(),
+      self.airport_use.abv()
+    )
+  }
 }
 
 #[derive(Eq, Debug, PartialEq)]
