@@ -170,7 +170,7 @@ impl ChartWidget {
 
   fn correct_pos(&mut self, mut pos: geom::Pos) -> Option<geom::Pos> {
     let chart_size = self.get_raster_size()?;
-    let max_size = chart_size * f64::from(self.display_info.zoom);
+    let max_size = chart_size * self.display_info.zoom as f64;
     let widget_size: geom::Size = self.base().get_size().into();
 
     // Make sure its within the horizontal limits.
@@ -196,18 +196,18 @@ impl ChartWidget {
     // Clamp the zoom value.
     let mut zoom = zoom.clamp(*util::ZOOM_RANGE.start(), *util::ZOOM_RANGE.end());
 
-    let mut max_size = chart_size * f64::from(zoom);
+    let mut max_size = chart_size * zoom as f64;
     let widget_size: geom::Size = self.base().get_size().into();
 
     // Make sure the maximum chart size is not smaller than the widget.
     if max_size.w < widget_size.w {
       zoom = widget_size.w as f32 / chart_size.w as f32;
-      max_size = chart_size * f64::from(zoom);
+      max_size = chart_size * zoom as f64;
     }
 
     if max_size.h < widget_size.h {
       zoom = widget_size.h as f32 / chart_size.h as f32;
-      max_size = chart_size * f64::from(zoom);
+      max_size = chart_size * zoom as f64;
     }
 
     // Keep the zoom position at the offset.
