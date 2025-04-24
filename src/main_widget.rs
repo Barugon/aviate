@@ -124,7 +124,9 @@ impl MainWidget {
   fn item_selected(&mut self, index: u32) {
     if let Some((path, files)) = self.chart_info.take() {
       self.open_chart(&path, files[index as usize].to_str().unwrap());
-    } else if let Some(infos) = self.airport_infos.take() {
+    }
+
+    if let Some(infos) = self.airport_infos.take() {
       let coord = infos[index as usize].coord;
       self.chart_widget.bind_mut().goto_coord(coord);
     }
@@ -395,7 +397,7 @@ impl IControl for MainWidget {
 
     // Check if there are pending requests.
     let pending = airport_reader.request_count() > 0;
-    if pending != self.airport_status.pending {
+    if self.airport_status.pending != pending {
       // Set the airport label's color to indicate if its busy.
       let property = "theme_override_colors/font_color";
       let color = if pending {
