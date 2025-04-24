@@ -274,14 +274,16 @@ pub fn check_color(color: raster::RgbaEntry) -> bool {
 }
 
 /// Convert a GDAL `RgbaEntry` to a `[f32; 3]`.
-pub fn color_f32(color: &raster::RgbaEntry) -> [f32; 3] {
+pub fn color_f32(color: raster::RgbaEntry) -> [f32; 3] {
+  assert!(check_color(color));
+
   // Convert colors to floating point in 0.0..=1.0 range.
   const SCALE: f32 = 1.0 / u8::MAX as f32;
   [color.r as f32 * SCALE, color.g as f32 * SCALE, color.b as f32 * SCALE]
 }
 
 /// Convert a GDAL `RgbaEntry` to a luminance inverted `[f32; 3]`.
-pub fn inverted_color_f32(color: &raster::RgbaEntry) -> [f32; 3] {
+pub fn inverted_color_f32(color: raster::RgbaEntry) -> [f32; 3] {
   let [r, g, b] = color_f32(color);
 
   // Convert to YCbCr and invert the luminance.

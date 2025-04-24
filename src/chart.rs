@@ -36,8 +36,8 @@ impl RasterReader {
           let mut light = Vec::with_capacity(u8::MAX as usize);
           let mut dark = Vec::with_capacity(u8::MAX as usize);
           for entry in palette {
-            light.push(util::color_f32(&entry));
-            dark.push(util::inverted_color_f32(&entry));
+            light.push(util::color_f32(entry));
+            dark.push(util::inverted_color_f32(entry));
           }
           (light, dark)
         };
