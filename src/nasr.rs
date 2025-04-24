@@ -71,18 +71,20 @@ impl AirportReader {
   /// - `proj4`: PROJ4 text
   /// - `bounds`: chart bounds.
   pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
+    assert!(!proj4.is_empty());
     self.cancel_request();
-    self.send(
-      AirportRequest::SpatialRef(Some((proj4, bounds)), self.init_cancel()),
-      false,
-    );
+
+    let request = AirportRequest::SpatialRef(Some((proj4, bounds)), self.init_cancel());
+    self.send(request, false);
   }
 
   /// Clear the chart spatial reference.
   #[allow(unused)]
   pub fn clear_spatial_ref(&self) {
     self.cancel_request();
-    self.send(AirportRequest::SpatialRef(None, self.init_cancel()), false);
+
+    let request = AirportRequest::SpatialRef(None, self.init_cancel());
+    self.send(request, false);
   }
 
   /// Lookup airport information using it's identifier.
@@ -91,7 +93,9 @@ impl AirportReader {
   pub fn airport(&self, id: String) {
     assert!(!id.is_empty());
     self.cancel_request();
-    self.send(AirportRequest::Airport(id, self.init_cancel()), true);
+
+    let request = AirportRequest::Airport(id, self.init_cancel());
+    self.send(request, true);
   }
 
   /// Request nearby airports.
@@ -102,7 +106,9 @@ impl AirportReader {
   pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
     assert!(dist >= 0.0);
     self.cancel_request();
-    self.send(AirportRequest::Nearby(coord, dist, nph, self.init_cancel()), true);
+
+    let request = AirportRequest::Nearby(coord, dist, nph, self.init_cancel());
+    self.send(request, true);
   }
 
   /// Find an airport by ID or airport(s) by (partial) name match.
@@ -111,7 +117,9 @@ impl AirportReader {
   pub fn search(&self, term: String, nph: bool) {
     assert!(!term.is_empty());
     self.cancel_request();
-    self.send(AirportRequest::Search(term, nph, self.init_cancel()), true);
+
+    let request = AirportRequest::Search(term, nph, self.init_cancel());
+    self.send(request, true);
   }
 
   /// The number of pending airport requests.
@@ -307,13 +315,16 @@ impl AirportRequestProcessor {
         self.set_spatial_ref(spatial_info, cancel);
       }
       AirportRequest::Airport(id, cancel) => {
-        self.send(self.airport_query(&id, cancel.clone()), true, cancel);
+        let reply = self.airport_query(&id, cancel.clone());
+        self.send(reply, true, cancel);
       }
       AirportRequest::Nearby(coord, dist, nph, cancel) => {
-        self.send(self.nearby_query(coord, dist, nph, cancel.clone()), true, cancel);
+        let reply = self.nearby_query(coord, dist, nph, cancel.clone());
+        self.send(reply, true, cancel);
       }
       AirportRequest::Search(term, nph, cancel) => {
-        self.send(self.search_query(&term, nph, cancel.clone()), true, cancel);
+        let reply = self.search_query(&term, nph, cancel.clone());
+        self.send(reply, true, cancel);
       }
     }
   }
