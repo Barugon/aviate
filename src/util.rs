@@ -18,6 +18,17 @@ pub const TITLE_HEIGHT: i32 = 32;
 pub const BORDER_WIDTH: i32 = 8;
 pub const BORDER_HEIGHT: i32 = 6;
 
+/// Convert `Result` into `Option` and print any error.
+pub fn ok<T, E: std::fmt::Display>(result: Result<T, E>) -> Option<T> {
+  match result {
+    Ok(ok) => Some(ok),
+    Err(err) => {
+      godot::global::godot_error!("{err}");
+      None
+    }
+  }
+}
+
 #[derive(Clone, Default)]
 pub struct Cancel {
   canceled: sync::Arc<atomic::AtomicBool>,
@@ -54,7 +65,7 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
   fn get_info(path: &path::Path) -> Result<ZipInfo, Error> {
     /// Return a path if the folder contains CSV data.
     fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-      let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
+      let files = ok(gdal::vsi::read_dir(path.join(folder), false))?;
       for file in files {
         let Some(ext) = file.extension() else {
           continue;
@@ -75,7 +86,7 @@ pub fn get_zip_info<P: AsRef<path::Path>>(path: P) -> Result<ZipInfo, Error> {
 
     /// Return a path if the folder contains shape-file data.
     fn get_shp_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-      let files = gdal::vsi::read_dir(path.join(folder), false).ok()?;
+      let files = ok(gdal::vsi::read_dir(path.join(folder), false))?;
       for file in files {
         let Some(name) = file.file_name() else {
           continue;
@@ -186,12 +197,12 @@ impl WinInfo {
   }
 
   pub fn from_variant(value: Option<Variant>) -> Self {
-    if let Some(value) = value.and_then(|v| v.try_to::<Dictionary>().ok()) {
+    if let Some(value) = value.and_then(|v| ok(v.try_to::<Dictionary>())) {
       let pos = value.get(WinInfo::POS_KEY).and_then(geom::Pos::from_variant);
       let size = value.get(WinInfo::SIZE_KEY).and_then(geom::Size::from_variant);
       let maxed = value
         .get(WinInfo::MAXED_KEY)
-        .and_then(|v| v.try_to::<bool>().ok())
+        .and_then(|v| ok(v.try_to::<bool>()))
         .unwrap_or(false);
       return Self { pos, size, maxed };
     }
@@ -235,7 +246,7 @@ impl ToI32 for f64 {
 impl ToI32 for Variant {
   fn to_i32(self) -> Option<i32> {
     // JSON values are read as f64.
-    self.try_to::<f64>().ok()?.to_i32()
+    ok(self.try_to::<f64>())?.to_i32()
   }
 }
 
@@ -256,7 +267,7 @@ impl ToU32 for f64 {
 impl ToU32 for Variant {
   fn to_u32(self) -> Option<u32> {
     // JSON values are read as f64.
-    self.try_to::<f64>().ok()?.to_u32()
+    ok(self.try_to::<f64>())?.to_u32()
   }
 }
 
@@ -360,7 +371,7 @@ pub fn adjust_dialog(dialog: &mut Gd<Window>) {
     return;
   };
 
-  let Ok(parent) = parent.try_cast::<Control>() else {
+  let Some(parent) = ok(parent.try_cast::<Control>()) else {
     return;
   };
 

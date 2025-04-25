@@ -501,7 +501,7 @@ impl AirportSource {
         continue;
       };
 
-      let Ok(coord) = to_chart.trans.transform(coord) else {
+      let Some(coord) = util::ok(to_chart.trans.transform(coord)) else {
         continue;
       };
 

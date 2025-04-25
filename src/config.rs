@@ -30,7 +30,7 @@ impl Storage {
 
   pub fn get_night_mode(&self) -> Option<bool> {
     let val = self.get_value(Storage::NIGHT_MODE_KEY)?;
-    val.try_to::<bool>().ok()
+    util::ok(val.try_to::<bool>())
   }
 
   pub fn set_show_bounds(&mut self, bounds: bool) {
@@ -40,7 +40,7 @@ impl Storage {
 
   pub fn get_show_bounds(&self) -> Option<bool> {
     let val = self.get_value(Storage::SHOW_BOUNDS_KEY)?;
-    val.try_to::<bool>().ok()
+    util::ok(val.try_to::<bool>())
   }
 
   pub fn set_asset_folder(&mut self, folder: GString) {
@@ -50,7 +50,7 @@ impl Storage {
 
   pub fn get_asset_folder(&self) -> Option<GString> {
     let val = self.get_value(Storage::ASSET_FOLDER_KEY)?;
-    val.try_to::<GString>().ok()
+    util::ok(val.try_to::<GString>())
   }
 
   fn set_value(&mut self, key: &str, val: Variant) {
@@ -139,10 +139,10 @@ pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> Vec<geom::C
 fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom::Coord>> {
   // Parse the bounds JSON.
   let json = Json::parse_string(include_str!("../res/bounds.json"));
-  let dict = json.try_to::<Dictionary>().ok()?;
+  let dict = util::ok(json.try_to::<Dictionary>())?;
 
   // Find the chart.
-  let array = dict.get(chart_name)?.try_to::<Array<Variant>>().ok()?;
+  let array = util::ok(dict.get(chart_name)?.try_to::<Array<Variant>>())?;
 
   // Collect the points.
   let mut points = Vec::with_capacity(array.len());
@@ -170,19 +170,19 @@ fn convert_bounds_svgs() {
 
   // Parse the JSON.
   let variant = Json::parse_string(&text);
-  let Ok(mut dict) = variant.try_to::<Dictionary>() else {
+  let Some(mut dict) = util::ok(variant.try_to::<Dictionary>()) else {
     return;
   };
 
   // Get the files from the bounds folder.
   let folder = path::PathBuf::from(util::get_downloads_folder().to_string()).join("bounds");
-  let Ok(files) = std::fs::read_dir(&folder) else {
+  let Some(files) = util::ok(std::fs::read_dir(&folder)) else {
     return;
   };
 
   let mut changed = false;
   for entry in files {
-    let Ok(entry) = entry else {
+    let Some(entry) = util::ok(entry) else {
       continue;
     };
 
@@ -232,11 +232,11 @@ fn convert_bounds_svgs() {
 
       // Get the X and Y values.
       let mut iter = item.split(',');
-      let Some(x) = iter.next().and_then(|txt| txt.parse::<f64>().ok()) else {
+      let Some(x) = iter.next().and_then(|txt| util::ok(txt.parse::<f64>())) else {
         continue;
       };
 
-      let Some(y) = iter.next().and_then(|txt| txt.parse::<f64>().ok()) else {
+      let Some(y) = iter.next().and_then(|txt| util::ok(txt.parse::<f64>())) else {
         continue;
       };
 
