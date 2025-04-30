@@ -332,7 +332,7 @@ impl RasterSource {
         };
 
         let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
-          // The raster bands start at index one.
+          // Raster bands start at index one.
           for index in 1..=dataset.raster_count() {
             let rasterband = dataset.rasterband(index).unwrap();
 
