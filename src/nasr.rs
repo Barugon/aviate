@@ -284,7 +284,6 @@ struct AirportRequestProcessor {
   sender: mpsc::Sender<AirportReply>,
   source: AirportSource,
   dd_sr: spatial_ref::SpatialRef,
-  to_chart: Option<ToChart>,
 }
 
 impl AirportRequestProcessor {
@@ -305,7 +304,6 @@ impl AirportRequestProcessor {
       sender,
       source,
       dd_sr,
-      to_chart: None,
     }
   }
 
@@ -322,7 +320,7 @@ impl AirportRequestProcessor {
   fn process_request(&mut self, request: AirportRequest) {
     match request {
       AirportRequest::SpatialRef(spatial_info, cancel) => {
-        self.set_spatial_ref(spatial_info, cancel);
+        self.setup_indexes(spatial_info, cancel);
       }
       AirportRequest::Airport(id, cancel) => {
         let reply = self.airport_query(&id, cancel.clone());
@@ -339,11 +337,10 @@ impl AirportRequestProcessor {
     }
   }
 
-  fn set_spatial_ref(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
+  fn setup_indexes(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
     // Clear airport indexes.
     self.index_status.set_is_indexed(false);
     self.source.clear_indexes();
-    self.to_chart = None;
 
     let Some((proj4, bounds)) = spatial_info else {
       return;
@@ -352,10 +349,8 @@ impl AirportRequestProcessor {
     match ToChart::new(&proj4, &self.dd_sr, bounds) {
       Ok(trans) => {
         // Create new airport indexes.
-        if self.source.create_indexes(&trans, cancel) {
-          self.index_status.set_is_indexed(true);
-          self.to_chart = Some(trans);
-        }
+        let indexed = self.source.create_indexes(&trans, cancel);
+        self.index_status.set_is_indexed(indexed);
       }
       Err(err) => {
         let reply = AirportReply::Error(format!("Unable to create transformation:\n{err}").into());
