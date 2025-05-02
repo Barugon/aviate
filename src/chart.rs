@@ -443,18 +443,15 @@ impl RasterSource {
     }
 
     let raster = self.dataset.rasterband(self.band_idx).unwrap();
-    let scale = part.zoom;
-    let dst_rect = part.rect;
-    let src_rect = dst_rect.scaled(1.0 / scale).fitted(self.px_size);
+    let src_rect = part.rect.scaled(1.0 / part.zoom).fitted(self.px_size);
     let sw = src_rect.size.w as usize;
-    let sh = src_rect.size.h as usize;
     let sx = src_rect.pos.x as isize;
-    let src_end = src_rect.pos.y as isize + sh as isize;
-    let dw = dst_rect.size.w as usize;
-    let dh = dst_rect.size.h as usize;
+    let src_end = src_rect.pos.y as isize + src_rect.size.h as isize;
+    let dw = part.rect.size.w as usize;
+    let dh = part.rect.size.h as usize;
     let mut int_row = vec![[0.0, 0.0, 0.0]; dw];
     let mut dst = Vec::with_capacity(dw * dh);
-    let mut portion = scale;
+    let mut portion = part.zoom;
     let mut remain = 1.0;
     let mut sy = src_rect.pos.y as isize;
     let mut dy = 0;
@@ -470,7 +467,7 @@ impl RasterSource {
       }
 
       // Process the source row.
-      process_row(&mut int_row, &src_row, pal, scale, portion);
+      process_row(&mut int_row, &src_row, pal, part.zoom, portion);
 
       // Check if the end of the source data has been reached.
       sy += 1;
@@ -488,10 +485,10 @@ impl RasterSource {
       raster.read_into_slice((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
 
       remain -= portion;
-      portion = scale;
-      if remain < scale {
+      portion = part.zoom;
+      if remain < part.zoom {
         // Process the final amount from this source row.
-        process_row(&mut int_row, &src_row, pal, scale, remain);
+        process_row(&mut int_row, &src_row, pal, part.zoom, remain);
 
         // Output the destination row.
         for rgb in &mut int_row {
@@ -505,7 +502,7 @@ impl RasterSource {
           break;
         }
 
-        portion = scale - remain;
+        portion = part.zoom - remain;
         remain = 1.0;
       }
     }
