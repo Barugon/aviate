@@ -174,11 +174,11 @@ pub struct Info {
   /// Decimal-degree coordinate.
   pub coord: geom::DD,
 
-  // Airport type.
-  pub airport_type: Type,
+  /// Airport type.
+  pub apt_type: Type,
 
-  // Airport usage.
-  pub airport_use: Use,
+  /// Airport usage.
+  pub apt_use: Use,
 }
 
 impl Info {
@@ -200,8 +200,8 @@ impl Info {
       id,
       name,
       coord,
-      airport_type,
-      airport_use,
+      apt_type: airport_type,
+      apt_use: airport_use,
     })
   }
 
@@ -210,8 +210,8 @@ impl Info {
       "{} ({}), {}, {}",
       self.name,
       self.id,
-      self.airport_type.abv(),
-      self.airport_use.abv()
+      self.apt_type.abv(),
+      self.apt_use.abv()
     )
   }
 }
