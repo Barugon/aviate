@@ -67,7 +67,7 @@ impl ChartWidget {
     }
   }
 
-  pub fn goto_coord(&mut self, coord: geom::Coord) {
+  pub fn goto_coord(&mut self, coord: geom::DD) {
     let Some(raster_reader) = &self.raster_reader else {
       return;
     };
@@ -255,7 +255,7 @@ impl ChartWidget {
     let pos = self.display_info.origin.into();
     let mut dest: Vec<Vector2> = Vec::with_capacity(source.len() + 1);
     for point in source.iter() {
-      let point = *point * zoom - pos;
+      let point = **point * zoom - pos;
       dest.push(point.into());
     }
 

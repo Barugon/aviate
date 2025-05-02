@@ -121,22 +121,22 @@ impl Items {
 }
 
 // Get the bounds for the specified chart in pixel coordinates.
-pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> Vec<geom::Coord> {
+pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> Vec<geom::Px> {
   let limit = geom::Coord::new((chart_size.w - 1) as f64, (chart_size.h - 1) as f64);
   if let Some(points) = get_bounds_from_json(chart_name, limit) {
     points
   } else {
     // Chart bounds not in the JSON, use the chart size.
     vec![
-      (0.0, 0.0).into(),
-      (limit.x, 0.0).into(),
-      (limit.x, limit.y).into(),
-      (0.0, limit.y).into(),
+      geom::Px::new(0.0, 0.0),
+      geom::Px::new(limit.x, 0.0),
+      geom::Px::new(limit.x, limit.y),
+      geom::Px::new(0.0, limit.y),
     ]
   }
 }
 
-fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom::Coord>> {
+fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom::Px>> {
   // Parse the bounds JSON.
   let json = Json::parse_string(include_str!("../res/bounds.json"));
   let dict = util::ok(json.try_to::<Dictionary>())?;
@@ -150,7 +150,7 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom
     let coord = geom::Coord::from_variant(variant)?;
     let x = coord.x.max(0.0).min(limit.x);
     let y = coord.y.max(0.0).min(limit.y);
-    points.push((x, y).into());
+    points.push(geom::Px::new(x, y));
   }
 
   Some(points)

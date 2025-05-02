@@ -1,4 +1,7 @@
-use crate::{geom, util};
+use crate::{
+  geom::{self, Transform},
+  util,
+};
 use gdal::{errors, spatial_ref, vector};
 use godot::global::godot_error;
 use std::{any, cell, collections, path, sync, thread};
@@ -169,7 +172,7 @@ pub struct Info {
   pub name: String,
 
   /// Decimal-degree coordinate.
-  pub coord: geom::Coord,
+  pub coord: geom::DD,
 
   // Airport type.
   pub airport_type: Type,
@@ -414,11 +417,15 @@ struct ToChart {
 }
 
 impl ToChart {
-  fn new(proj4: &str, dd_sr: &spatial_ref::SpatialRef, bounds: geom::Bounds) -> Result<Self, errors::GdalError> {
+  fn new(proj4: &str, dd_sr: &spatial_ref::SpatialRef, bounds: geom::Bounds) -> errors::Result<Self> {
     // Create a transformation from decimal-degree coordinates to chart coordinates.
     let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
     let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
     Ok(ToChart { trans, bounds })
+  }
+
+  fn transform(&self, coord: geom::DD) -> errors::Result<geom::Cht> {
+    Ok(geom::Cht(self.trans.transform(*coord)?))
   }
 }
 
@@ -478,7 +485,6 @@ impl Source {
   /// Create the airport indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
   fn create_indexes(&mut self, to_chart: &ToChart, cancel: util::Cancel) -> bool {
-    use geom::Transform;
     use vector::LayerAccess;
 
     let mut id_map = collections::HashMap::new();
@@ -495,7 +501,7 @@ impl Source {
         continue;
       };
 
-      let Some(coord) = util::ok(to_chart.trans.transform(coord)) else {
+      let Some(coord) = util::ok(to_chart.transform(coord)) else {
         continue;
       };
 
@@ -656,7 +662,7 @@ impl Fields {
 
 /// Location spatial index item.
 struct LocIdx {
-  coord: geom::Coord,
+  coord: geom::Cht,
   fid: u64,
 }
 
@@ -748,12 +754,12 @@ impl GetUse for vector::Feature<'_> {
 }
 
 trait GetCoord {
-  fn get_coord(&self, fields: &Fields) -> Option<geom::Coord>;
+  fn get_coord(&self, fields: &Fields) -> Option<geom::DD>;
 }
 
 impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self, fields: &Fields) -> Option<geom::Coord> {
-    Some(geom::Coord::new(
+  fn get_coord(&self, fields: &Fields) -> Option<geom::DD> {
+    Some(geom::DD::new(
       self.get_f64(fields.long_decimal)?,
       self.get_f64(fields.lat_decimal)?,
     ))

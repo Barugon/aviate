@@ -3,6 +3,61 @@ use gdal::spatial_ref;
 use godot::prelude::*;
 use std::{cmp, ops};
 
+/// Decimal degree coordinate.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct DD(pub Coord);
+
+impl DD {
+  pub fn new(lon: f64, lat: f64) -> Self {
+    Self(Coord::new(lon, lat))
+  }
+}
+
+impl ops::Deref for DD {
+  type Target = Coord;
+
+  fn deref(&self) -> &Coord {
+    &self.0
+  }
+}
+
+/// Chart coordinate.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Cht(pub Coord);
+
+impl Cht {
+  #[allow(unused)]
+  pub fn new(lon: f64, lat: f64) -> Self {
+    Self(Coord::new(lon, lat))
+  }
+}
+
+impl ops::Deref for Cht {
+  type Target = Coord;
+
+  fn deref(&self) -> &Coord {
+    &self.0
+  }
+}
+
+/// Pixel coordinate
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Px(pub Coord);
+
+impl Px {
+  pub fn new(x: f64, y: f64) -> Self {
+    Self(Coord::new(x, y))
+  }
+}
+
+impl ops::Deref for Px {
+  type Target = Coord;
+
+  fn deref(&self) -> &Coord {
+    &self.0
+  }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Coord {
   pub x: f64,
@@ -82,8 +137,8 @@ impl Extent {
   }
 
   /// Create an extent from a polygon. Also returns whether the polygon is an exact rectangle or contained.
-  pub fn from_polygon(poly: &[Coord]) -> (Self, ExtentType) {
-    fn exact(poly: &[Coord]) -> Option<Extent> {
+  pub fn from_polygon(poly: &[Cht]) -> (Self, ExtentType) {
+    fn exact(poly: &[Cht]) -> Option<Extent> {
       if poly[0].y == poly[1].y {
         if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
           return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
@@ -116,18 +171,18 @@ impl Extent {
     }
   }
 
-  pub fn contains(&self, coord: Coord) -> bool {
+  pub fn contains(&self, coord: Cht) -> bool {
     self.xr.contains(&coord.x) && self.yr.contains(&coord.y)
   }
 }
 
 pub struct Bounds {
   pub ext: Extent,
-  pub poly: Vec<Coord>,
+  pub poly: Vec<Cht>,
 }
 
 impl Bounds {
-  pub fn new(poly: Vec<Coord>) -> Self {
+  pub fn new(poly: Vec<Cht>) -> Self {
     assert!(!poly.is_empty());
 
     let (ext, ext_type) = Extent::from_polygon(&poly);
@@ -141,13 +196,13 @@ impl Bounds {
     }
   }
 
-  pub fn contains(&self, coord: Coord) -> bool {
+  pub fn contains(&self, coord: Cht) -> bool {
     self.ext.contains(coord) && (self.poly.is_empty() || polygon_contains(&self.poly, coord))
   }
 }
 
 /// Check if a point is contained in a polygon.
-fn polygon_contains(poly: &[Coord], point: Coord) -> bool {
+fn polygon_contains(poly: &[Cht], point: Cht) -> bool {
   let mut inside = false;
   let count = poly.len();
   for idx in 0..count {
@@ -297,7 +352,7 @@ impl Size {
     self.w > 0 && self.h > 0
   }
 
-  pub fn contains(&self, coord: Coord) -> bool {
+  pub fn contains(&self, coord: Px) -> bool {
     let w = self.w as f64;
     let h = self.h as f64;
     coord.x >= 0.0 && coord.x < w && coord.y >= 0.0 && coord.y < h
@@ -469,19 +524,19 @@ mod test {
     use super::*;
 
     let points = [
-      Coord::new(0.0, 0.0),
-      Coord::new(100.0, 0.0),
-      Coord::new(100.0, 100.0),
-      Coord::new(0.0, 100.0),
-      Coord::new(0.0, 75.0),
-      Coord::new(50.0, 65.0),
-      Coord::new(50.0, 15.0),
-      Coord::new(0.0, 25.0),
+      Cht::new(0.0, 0.0),
+      Cht::new(100.0, 0.0),
+      Cht::new(100.0, 100.0),
+      Cht::new(0.0, 100.0),
+      Cht::new(0.0, 75.0),
+      Cht::new(50.0, 65.0),
+      Cht::new(50.0, 15.0),
+      Cht::new(0.0, 25.0),
     ];
 
-    assert!(polygon_contains(&points, Coord::new(20.0, 10.0)));
-    assert!(polygon_contains(&points, Coord::new(80.0, 80.0)));
-    assert!(!polygon_contains(&points, Coord::new(20.0, 50.0)));
+    assert!(polygon_contains(&points, Cht::new(20.0, 10.0)));
+    assert!(polygon_contains(&points, Cht::new(80.0, 80.0)));
+    assert!(!polygon_contains(&points, Cht::new(20.0, 50.0)));
   }
 
   #[test]
@@ -489,43 +544,43 @@ mod test {
     use super::*;
 
     let points = [
-      Coord::new(0.0, 0.0),
-      Coord::new(100.0, 0.0),
-      Coord::new(100.0, 100.0),
-      Coord::new(0.0, 100.0),
+      Cht::new(0.0, 0.0),
+      Cht::new(100.0, 0.0),
+      Cht::new(100.0, 100.0),
+      Cht::new(0.0, 100.0),
     ];
 
     assert!(Extent::from_polygon(&points).1 == ExtentType::Exact);
 
     let points = [
-      Coord::new(0.0, 0.0),
-      Coord::new(100.0, 0.0),
-      Coord::new(100.0, 100.0),
-      Coord::new(0.0, 100.0),
-      Coord::new(0.0, 0.0),
+      Cht::new(0.0, 0.0),
+      Cht::new(100.0, 0.0),
+      Cht::new(100.0, 100.0),
+      Cht::new(0.0, 100.0),
+      Cht::new(0.0, 0.0),
     ];
 
     assert!(Extent::from_polygon(&points).1 == ExtentType::Exact);
 
-    let points = [Coord::new(0.0, 0.0), Coord::new(100.0, 0.0), Coord::new(100.0, 100.0)];
+    let points = [Cht::new(0.0, 0.0), Cht::new(100.0, 0.0), Cht::new(100.0, 100.0)];
 
     assert!(Extent::from_polygon(&points).1 == ExtentType::Contained);
 
     let points = [
-      Coord::new(0.0, 0.0),
-      Coord::new(100.0, 1.0),
-      Coord::new(100.0, 100.0),
-      Coord::new(0.0, 100.0),
+      Cht::new(0.0, 0.0),
+      Cht::new(100.0, 1.0),
+      Cht::new(100.0, 100.0),
+      Cht::new(0.0, 100.0),
     ];
 
     assert!(Extent::from_polygon(&points).1 == ExtentType::Contained);
 
     let points = [
-      Coord::new(0.0, 0.0),
-      Coord::new(100.0, 0.0),
-      Coord::new(100.0, 100.0),
-      Coord::new(0.0, 100.0),
-      Coord::new(0.0, 50.0),
+      Cht::new(0.0, 0.0),
+      Cht::new(100.0, 0.0),
+      Cht::new(100.0, 100.0),
+      Cht::new(0.0, 100.0),
+      Cht::new(0.0, 50.0),
     ];
 
     assert!(Extent::from_polygon(&points).1 == ExtentType::Contained);
