@@ -46,8 +46,8 @@ impl RasterReader {
         while let Ok(request) = thread_receiver.recv() {
           // Choose the palette.
           let pal = match request.part.pal_type {
-            PaletteType::Light => &light,
-            PaletteType::Dark => &dark,
+            PaletteType::Light => light.as_slice(),
+            PaletteType::Dark => dark.as_slice(),
           };
 
           // Read the image data.
