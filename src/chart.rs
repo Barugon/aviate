@@ -475,7 +475,7 @@ impl RasterSource {
         // Output this row if the end of the destination data hasn't been reached.
         if dy < dh {
           for rgb in &int_row {
-            dst.push(util::color(*rgb));
+            dst.push(util::color_u8(*rgb));
           }
         }
         break;
@@ -492,7 +492,7 @@ impl RasterSource {
 
         // Output the destination row.
         for rgb in &mut int_row {
-          dst.push(util::color(*rgb));
+          dst.push(util::color_u8(*rgb));
           *rgb = [0.0, 0.0, 0.0];
         }
 

@@ -311,7 +311,7 @@ pub fn inverted_color_f32(color: raster::RgbaEntry) -> [f32; 3] {
 }
 
 /// Convert a `[f32; 3]` color to `[u8; 4]`
-pub fn color(color: [f32; 3]) -> [u8; 4] {
+pub fn color_u8(color: [f32; 3]) -> [u8; 4] {
   const SCALE: f32 = u8::MAX as f32;
   [
     (color[0] * SCALE) as u8,
