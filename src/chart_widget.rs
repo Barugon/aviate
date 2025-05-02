@@ -13,7 +13,7 @@ use std::path;
 #[class(base=Control)]
 pub struct ChartWidget {
   base: Base<Control>,
-  raster_reader: Option<chart::RasterReader>,
+  raster_reader: Option<chart::Reader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
   helicopter: bool,
@@ -26,7 +26,7 @@ impl ChartWidget {
     let path = path::Path::new(path.as_str()).join(file);
 
     // Create a new raster reader.
-    let raster_reader = chart::RasterReader::new(&path)?;
+    let raster_reader = chart::Reader::new(&path)?;
     self.helicopter = raster_reader.chart_name().ends_with(" HEL");
     self.raster_reader = Some(raster_reader);
     self.display_info.origin = geom::Pos::default();
@@ -138,10 +138,10 @@ impl ChartWidget {
     // Collect all chart replies to get to the most recent image.
     while let Some(reply) = raster_reader.get_reply() {
       match reply {
-        chart::RasterReply::Image(part, data) => {
+        chart::Reply::Image(part, data) => {
           image_info = Some((part, data));
         }
-        chart::RasterReply::Error(part, err) => {
+        chart::Reply::Error(part, err) => {
           godot_error!("{err} @ {part:?}");
         }
       }

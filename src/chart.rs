@@ -5,31 +5,31 @@ use gdal::{
 };
 use std::{any, cell, path, sync::mpsc, thread};
 
-/// RasterReader is used for opening and reading
+/// Reader is used for opening and reading
 /// [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
-pub struct RasterReader {
+pub struct Reader {
   chart_name: String,
   transformation: Transformation,
-  sender: mpsc::Sender<RasterRequest>,
-  receiver: mpsc::Receiver<RasterReply>,
+  sender: mpsc::Sender<Request>,
+  receiver: mpsc::Receiver<Reply>,
   cancel: cell::Cell<Option<util::Cancel>>,
 }
 
-impl RasterReader {
-  /// Create a new chart raster reader.
+impl Reader {
+  /// Create a new chart reader.
   /// - `path`: chart file path
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     // Open the chart source.
-    let (source, transformation, palette) = RasterSource::open(path)?;
+    let (source, transformation, palette) = Source::open(path)?;
     let chart_name = util::stem_str(path).unwrap().into();
 
     // Create the communication channels.
-    let (sender, thread_receiver) = mpsc::channel::<RasterRequest>();
-    let (thread_sender, receiver) = mpsc::channel::<RasterReply>();
+    let (sender, thread_receiver) = mpsc::channel::<Request>();
+    let (thread_sender, receiver) = mpsc::channel::<Reply>();
 
     // Create the thread.
     thread::Builder::new()
-      .name(any::type_name::<RasterReader>().to_owned())
+      .name(any::type_name::<Reader>().to_owned())
       .spawn(move || {
         let (light, dark) = {
           // Convert the color palette.
@@ -54,12 +54,12 @@ impl RasterReader {
           match source.read(&request.part, pal, request.cancel) {
             Ok(image) => {
               if let Some(image) = image {
-                let reply = RasterReply::Image(request.part, image);
+                let reply = Reply::Image(request.part, image);
                 thread_sender.send(reply).unwrap();
               }
             }
             Err(err) => {
-              let reply = RasterReply::Error(request.part, format!("{err}").into());
+              let reply = Reply::Error(request.part, format!("{err}").into());
               thread_sender.send(reply).unwrap();
             }
           }
@@ -94,11 +94,11 @@ impl RasterReader {
 
     let cancel = util::Cancel::default();
     self.cancel.replace(Some(cancel.clone()));
-    self.sender.send(RasterRequest { part, cancel }).unwrap();
+    self.sender.send(Request { part, cancel }).unwrap();
   }
 
   /// Get the next available reply.
-  pub fn get_reply(&self) -> Option<RasterReply> {
+  pub fn get_reply(&self) -> Option<Reply> {
     self.receiver.try_recv().ok()
   }
 
@@ -109,13 +109,13 @@ impl RasterReader {
   }
 }
 
-impl Drop for RasterReader {
+impl Drop for Reader {
   fn drop(&mut self) {
     self.cancel_request();
   }
 }
 
-pub enum RasterReply {
+pub enum Reply {
   /// Image result from a read operation.
   Image(ImagePart, util::ImageData),
 
@@ -125,7 +125,7 @@ pub enum RasterReply {
 
 /// Transformations between pixel, chart and decimal-degree coordinates.
 pub struct Transformation {
-  // Full size of the chart raster in pixels.
+  // Full size of the chart in pixels.
   px_size: geom::Size,
 
   // The chart spatial reference.
@@ -267,19 +267,19 @@ impl ImagePart {
   }
 }
 
-struct RasterRequest {
+struct Request {
   part: ImagePart,
   cancel: util::Cancel,
 }
 
-/// Chart raster data source.
-struct RasterSource {
+/// Chart data source.
+struct Source {
   dataset: gdal::Dataset,
   band_idx: usize,
   px_size: geom::Size,
 }
 
-impl RasterSource {
+impl Source {
   fn open_options<'a>() -> gdal::DatasetOptions<'a> {
     gdal::DatasetOptions {
       open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY
@@ -304,7 +304,7 @@ impl RasterSource {
   }
 
   /// Open a chart data source.
-  /// - `path`: raster file path
+  /// - `path`: chart file path
   fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<gdal::raster::RgbaEntry>), util::Error> {
     match gdal::Dataset::open_ex(path, Self::open_options()) {
       Ok(dataset) => {
