@@ -322,15 +322,15 @@ impl RequestProcessor {
         self.setup_indexes(spatial_info, cancel);
       }
       Request::Airport(id, cancel) => {
-        let reply = self.airport_query(&id, cancel.clone());
+        let reply = self.airport(&id, cancel.clone());
         self.send(reply, true, cancel);
       }
       Request::Nearby(coord, dist, nph, cancel) => {
-        let reply = self.nearby_query(coord, dist, nph, cancel.clone());
+        let reply = self.nearby(coord, dist, nph, cancel.clone());
         self.send(reply, true, cancel);
       }
       Request::Search(term, nph, cancel) => {
-        let reply = self.search_query(&term, nph, cancel.clone());
+        let reply = self.search(&term, nph, cancel.clone());
         self.send(reply, true, cancel);
       }
     }
@@ -358,7 +358,7 @@ impl RequestProcessor {
     }
   }
 
-  fn airport_query(&self, id: &str, cancel: util::Cancel) -> Reply {
+  fn airport(&self, id: &str, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required for airport ID search".into());
     }
@@ -370,14 +370,14 @@ impl RequestProcessor {
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
-  fn nearby_query(&self, coord: geom::Coord, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
+  fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required to find nearby airports".into());
     }
     Reply::Nearby(self.source.nearby(coord, dist, nph, cancel))
   }
 
-  fn search_query(&self, term: &str, nph: bool, cancel: util::Cancel) -> Reply {
+  fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required for airport search".into());
     }
