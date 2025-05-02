@@ -1,4 +1,4 @@
-use crate::{chart_widget, config, find_dialog, nasr, select_dialog, util};
+use crate::{chart_widget, config, find_dialog, nasr::airport, select_dialog, util};
 use godot::{
   classes::{
     AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent,
@@ -19,8 +19,8 @@ struct MainWidget {
   chart_info: Option<(String, Vec<path::PathBuf>)>,
   find_button: OnReady<Gd<Button>>,
   airport_label: OnReady<Gd<Label>>,
-  airport_reader: Option<nasr::AirportReader>,
-  airport_infos: Option<Vec<nasr::AirportInfo>>,
+  airport_reader: Option<airport::Reader>,
+  airport_infos: Option<Vec<airport::Info>>,
   airport_status: AirportStatus,
 }
 
@@ -143,7 +143,7 @@ impl MainWidget {
     self.airport_infos = None;
   }
 
-  fn select_airport(&mut self, airports: Vec<nasr::AirportInfo>) {
+  fn select_airport(&mut self, airports: Vec<airport::Info>) {
     // It's possible to open a another dialog before the airport query is complete.
     if self.dialog_is_visible() {
       return;
@@ -192,7 +192,7 @@ impl MainWidget {
     let path = path::Path::new(path.as_str());
     let path = path.join(csv).join("APT_BASE.csv");
 
-    match nasr::AirportReader::new(&path) {
+    match airport::Reader::new(&path) {
       Ok(airport_reader) => {
         if let Some(transformation) = self.chart_widget.bind().transformation() {
           // Send the chart spatial reference to the airport reader.
@@ -413,11 +413,11 @@ impl IControl for MainWidget {
     let mut airport_infos = None;
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
-        nasr::AirportReply::Airport(info) => {
+        airport::Reply::Airport(info) => {
           self.chart_widget.bind_mut().goto_coord(info.coord);
         }
-        nasr::AirportReply::Nearby(_infos) => (),
-        nasr::AirportReply::Search(infos) => {
+        airport::Reply::Nearby(_infos) => (),
+        airport::Reply::Search(infos) => {
           if infos.len() > 1 {
             airport_infos = Some(infos);
           } else {
@@ -425,7 +425,7 @@ impl IControl for MainWidget {
             self.chart_widget.bind_mut().goto_coord(coord);
           }
         }
-        nasr::AirportReply::Error(err) => {
+        airport::Reply::Error(err) => {
           self.show_alert(err.as_ref());
         }
       }
