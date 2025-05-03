@@ -3,7 +3,7 @@ use gdal::spatial_ref;
 use godot::prelude::*;
 use std::{cmp, ops};
 
-/// Decimal degree coordinate.
+/// Decimal-degree coordinate.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct DD(Coord);
 
