@@ -5,7 +5,7 @@ use std::{cmp, ops};
 
 /// Decimal degree coordinate.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct DD(pub Coord);
+pub struct DD(Coord);
 
 impl DD {
   pub fn new(lon: f64, lat: f64) -> Self {
@@ -13,17 +13,23 @@ impl DD {
   }
 }
 
+impl From<Coord> for DD {
+  fn from(coord: Coord) -> Self {
+    Self(coord)
+  }
+}
+
 impl ops::Deref for DD {
   type Target = Coord;
 
-  fn deref(&self) -> &Coord {
+  fn deref(&self) -> &Self::Target {
     &self.0
   }
 }
 
 /// Chart coordinate.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Cht(pub Coord);
+pub struct Cht(Coord);
 
 impl Cht {
   #[allow(unused)]
@@ -32,17 +38,23 @@ impl Cht {
   }
 }
 
+impl From<Coord> for Cht {
+  fn from(coord: Coord) -> Self {
+    Self(coord)
+  }
+}
+
 impl ops::Deref for Cht {
   type Target = Coord;
 
-  fn deref(&self) -> &Coord {
+  fn deref(&self) -> &Self::Target {
     &self.0
   }
 }
 
 /// Pixel coordinate
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Px(pub Coord);
+pub struct Px(Coord);
 
 impl Px {
   pub fn new(x: f64, y: f64) -> Self {
@@ -50,10 +62,16 @@ impl Px {
   }
 }
 
+impl From<Coord> for Px {
+  fn from(coord: Coord) -> Self {
+    Self(coord)
+  }
+}
+
 impl ops::Deref for Px {
   type Target = Coord;
 
-  fn deref(&self) -> &Coord {
+  fn deref(&self) -> &Self::Target {
     &self.0
   }
 }

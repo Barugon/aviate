@@ -206,27 +206,29 @@ impl Transformation {
   /// Convert a pixel coordinate to a chart coordinate.
   /// - `coord`: pixel coordinate
   pub fn px_to_cht(&self, coord: geom::Px) -> geom::Cht {
-    geom::Cht(gdal::GeoTransformEx::apply(&self.from_px, coord.x, coord.y).into())
+    let (x, y) = gdal::GeoTransformEx::apply(&self.from_px, coord.x, coord.y);
+    geom::Cht::new(x, y)
   }
 
   /// Convert a chart coordinate to a pixel coordinate.
   /// - `coord`: chart coordinate
   pub fn cht_to_px(&self, coord: geom::Cht) -> geom::Px {
-    geom::Px(gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y).into())
+    let (x, y) = gdal::GeoTransformEx::apply(&self.to_px, coord.x, coord.y);
+    geom::Px::new(x, y)
   }
 
   /// Convert a chart coordinate to a decimal-degree coordinate.
   /// - `coord`: chart coordinate
   pub fn cht_to_dd(&self, coord: geom::Cht) -> errors::Result<geom::DD> {
     use geom::Transform;
-    Ok(geom::DD(self.to_dd.transform(*coord)?))
+    Ok(self.to_dd.transform(*coord)?.into())
   }
 
   /// Convert a decimal-degree coordinate to a chart coordinate.
   /// - `coord`: decimal-degree coordinate
   pub fn dd_to_cht(&self, coord: geom::DD) -> errors::Result<geom::Cht> {
     use geom::Transform;
-    Ok(geom::Cht(self.from_dd.transform(*coord)?))
+    Ok(self.from_dd.transform(*coord)?.into())
   }
 
   /// Convert a pixel coordinate to a decimal-degree coordinate.

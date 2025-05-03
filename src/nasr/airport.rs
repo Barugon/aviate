@@ -425,7 +425,7 @@ impl ToChart {
   }
 
   fn transform(&self, coord: geom::DD) -> errors::Result<geom::Cht> {
-    Ok(geom::Cht(self.trans.transform(*coord)?))
+    Ok(self.trans.transform(*coord)?.into())
   }
 }
 
