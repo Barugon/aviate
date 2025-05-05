@@ -152,8 +152,7 @@ impl Bounds {
       ExtentType::Contained => Self { ext, poly },
       ExtentType::Exact => {
         // A simple extent check will do.
-        let poly = Vec::new();
-        Self { ext, poly }
+        Self { ext, poly: Vec::new() }
       }
     }
   }
@@ -205,12 +204,19 @@ impl Extent {
   /// Create an extent from a polygon. Also returns whether the polygon is an exact rectangle or contained.
   fn from_polygon(poly: &[Cht]) -> (Self, ExtentType) {
     fn exact(poly: &[Cht]) -> Option<Extent> {
+      fn range(start: f64, end: f64) -> ops::RangeInclusive<f64> {
+        if end < start {
+          return end..=start;
+        }
+        start..=end
+      }
+
       if poly[0].y == poly[1].y {
         if poly[1].x == poly[2].x && poly[2].y == poly[3].y && poly[3].x == poly[0].x {
-          return Some(Extent::new(poly[0].x..=poly[1].x, poly[2].y..=poly[1].y));
+          return Some(Extent::new(range(poly[0].x, poly[1].x), range(poly[1].y, poly[2].y)));
         }
       } else if poly[0].x == poly[1].x && poly[1].y == poly[2].y && poly[2].x == poly[3].x && poly[3].y == poly[0].y {
-        return Some(Extent::new(poly[1].x..=poly[2].x, poly[0].y..=poly[1].y));
+        return Some(Extent::new(range(poly[1].x, poly[2].x), range(poly[0].y, poly[1].y)));
       }
       None
     }
