@@ -1,8 +1,5 @@
 use crate::{config, geom, util};
-use gdal::{
-  errors, raster,
-  spatial_ref::{self, SpatialRef},
-};
+use gdal::{errors, raster, spatial_ref};
 use std::{any, cell, path, sync::mpsc, thread};
 
 /// Reader is used for opening and reading
@@ -291,30 +288,29 @@ impl Source {
     }
   }
 
-  fn check_spatial_ref(sr: SpatialRef) -> Result<SpatialRef, util::Error> {
-    match sr.to_proj4() {
-      Ok(proj4) => {
-        for item in ["+proj=lcc", "+datum=NAD83", "+units=m"] {
-          if !proj4.contains(item) {
-            return Err("Unable to open chart:\ninvalid spatial reference".into());
-          }
-        }
-        Ok(sr)
-      }
-      Err(err) => Err(format!("Unable to open chart:\n{err}").into()),
-    }
-  }
-
   /// Open a chart data source.
   /// - `path`: chart file path
   fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<gdal::raster::RgbaEntry>), util::Error> {
     match gdal::Dataset::open_ex(path, Self::open_options()) {
       Ok(dataset) => {
-        // Get and check the dataset's spatial reference.
-        let cht_sr = match dataset.spatial_ref() {
-          Ok(sr) => Self::check_spatial_ref(sr)?,
+        // Get the spatial reference from the dataset.
+        let spatial_ref = match dataset.spatial_ref() {
+          Ok(sr) => sr,
           Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
         };
+
+        // Check the spatial reference.
+        match spatial_ref.to_proj4() {
+          Ok(proj4) => {
+            // A valid chart PROJ4 string must contain these terms.
+            for item in ["+proj=lcc", "+datum=NAD83", "+units=m"] {
+              if !proj4.contains(item) {
+                return Err("Unable to open chart:\ninvalid spatial reference".into());
+              }
+            }
+          }
+          Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+        }
 
         // Dataset must have a geo-transformation.
         let geo_trans = match dataset.geo_transform() {
@@ -328,7 +324,7 @@ impl Source {
         }
 
         let cht_name = util::stem_str(path).unwrap();
-        let transformation = match Transformation::new(cht_name, px_size, cht_sr, geo_trans) {
+        let transformation = match Transformation::new(cht_name, px_size, spatial_ref, geo_trans) {
           Ok(trans) => trans,
           Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
         };
