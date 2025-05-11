@@ -492,6 +492,7 @@ impl Source {
     let mut loc_vec = Vec::new();
     let mut layer = self.layer();
 
+    // Iterator resets feature reading when dropped.
     for feature in layer.features() {
       if cancel.canceled() {
         return false;
