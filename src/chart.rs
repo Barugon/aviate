@@ -421,12 +421,14 @@ impl Source {
         portion = xr;
 
         if remain < xr {
-          // Resample what remains of this pixel.
-          let rgb = &pal[*src as usize];
-          let ratio = remain * yr;
-          dst[0] += rgb[0] * ratio;
-          dst[1] += rgb[1] * ratio;
-          dst[2] += rgb[2] * ratio;
+          if remain > 0.0 {
+            // Resample what remains of this pixel.
+            let rgb = &pal[*src as usize];
+            let ratio = remain * yr;
+            dst[0] += rgb[0] * ratio;
+            dst[1] += rgb[1] * ratio;
+            dst[2] += rgb[2] * ratio;
+          }
 
           // Move to the next destination pixel.
           let Some(dst_next) = dst_iter.next() else {
@@ -485,8 +487,10 @@ impl Source {
       remain -= portion;
       portion = part.zoom;
       if remain < part.zoom {
-        // Process the final amount from this source row.
-        process_row(&mut int_row, &src_row, pal, part.zoom, remain);
+        if remain > 0.0 {
+          // Process the final amount from this source row.
+          process_row(&mut int_row, &src_row, pal, part.zoom, remain);
+        }
 
         // Output the destination row.
         for rgb in &mut int_row {
