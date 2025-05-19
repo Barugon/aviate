@@ -434,35 +434,37 @@ impl Source {
       let mut portion = xr;
       let mut remain = 1.0;
 
-      let Some(mut dst) = dst_iter.next() else {
-        return;
+      let mut dst = match dst_iter.next() {
+        Some(dst) => dst,
+        None => return,
       };
 
-      let Some(mut src) = src_iter.next() else {
-        return;
+      let mut src = match src_iter.next() {
+        Some(&src) => src,
+        None => return,
       };
 
       loop {
         // Resample the source pixel.
-        let rgb = &pal[*src as usize];
+        let rgb = &pal[src as usize];
         let ratio = portion * yr;
         dst[0] += rgb[0] * ratio;
         dst[1] += rgb[1] * ratio;
         dst[2] += rgb[2] * ratio;
 
-        // Move to the next source pixel.
-        let Some(src_next) = src_iter.next() else {
-          break;
+        // Get the next source pixel.
+        src = match src_iter.next() {
+          Some(&src) => src,
+          None => break,
         };
 
-        src = src_next;
         remain -= portion;
         portion = xr;
 
         if remain < xr {
           if remain > 0.0 {
             // Resample what remains of this pixel.
-            let rgb = &pal[*src as usize];
+            let rgb = &pal[src as usize];
             let ratio = remain * yr;
             dst[0] += rgb[0] * ratio;
             dst[1] += rgb[1] * ratio;
@@ -470,11 +472,11 @@ impl Source {
           }
 
           // Move to the next destination pixel.
-          let Some(dst_next) = dst_iter.next() else {
-            break;
+          dst = match dst_iter.next() {
+            Some(dst) => dst,
+            None => break,
           };
 
-          dst = dst_next;
           portion = xr - remain;
           remain = 1.0;
         }
