@@ -1,6 +1,6 @@
 use crate::{config, geom, util};
 use gdal::{errors, raster, spatial_ref};
-use std::{any, cell, path, sync::mpsc, thread};
+use std::{any, array, cell, path, sync::mpsc, thread};
 
 /// Reader is used for opening and reading
 /// [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
@@ -29,16 +29,10 @@ impl Reader {
       .name(any::type_name::<Reader>().to_owned())
       .spawn(move || {
         // Convert the color palette.
-        let (light, dark) = {
-          assert!(palette.len() == PAL_LEN);
-          let mut light = [[0.0, 0.0, 0.0]; PAL_LEN];
-          let mut dark = [[0.0, 0.0, 0.0]; PAL_LEN];
-          for (idx, entry) in palette.into_iter().enumerate() {
-            light[idx] = util::color_f32(entry);
-            dark[idx] = util::inverted_color_f32(entry);
-          }
-          (light, dark)
-        };
+        assert!(palette.len() == PAL_LEN);
+        let light: PaletteF32 = array::from_fn(|idx| util::color_f32(palette[idx]));
+        let dark: PaletteF32 = array::from_fn(|idx| util::inverted_color_f32(palette[idx]));
+        drop(palette);
 
         // Wait for a message. Exit when the connection is closed.
         while let Ok(request) = thread_receiver.recv() {
@@ -268,7 +262,8 @@ impl ImagePart {
 }
 
 const PAL_LEN: usize = u8::MAX as usize + 1;
-type Palette = [[f32; 3]; PAL_LEN];
+type PaletteF32 = [util::ColorF32; PAL_LEN];
+type PaletteU8 = [util::ColorU8; PAL_LEN];
 
 struct Request {
   part: ImagePart,
@@ -387,7 +382,7 @@ impl Source {
     }
   }
 
-  fn read(&self, part: &ImagePart, pal: &Palette, cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
+  fn read(&self, part: &ImagePart, pal: &PaletteF32, cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
     if !part.is_valid() || cancel.canceled() {
       return Ok(None);
     }
@@ -406,13 +401,7 @@ impl Source {
 
     if part.zoom == 1.0 {
       // Create a direct palette.
-      let pal = {
-        let mut direct_pal = [[0, 0, 0, 0]; PAL_LEN];
-        for (idx, color) in pal.iter().enumerate() {
-          direct_pal[idx] = util::color_u8(*color);
-        }
-        direct_pal
-      };
+      let pal: PaletteU8 = array::from_fn(|idx| util::color_u8(pal[idx]));
 
       let mut dst = Vec::with_capacity(sw * sh);
       loop {
@@ -439,7 +428,7 @@ impl Source {
     }
 
     /// Process a source image row and accumulate into an intermediate result.
-    fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &Palette, xr: f32, yr: f32) {
+    fn process_row(dst: &mut [util::ColorF32], src: &[u8], pal: &PaletteF32, xr: f32, yr: f32) {
       let mut dst_iter = dst.iter_mut();
       let mut src_iter = src.iter();
       let mut portion = xr;
