@@ -28,8 +28,9 @@ impl Reader {
     thread::Builder::new()
       .name(any::type_name::<Reader>().to_owned())
       .spawn(move || {
+        // Convert the color palette.
         let (light, dark) = {
-          // Convert the color palette.
+          assert!(palette.len() == PAL_LEN);
           let mut light = [[0.0, 0.0, 0.0]; PAL_LEN];
           let mut dark = [[0.0, 0.0, 0.0]; PAL_LEN];
           for (idx, entry) in palette.into_iter().enumerate() {
@@ -391,6 +392,52 @@ impl Source {
       return Ok(None);
     }
 
+    let raster = self.dataset.rasterband(self.band_idx).unwrap();
+    let src_rect = part.rect.scaled(1.0 / part.zoom).fitted(self.px_size);
+    let src_end = src_rect.pos.y as isize + src_rect.size.h as isize;
+    let sw = src_rect.size.w as usize;
+    let sh = src_rect.size.h as usize;
+    let sx = src_rect.pos.x as isize;
+    let mut sy = src_rect.pos.y as isize;
+
+    // Read the first source row.
+    let src_buf = raster.read_as::<u8>((sx, sy), (sw, 1), (sw, 1), None)?;
+    let (_, mut src_row) = src_buf.into_shape_and_vec();
+
+    if part.zoom == 1.0 {
+      // Create a direct palette.
+      let pal = {
+        let mut direct_pal = [[0, 0, 0, 0]; PAL_LEN];
+        for (idx, color) in pal.iter().enumerate() {
+          direct_pal[idx] = util::color_u8(*color);
+        }
+        direct_pal
+      };
+
+      let mut dst = Vec::with_capacity(sw * sh);
+      loop {
+        if cancel.canceled() {
+          return Ok(None);
+        }
+
+        // Covert the pixels.
+        for &idx in &src_row {
+          dst.push(pal[idx as usize]);
+        }
+
+        // Check for the end.
+        sy += 1;
+        if sy == src_end {
+          break;
+        }
+
+        // Read the next source row.
+        raster.read_into_slice((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+      }
+
+      return Ok(Some(util::ImageData { w: sw, h: sh, px: dst }));
+    }
+
     /// Process a source image row and accumulate into an intermediate result.
     fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &Palette, xr: f32, yr: f32) {
       let mut dst_iter = dst.iter_mut();
@@ -445,13 +492,6 @@ impl Source {
       }
     }
 
-    let raster = self.dataset.rasterband(self.band_idx).unwrap();
-    let src_rect = part.rect.scaled(1.0 / part.zoom).fitted(self.px_size);
-    let src_end = src_rect.pos.y as isize + src_rect.size.h as isize;
-    let sw = src_rect.size.w as usize;
-    let sx = src_rect.pos.x as isize;
-    let mut sy = src_rect.pos.y as isize;
-
     let dw = part.rect.size.w as usize;
     let dh = part.rect.size.h as usize;
     let mut dy = 0;
@@ -459,10 +499,6 @@ impl Source {
     let mut dst = Vec::with_capacity(dw * dh);
     let mut portion = part.zoom;
     let mut remain = 1.0;
-
-    // Read the first source row.
-    let src_buf = raster.read_as::<u8>((sx, sy), (sw, 1), (sw, 1), None)?;
-    let (_, mut src_row) = src_buf.into_shape_and_vec();
 
     loop {
       // Check if the operation has been canceled.
