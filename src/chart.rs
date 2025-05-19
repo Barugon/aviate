@@ -30,11 +30,11 @@ impl Reader {
       .spawn(move || {
         let (light, dark) = {
           // Convert the color palette.
-          let mut light = Vec::with_capacity(u8::MAX as usize);
-          let mut dark = Vec::with_capacity(u8::MAX as usize);
-          for entry in palette {
-            light.push(util::color_f32(entry));
-            dark.push(util::inverted_color_f32(entry));
+          let mut light = [[0.0, 0.0, 0.0]; PAL_LEN];
+          let mut dark = [[0.0, 0.0, 0.0]; PAL_LEN];
+          for (idx, entry) in palette.into_iter().enumerate() {
+            light[idx] = util::color_f32(entry);
+            dark[idx] = util::inverted_color_f32(entry);
           }
           (light, dark)
         };
@@ -43,8 +43,8 @@ impl Reader {
         while let Ok(request) = thread_receiver.recv() {
           // Choose the palette.
           let pal = match request.part.pal_type {
-            PaletteType::Light => light.as_slice(),
-            PaletteType::Dark => dark.as_slice(),
+            PaletteType::Light => &light,
+            PaletteType::Dark => &dark,
           };
 
           // Read the image data.
@@ -266,6 +266,9 @@ impl ImagePart {
   }
 }
 
+const PAL_LEN: usize = u8::MAX as usize + 1;
+type Palette = [[f32; 3]; PAL_LEN];
+
 struct Request {
   part: ImagePart,
   cancel: util::Cancel,
@@ -345,7 +348,7 @@ impl Source {
 
             // The color table must have 256 entries.
             let size = color_table.entry_count();
-            if size != 256 {
+            if size != PAL_LEN {
               return Err("Unable to open chart:\ninvalid color table".into());
             }
 
@@ -383,13 +386,13 @@ impl Source {
     }
   }
 
-  fn read(&self, part: &ImagePart, pal: &[[f32; 3]], cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
+  fn read(&self, part: &ImagePart, pal: &Palette, cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
     if !part.is_valid() || cancel.canceled() {
       return Ok(None);
     }
 
     /// Process a source image row and accumulate into an intermediate result.
-    fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &[[f32; 3]], xr: f32, yr: f32) {
+    fn process_row(dst: &mut [[f32; 3]], src: &[u8], pal: &Palette, xr: f32, yr: f32) {
       let mut dst_iter = dst.iter_mut();
       let mut src_iter = src.iter();
       let mut portion = xr;
@@ -444,17 +447,18 @@ impl Source {
 
     let raster = self.dataset.rasterband(self.band_idx).unwrap();
     let src_rect = part.rect.scaled(1.0 / part.zoom).fitted(self.px_size);
+    let src_end = src_rect.pos.y as isize + src_rect.size.h as isize;
     let sw = src_rect.size.w as usize;
     let sx = src_rect.pos.x as isize;
-    let src_end = src_rect.pos.y as isize + src_rect.size.h as isize;
+    let mut sy = src_rect.pos.y as isize;
+
     let dw = part.rect.size.w as usize;
     let dh = part.rect.size.h as usize;
+    let mut dy = 0;
     let mut int_row = vec![[0.0, 0.0, 0.0]; dw];
     let mut dst = Vec::with_capacity(dw * dh);
     let mut portion = part.zoom;
     let mut remain = 1.0;
-    let mut sy = src_rect.pos.y as isize;
-    let mut dy = 0;
 
     // Read the first source row.
     let src_buf = raster.read_as::<u8>((sx, sy), (sw, 1), (sw, 1), None)?;
