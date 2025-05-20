@@ -281,14 +281,14 @@ pub type ColorF32 = [f32; 3];
 pub type ColorU8 = [u8; 4];
 
 /// Check if a GDAL `RgbaEntry` will fit into a `ColorU8`.
-pub fn check_color(color: raster::RgbaEntry) -> bool {
+pub fn check_color(color: &raster::RgbaEntry) -> bool {
   const MAX: i16 = u8::MAX as i16;
   const COMP_RANGE: ops::RangeInclusive<i16> = 0..=MAX;
   COMP_RANGE.contains(&color.r) && COMP_RANGE.contains(&color.g) && COMP_RANGE.contains(&color.b) && color.a == MAX
 }
 
 /// Convert a GDAL `RgbaEntry` to a `ColorF32`.
-pub fn color_f32(color: raster::RgbaEntry) -> ColorF32 {
+pub fn color_f32(color: &raster::RgbaEntry) -> ColorF32 {
   assert!(check_color(color));
 
   // Convert colors to floating point in 0.0..=1.0 range.
@@ -297,7 +297,7 @@ pub fn color_f32(color: raster::RgbaEntry) -> ColorF32 {
 }
 
 /// Convert a GDAL `RgbaEntry` to a luminance inverted `ColorF32`.
-pub fn inverted_color_f32(color: raster::RgbaEntry) -> ColorF32 {
+pub fn inverted_color_f32(color: &raster::RgbaEntry) -> ColorF32 {
   let [r, g, b] = color_f32(color);
 
   // Convert to YCbCr and invert the luminance.
@@ -313,8 +313,8 @@ pub fn inverted_color_f32(color: raster::RgbaEntry) -> ColorF32 {
   [r, g, b]
 }
 
-/// Convert a `ColorF32` color to `ColorU8`
-pub fn color_u8(color: ColorF32) -> ColorU8 {
+/// Convert a `ColorF32` to `ColorU8`
+pub fn color_u8(color: &ColorF32) -> ColorU8 {
   const SCALE: f32 = u8::MAX as f32;
   [
     (color[0] * SCALE) as u8,

@@ -30,8 +30,8 @@ impl Reader {
       .spawn(move || {
         // Convert the color palette.
         assert!(palette.len() == PAL_LEN);
-        let light: PaletteF32 = array::from_fn(|idx| util::color_f32(palette[idx]));
-        let dark: PaletteF32 = array::from_fn(|idx| util::inverted_color_f32(palette[idx]));
+        let light: PaletteF32 = array::from_fn(|idx| util::color_f32(&palette[idx]));
+        let dark: PaletteF32 = array::from_fn(|idx| util::inverted_color_f32(&palette[idx]));
         drop(palette);
 
         // Wait for a message. Exit when the connection is closed.
@@ -356,7 +356,7 @@ impl Source {
               };
 
               // All components must be in 0..256 range.
-              if !util::check_color(color) {
+              if !util::check_color(&color) {
                 return Err("Unable to open chart:\ncolor table contains invalid colors".into());
               }
 
@@ -400,16 +400,15 @@ impl Source {
     let (_, mut src_row) = src_buf.into_shape_and_vec();
 
     if part.zoom == 1.0 {
-      // Create a direct palette.
-      let pal: PaletteU8 = array::from_fn(|idx| util::color_u8(pal[idx]));
-
+      let pal: PaletteU8 = array::from_fn(|idx| util::color_u8(&pal[idx]));
       let mut dst = Vec::with_capacity(sw * sh);
+
       loop {
         if cancel.canceled() {
           return Ok(None);
         }
 
-        // Covert the pixels.
+        // Convert the pixels.
         for &idx in &src_row {
           dst.push(pal[idx as usize]);
         }
@@ -506,7 +505,7 @@ impl Source {
         // Output this row if the end of the destination data hasn't been reached.
         if dy < dh {
           for rgb in &int_row {
-            dst.push(util::color_u8(*rgb));
+            dst.push(util::color_u8(rgb));
           }
         }
         break;
@@ -525,7 +524,7 @@ impl Source {
 
         // Output the destination row.
         for rgb in &mut int_row {
-          dst.push(util::color_u8(*rgb));
+          dst.push(util::color_u8(rgb));
           *rgb = [0.0, 0.0, 0.0];
         }
 
