@@ -504,8 +504,8 @@ impl Source {
       if sy == src_end {
         // Output this row if the end of the destination data hasn't been reached.
         if dy < dh {
-          for rgb in &int_row {
-            dst.push(util::color_u8(rgb));
+          for int_px in &int_row {
+            dst.push(util::color_u8(int_px));
           }
         }
         break;
@@ -522,10 +522,10 @@ impl Source {
           process_row(&mut int_row, &src_row, pal, part.zoom, remain);
         }
 
-        // Output the destination row.
-        for rgb in &mut int_row {
-          dst.push(util::color_u8(rgb));
-          *rgb = [0.0, 0.0, 0.0];
+        // Output the row.
+        for int_px in &mut int_row {
+          dst.push(util::color_u8(int_px));
+          *int_px = [0.0, 0.0, 0.0];
         }
 
         // Check if the end of the destination data has been reached.
