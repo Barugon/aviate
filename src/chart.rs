@@ -28,11 +28,15 @@ impl Reader {
     thread::Builder::new()
       .name(any::type_name::<Reader>().to_owned())
       .spawn(move || {
+        fn convert_palette(palette: Vec<raster::RgbaEntry>) -> (PaletteF32, PaletteF32) {
+          assert!(palette.len() == PAL_LEN);
+          let light = array::from_fn(|idx| util::color_f32(&palette[idx]));
+          let dark = array::from_fn(|idx| util::inverted_color_f32(&palette[idx]));
+          (light, dark)
+        }
+
         // Convert the color palette.
-        assert!(palette.len() == PAL_LEN);
-        let light: PaletteF32 = array::from_fn(|idx| util::color_f32(&palette[idx]));
-        let dark: PaletteF32 = array::from_fn(|idx| util::inverted_color_f32(&palette[idx]));
-        drop(palette);
+        let (light, dark) = convert_palette(palette);
 
         // Wait for a message. Exit when the connection is closed.
         while let Ok(request) = thread_receiver.recv() {
