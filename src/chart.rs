@@ -86,10 +86,7 @@ impl Reader {
   /// - `part`: the area to read from the source image.
   pub fn read_image(&self, part: ImagePart) {
     assert!(part.is_valid());
-    self.cancel_request();
-
-    let cancel = util::Cancel::default();
-    self.cancel.replace(Some(cancel.clone()));
+    let cancel = self.cancel_request();
     self.sender.send(Request { part, cancel }).unwrap();
   }
 
@@ -98,16 +95,20 @@ impl Reader {
     self.receiver.try_recv().ok()
   }
 
-  fn cancel_request(&self) {
-    if let Some(mut cancel) = self.cancel.take() {
+  fn cancel_request(&self) -> util::Cancel {
+    let cancel = util::Cancel::default();
+    if let Some(mut cancel) = self.cancel.replace(Some(cancel.clone())) {
       cancel.cancel();
     }
+    cancel
   }
 }
 
 impl Drop for Reader {
   fn drop(&mut self) {
-    self.cancel_request();
+    if let Some(mut cancel) = self.cancel.take() {
+      cancel.cancel();
+    }
   }
 }
 
