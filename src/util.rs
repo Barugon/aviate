@@ -9,6 +9,7 @@ use godot::{
 use std::{
   borrow, cmp, collections, ops, path,
   sync::{self, atomic},
+  time,
 };
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
@@ -26,6 +27,23 @@ pub fn ok<T, E: std::fmt::Display>(result: Result<T, E>) -> Option<T> {
       godot::global::godot_error!("{err}");
       None
     }
+  }
+}
+
+pub struct ExecTime {
+  start: time::Instant,
+}
+
+#[allow(unused)]
+impl ExecTime {
+  pub fn new() -> Self {
+    let start = time::Instant::now();
+    Self { start }
+  }
+
+  /// Get the elapsed time in seconds.
+  pub fn elapsed(&self) -> f64 {
+    (time::Instant::now() - self.start).as_secs_f64()
   }
 }
 
