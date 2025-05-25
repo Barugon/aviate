@@ -392,7 +392,7 @@ impl Source {
       return Ok(None);
     }
 
-    let raster = self.dataset.rasterband(self.band_idx).unwrap();
+    let raster = self.dataset.rasterband(self.band_idx)?;
     let src_rect = part.rect.scaled(1.0 / part.zoom).fitted(self.px_size);
     let src_end = src_rect.pos.y as isize + src_rect.size.h as isize;
     let sw = src_rect.size.w as usize;
@@ -401,7 +401,8 @@ impl Source {
     let mut sy = src_rect.pos.y as isize;
 
     // Read the first source row.
-    let src_buf = raster.read_as::<u8>((sx, sy), (sw, 1), (sw, 1), None)?;
+    let src_size = (sw, 1);
+    let src_buf = raster.read_as::<u8>((sx, sy), src_size, src_size, None)?;
     let (_, mut src_row) = src_buf.into_shape_and_vec();
 
     if part.zoom == 1.0 {
@@ -425,7 +426,7 @@ impl Source {
         }
 
         // Read the next source row.
-        raster.read_into_slice((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+        raster.read_into_slice((sx, sy), src_size, src_size, &mut src_row, None)?;
       }
 
       return Ok(Some(util::ImageData { w: sw, h: sh, px: dst }));
@@ -435,7 +436,7 @@ impl Source {
     fn process_row(dst: &mut [util::ColorF32], src: &[u8], pal: &PaletteF32, xr: f32, yr: f32) {
       let mut dst_iter = dst.iter_mut();
       let mut src_iter = src.iter();
-      let mut portion = xr;
+      let mut ratio = xr;
       let mut remain = 1.0;
 
       let mut dst = match dst_iter.next() {
@@ -451,10 +452,10 @@ impl Source {
       loop {
         // Resample the source pixel.
         let rgb = &pal[src as usize];
-        let ratio = portion * yr;
-        dst[0] += rgb[0] * ratio;
-        dst[1] += rgb[1] * ratio;
-        dst[2] += rgb[2] * ratio;
+        let pxr = ratio * yr;
+        dst[0] += rgb[0] * pxr;
+        dst[1] += rgb[1] * pxr;
+        dst[2] += rgb[2] * pxr;
 
         // Get the next source pixel.
         src = match src_iter.next() {
@@ -462,17 +463,16 @@ impl Source {
           None => break,
         };
 
-        remain -= portion;
-        portion = xr;
-
+        remain -= ratio;
+        ratio = xr;
         if remain < xr {
           if remain > 0.0 {
             // Resample what remains of this pixel.
             let rgb = &pal[src as usize];
-            let ratio = remain * yr;
-            dst[0] += rgb[0] * ratio;
-            dst[1] += rgb[1] * ratio;
-            dst[2] += rgb[2] * ratio;
+            let pxr = remain * yr;
+            dst[0] += rgb[0] * pxr;
+            dst[1] += rgb[1] * pxr;
+            dst[2] += rgb[2] * pxr;
           }
 
           // Move to the next destination pixel.
@@ -481,7 +481,7 @@ impl Source {
             None => break,
           };
 
-          portion = xr - remain;
+          ratio = xr - remain;
           remain = 1.0;
         }
       }
@@ -492,17 +492,16 @@ impl Source {
     let mut dy = 0;
     let mut int_row = vec![[0.0, 0.0, 0.0]; dw];
     let mut dst = Vec::with_capacity(dw * dh);
-    let mut portion = part.zoom;
+    let mut ratio = part.zoom;
     let mut remain = 1.0;
 
     loop {
-      // Check if the operation has been canceled.
       if cancel.canceled() {
         return Ok(None);
       }
 
       // Process the source row.
-      process_row(&mut int_row, &src_row, pal, part.zoom, portion);
+      process_row(&mut int_row, &src_row, pal, part.zoom, ratio);
 
       // Check if the end of the source data has been reached.
       sy += 1;
@@ -517,13 +516,13 @@ impl Source {
       }
 
       // Read the next source row.
-      raster.read_into_slice((sx, sy), (sw, 1), (sw, 1), &mut src_row, None)?;
+      raster.read_into_slice((sx, sy), src_size, src_size, &mut src_row, None)?;
 
-      remain -= portion;
-      portion = part.zoom;
+      remain -= ratio;
+      ratio = part.zoom;
       if remain < part.zoom {
         if remain > 0.0 {
-          // Process the final amount from this source row.
+          // Process the remaining amount from this source row.
           process_row(&mut int_row, &src_row, pal, part.zoom, remain);
         }
 
@@ -539,7 +538,7 @@ impl Source {
           break;
         }
 
-        portion = part.zoom - remain;
+        ratio = part.zoom - remain;
         remain = 1.0;
       }
     }
