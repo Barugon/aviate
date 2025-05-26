@@ -392,22 +392,44 @@ impl Source {
       return Ok(None);
     }
 
+    struct Area {
+      x: isize,
+      y: isize,
+      w: usize,
+      h: usize,
+      end: isize,
+    }
+
+    impl Area {
+      fn new(rect: geom::Rect) -> Self {
+        let x = rect.pos.x as isize;
+        let y = rect.pos.y as isize;
+        let w = rect.size.w as usize;
+        let h = rect.size.h as usize;
+        let end = y + h as isize;
+        Self { x, y, w, h, end }
+      }
+
+      fn next(&mut self) -> bool {
+        self.y += 1;
+        self.y < self.end
+      }
+
+      fn pos(&self) -> (isize, isize) {
+        (self.x, self.y)
+      }
+    }
+
     let raster = self.dataset.rasterband(self.band_idx)?;
-    let src_rect = part.rect.scaled(1.0 / part.zoom).fitted(self.px_size);
-    let src_end = src_rect.pos.y as isize + src_rect.size.h as isize;
-    let sw = src_rect.size.w as usize;
-    let sh = src_rect.size.h as usize;
-    let sx = src_rect.pos.x as isize;
-    let mut sy = src_rect.pos.y as isize;
+    let mut src_area = Area::new(part.rect.scaled(1.0 / part.zoom).fitted(self.px_size));
 
     // Read the first source row.
-    let src_size = (sw, 1);
-    let src_buf = raster.read_as::<u8>((sx, sy), src_size, src_size, None)?;
-    let (_, mut src_row) = src_buf.into_shape_and_vec();
+    let src_buf = raster.read_as::<u8>(src_area.pos(), (src_area.w, 1), (src_area.w, 1), None)?;
+    let (src_size, mut src_row) = src_buf.into_shape_and_vec();
 
     if part.zoom == 1.0 {
       let pal: PaletteU8 = array::from_fn(|idx| util::color_u8(&pal[idx]));
-      let mut dst = Vec::with_capacity(sw * sh);
+      let mut dst = Vec::with_capacity(src_area.w * src_area.h);
 
       loop {
         if cancel.canceled() {
@@ -420,16 +442,19 @@ impl Source {
         }
 
         // Check for the end.
-        sy += 1;
-        if sy == src_end {
+        if !src_area.next() {
           break;
         }
 
         // Read the next source row.
-        raster.read_into_slice((sx, sy), src_size, src_size, &mut src_row, None)?;
+        raster.read_into_slice(src_area.pos(), src_size, src_size, &mut src_row, None)?;
       }
 
-      return Ok(Some(util::ImageData { w: sw, h: sh, px: dst }));
+      return Ok(Some(util::ImageData {
+        w: src_area.w,
+        h: src_area.h,
+        px: dst,
+      }));
     }
 
     /// Process a source image row and accumulate into an intermediate result.
@@ -487,11 +512,9 @@ impl Source {
       }
     }
 
-    let dw = part.rect.size.w as usize;
-    let dh = part.rect.size.h as usize;
-    let mut dy = 0;
-    let mut int_row = vec![[0.0, 0.0, 0.0]; dw];
-    let mut dst = Vec::with_capacity(dw * dh);
+    let mut dst_area = Area::new(part.rect);
+    let mut int_row = vec![[0.0, 0.0, 0.0]; dst_area.w];
+    let mut dst = Vec::with_capacity(dst_area.w * dst_area.h);
     let mut ratio = part.zoom;
     let mut remain = 1.0;
 
@@ -504,19 +527,16 @@ impl Source {
       process_row(&mut int_row, &src_row, pal, part.zoom, ratio);
 
       // Check if the end of the source data has been reached.
-      sy += 1;
-      if sy == src_end {
-        // Output this row if the end of the destination data hasn't been reached.
-        if dy < dh {
-          for int_px in &int_row {
-            dst.push(util::color_u8(int_px));
-          }
+      if !src_area.next() {
+        // Output this row.
+        for int_px in &int_row {
+          dst.push(util::color_u8(int_px));
         }
         break;
       }
 
       // Read the next source row.
-      raster.read_into_slice((sx, sy), src_size, src_size, &mut src_row, None)?;
+      raster.read_into_slice(src_area.pos(), src_size, src_size, &mut src_row, None)?;
 
       remain -= ratio;
       ratio = part.zoom;
@@ -532,9 +552,8 @@ impl Source {
           *int_px = [0.0, 0.0, 0.0];
         }
 
-        // Check if the end of the destination data has been reached.
-        dy += 1;
-        if dy == dh {
+        // Check if the end of the destination has been reached.
+        if !dst_area.next() {
           break;
         }
 
@@ -543,6 +562,10 @@ impl Source {
       }
     }
 
-    Ok(Some(util::ImageData { w: dw, h: dh, px: dst }))
+    Ok(Some(util::ImageData {
+      w: dst_area.w,
+      h: dst_area.h,
+      px: dst,
+    }))
   }
 }
