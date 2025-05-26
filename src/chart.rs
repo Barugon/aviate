@@ -294,12 +294,21 @@ impl Source {
   /// Open a chart data source.
   /// - `path`: chart file path
   fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<raster::RgbaEntry>, String), util::Error> {
+    macro_rules! error_msg {
+      ($val:literal) => {
+        util::Error::Borrowed(concat!("Unable to open chart:\n", $val))
+      };
+      ($val:expr) => {
+        util::Error::Owned(format!("Unable to open chart:\n{}", $val))
+      };
+    }
+
     match gdal::Dataset::open_ex(path, Self::open_options()) {
       Ok(dataset) => {
         // Get the spatial reference from the dataset.
         let spatial_ref = match dataset.spatial_ref() {
           Ok(sr) => sr,
-          Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+          Err(err) => return Err(error_msg!(err)),
         };
 
         // Check the spatial reference.
@@ -308,31 +317,31 @@ impl Source {
             // A valid chart PROJ4 string must contain these terms.
             for item in ["+proj=lcc", "+datum=NAD83", "+units=m"] {
               if !proj4.contains(item) {
-                return Err("Unable to open chart:\ninvalid spatial reference".into());
+                return Err(error_msg!("invalid spatial reference"));
               }
             }
           }
-          Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+          Err(err) => return Err(error_msg!(err)),
         }
 
         // Dataset must have a geo-transformation.
         let geo_trans = match dataset.geo_transform() {
           Ok(gt) => gt,
-          Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+          Err(err) => return Err(error_msg!(err)),
         };
 
         let px_size: geom::Size = dataset.raster_size().into();
         if !px_size.is_valid() {
-          return Err("Unable to open chart:\ninvalid pixel size".into());
+          return Err(error_msg!("invalid pixel size"));
         }
 
         let Some(chart_name) = util::stem_str(path) else {
-          return Err("Unable to open chart:\ncannot determine chart name".into());
+          return Err(error_msg!("cannot determine chart name"));
         };
 
         let transformation = match Transformation::new(chart_name, px_size, spatial_ref, geo_trans) {
           Ok(trans) => trans,
-          Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
+          Err(err) => return Err(error_msg!(err)),
         };
 
         let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
@@ -346,25 +355,25 @@ impl Source {
             }
 
             let Some(color_table) = rasterband.color_table() else {
-              return Err("Unable to open chart:\ncolor table not found".into());
+              return Err(error_msg!("color table not found"));
             };
 
             // The color table must have 256 entries.
             let size = color_table.entry_count();
             if size != PAL_LEN {
-              return Err("Unable to open chart:\ninvalid color table".into());
+              return Err(error_msg!("invalid color table"));
             }
 
             // Collect the color entries as RGB.
             let mut palette = Vec::with_capacity(size);
             for index in 0..size {
               let Some(color) = color_table.entry_as_rgb(index) else {
-                return Err("Unable to open chart:\ninvalid color table".into());
+                return Err(error_msg!("invalid color table"));
               };
 
               // All components must be in 0..256 range.
               if !util::check_color(&color) {
-                return Err("Unable to open chart:\ncolor table contains invalid colors".into());
+                return Err(error_msg!("color table contains invalid colors"));
               }
 
               palette.push(color);
@@ -372,7 +381,7 @@ impl Source {
 
             return Ok((index, palette));
           }
-          Err("Unable to open chart:\nraster layer not found".into())
+          Err(error_msg!("raster layer not found"))
         }()?;
 
         Ok((
@@ -386,7 +395,7 @@ impl Source {
           chart_name.into(),
         ))
       }
-      Err(err) => Err(format!("Unable to open chart:\n{err}").into()),
+      Err(err) => Err(error_msg!(err)),
     }
   }
 
