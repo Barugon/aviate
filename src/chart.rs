@@ -17,8 +17,7 @@ impl Reader {
   /// - `path`: chart file path
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     // Open the chart source.
-    let (source, transformation, palette) = Source::open(path)?;
-    let chart_name = util::stem_str(path).unwrap().into();
+    let (source, transformation, palette, chart_name) = Source::open(path)?;
 
     // Create the communication channels.
     let (sender, thread_receiver) = mpsc::channel::<Request>();
@@ -294,7 +293,7 @@ impl Source {
 
   /// Open a chart data source.
   /// - `path`: chart file path
-  fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<gdal::raster::RgbaEntry>), util::Error> {
+  fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<raster::RgbaEntry>, String), util::Error> {
     match gdal::Dataset::open_ex(path, Self::open_options()) {
       Ok(dataset) => {
         // Get the spatial reference from the dataset.
@@ -327,8 +326,11 @@ impl Source {
           return Err("Unable to open chart:\ninvalid pixel size".into());
         }
 
-        let cht_name = util::stem_str(path).unwrap();
-        let transformation = match Transformation::new(cht_name, px_size, spatial_ref, geo_trans) {
+        let Some(chart_name) = util::stem_str(path) else {
+          return Err("Unable to open chart:\ncannot determine chart name".into());
+        };
+
+        let transformation = match Transformation::new(chart_name, px_size, spatial_ref, geo_trans) {
           Ok(trans) => trans,
           Err(err) => return Err(format!("Unable to open chart:\n{err}").into()),
         };
@@ -381,6 +383,7 @@ impl Source {
           },
           transformation,
           palette,
+          chart_name.into(),
         ))
       }
       Err(err) => Err(format!("Unable to open chart:\n{err}").into()),
