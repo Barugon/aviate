@@ -493,6 +493,7 @@ impl Source {
         dst[0] += rgb[0] * pxr;
         dst[1] += rgb[1] * pxr;
         dst[2] += rgb[2] * pxr;
+        dst[3] += rgb[3] * pxr;
 
         // Get the next source pixel.
         src = match src_iter.next() {
@@ -510,6 +511,7 @@ impl Source {
             dst[0] += rgb[0] * pxr;
             dst[1] += rgb[1] * pxr;
             dst[2] += rgb[2] * pxr;
+            dst[3] += rgb[3] * pxr;
           }
 
           // Move to the next destination pixel.
@@ -525,7 +527,7 @@ impl Source {
     }
 
     let mut dst_area = Area::new(part.rect);
-    let mut int_row = vec![[0.0, 0.0, 0.0]; dst_area.w];
+    let mut int_row = vec![[0.0, 0.0, 0.0, 0.0]; dst_area.w];
     let mut dst = Vec::with_capacity(dst_area.w * dst_area.h);
     let mut ratio = part.zoom;
     let mut remain = 1.0;
@@ -561,7 +563,7 @@ impl Source {
         // Output the row.
         for int_px in &mut int_row {
           dst.push(util::color_u8(int_px));
-          *int_px = [0.0, 0.0, 0.0];
+          *int_px = [0.0, 0.0, 0.0, 0.0];
         }
 
         // Check if the end of the destination has been reached.

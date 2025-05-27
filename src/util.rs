@@ -294,7 +294,7 @@ pub struct ImageData {
   pub px: Vec<ColorU8>,
 }
 
-pub type ColorF32 = [f32; 3];
+pub type ColorF32 = [f32; 4];
 pub type ColorU8 = [u8; 4];
 
 /// Check if a GDAL `RgbaEntry` will fit into a `ColorU8`.
@@ -310,12 +310,17 @@ pub fn color_f32(color: &raster::RgbaEntry) -> ColorF32 {
 
   // Convert colors to floating point in 0.0..=1.0 range.
   const SCALE: f32 = 1.0 / u8::MAX as f32;
-  [color.r as f32 * SCALE, color.g as f32 * SCALE, color.b as f32 * SCALE]
+  [
+    color.r as f32 * SCALE,
+    color.g as f32 * SCALE,
+    color.b as f32 * SCALE,
+    1.0,
+  ]
 }
 
 /// Convert a GDAL `RgbaEntry` to a luminance inverted `ColorF32`.
 pub fn inverted_color_f32(color: &raster::RgbaEntry) -> ColorF32 {
-  let [r, g, b] = color_f32(color);
+  let [r, g, b, a] = color_f32(color);
 
   // Convert to YCbCr and invert the luminance.
   let y = 1.0 - (r * 0.299 + g * 0.587 + b * 0.114);
@@ -327,7 +332,7 @@ pub fn inverted_color_f32(color: &raster::RgbaEntry) -> ColorF32 {
   let g = y - 0.344136 * cb - 0.714136 * cr;
   let b = y + 1.772 * cb;
 
-  [r, g, b]
+  [r, g, b, a]
 }
 
 /// Convert a `ColorF32` to `ColorU8`
