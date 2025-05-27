@@ -17,7 +17,7 @@ impl Reader {
   /// - `path`: chart file path
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     // Open the chart source.
-    let (source, transformation, palette, chart_name) = Source::open(path)?;
+    let (source, palette, transformation, chart_name) = Source::open(path)?;
 
     // Create the communication channels.
     let (sender, thread_receiver) = mpsc::channel::<Request>();
@@ -293,7 +293,7 @@ impl Source {
 
   /// Open a chart data source.
   /// - `path`: chart file path
-  fn open(path: &path::Path) -> Result<(Self, Transformation, Vec<raster::RgbaEntry>, String), util::Error> {
+  fn open(path: &path::Path) -> Result<(Self, Vec<raster::RgbaEntry>, Transformation, String), util::Error> {
     macro_rules! error_msg {
       ($val:literal) => {
         util::Error::Borrowed(concat!("Unable to open chart:\n", $val))
@@ -303,100 +303,100 @@ impl Source {
       };
     }
 
-    match gdal::Dataset::open_ex(path, Self::open_options()) {
-      Ok(dataset) => {
-        // Get the spatial reference from the dataset.
-        let spatial_ref = match dataset.spatial_ref() {
-          Ok(sr) => sr,
-          Err(err) => return Err(error_msg!(err)),
-        };
+    let dataset = match gdal::Dataset::open_ex(path, Self::open_options()) {
+      Ok(dataset) => dataset,
+      Err(err) => return Err(error_msg!(err)),
+    };
 
-        // Check the spatial reference.
-        match spatial_ref.to_proj4() {
-          Ok(proj4) => {
-            // A valid chart PROJ4 string must contain these terms.
-            for item in ["+proj=lcc", "+datum=NAD83", "+units=m"] {
-              if !proj4.contains(item) {
-                return Err(error_msg!("invalid spatial reference"));
-              }
-            }
+    // Get the spatial reference from the dataset.
+    let spatial_ref = match dataset.spatial_ref() {
+      Ok(sr) => sr,
+      Err(err) => return Err(error_msg!(err)),
+    };
+
+    // Check the spatial reference.
+    match spatial_ref.to_proj4() {
+      Ok(proj4) => {
+        // A valid chart PROJ4 string must contain these terms.
+        for item in ["+proj=lcc", "+datum=NAD83", "+units=m"] {
+          if !proj4.contains(item) {
+            return Err(error_msg!("invalid spatial reference"));
           }
-          Err(err) => return Err(error_msg!(err)),
         }
-
-        // Dataset must have a geo-transformation.
-        let geo_trans = match dataset.geo_transform() {
-          Ok(gt) => gt,
-          Err(err) => return Err(error_msg!(err)),
-        };
-
-        let px_size: geom::Size = dataset.raster_size().into();
-        if !px_size.is_valid() {
-          return Err(error_msg!("invalid pixel size"));
-        }
-
-        let Some(chart_name) = util::stem_str(path) else {
-          return Err(error_msg!("cannot determine chart name"));
-        };
-
-        let transformation = match Transformation::new(chart_name, px_size, spatial_ref, geo_trans) {
-          Ok(trans) => trans,
-          Err(err) => return Err(error_msg!(err)),
-        };
-
-        let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
-          // Raster bands start at index one.
-          for index in 1..=dataset.raster_count() {
-            let rasterband = dataset.rasterband(index).unwrap();
-
-            // The color interpretation for a FAA chart is PaletteIndex.
-            if rasterband.color_interpretation() != raster::ColorInterpretation::PaletteIndex {
-              continue;
-            }
-
-            let Some(color_table) = rasterband.color_table() else {
-              return Err(error_msg!("color table not found"));
-            };
-
-            // The color table must have 256 entries.
-            let size = color_table.entry_count();
-            if size != PAL_LEN {
-              return Err(error_msg!("invalid color table"));
-            }
-
-            // Collect the color entries as RGB.
-            let mut palette = Vec::with_capacity(size);
-            for index in 0..size {
-              let Some(color) = color_table.entry_as_rgb(index) else {
-                return Err(error_msg!("invalid color table"));
-              };
-
-              // All components must be in 0..256 range.
-              if !util::check_color(&color) {
-                return Err(error_msg!("color table contains invalid colors"));
-              }
-
-              palette.push(color);
-            }
-
-            return Ok((index, palette));
-          }
-          Err(error_msg!("raster layer not found"))
-        }()?;
-
-        Ok((
-          Self {
-            dataset,
-            band_idx,
-            px_size,
-          },
-          transformation,
-          palette,
-          chart_name.into(),
-        ))
       }
-      Err(err) => Err(error_msg!(err)),
+      Err(err) => return Err(error_msg!(err)),
     }
+
+    // Dataset must have a geo-transformation.
+    let geo_trans = match dataset.geo_transform() {
+      Ok(gt) => gt,
+      Err(err) => return Err(error_msg!(err)),
+    };
+
+    let px_size: geom::Size = dataset.raster_size().into();
+    if !px_size.is_valid() {
+      return Err(error_msg!("invalid pixel size"));
+    }
+
+    let Some(chart_name) = util::stem_str(path) else {
+      return Err(error_msg!("cannot determine chart name"));
+    };
+
+    let transformation = match Transformation::new(chart_name, px_size, spatial_ref, geo_trans) {
+      Ok(trans) => trans,
+      Err(err) => return Err(error_msg!(err)),
+    };
+
+    let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
+      // Raster bands start at index one.
+      for index in 1..=dataset.raster_count() {
+        let rasterband = dataset.rasterband(index).unwrap();
+
+        // The color interpretation for a FAA chart is PaletteIndex.
+        if rasterband.color_interpretation() != raster::ColorInterpretation::PaletteIndex {
+          continue;
+        }
+
+        let Some(color_table) = rasterband.color_table() else {
+          return Err(error_msg!("color table not found"));
+        };
+
+        // The color table must have 256 entries.
+        let size = color_table.entry_count();
+        if size != PAL_LEN {
+          return Err(error_msg!("invalid color table"));
+        }
+
+        // Collect the color entries as RGB.
+        let mut palette = Vec::with_capacity(size);
+        for index in 0..size {
+          let Some(color) = color_table.entry_as_rgb(index) else {
+            return Err(error_msg!("invalid color table"));
+          };
+
+          // All components must be in 0..256 range.
+          if !util::check_color(&color) {
+            return Err(error_msg!("color table contains invalid colors"));
+          }
+
+          palette.push(color);
+        }
+
+        return Ok((index, palette));
+      }
+      Err(error_msg!("raster layer not found"))
+    }()?;
+
+    Ok((
+      Self {
+        dataset,
+        band_idx,
+        px_size,
+      },
+      palette,
+      transformation,
+      chart_name.into(),
+    ))
   }
 
   fn read(&self, part: &ImagePart, pal: &PaletteF32, cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
