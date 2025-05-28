@@ -432,9 +432,7 @@ impl Touch {
 
 /// Create a `Gd<Texture2D>` from `util::ImageData`.
 fn create_texture(data: util::ImageData) -> Option<Gd<Texture2D>> {
-  let w = data.w as i32;
-  let h = data.h as i32;
-  let data = data.px.as_flattened().into();
-  let image = Image::create_from_data(w, h, false, Format::RGBA8, &data)?;
+  let packed = data.px.as_flattened().into();
+  let image = Image::create_from_data(data.w as i32, data.h as i32, false, Format::RGBA8, &packed)?;
   ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
 }
