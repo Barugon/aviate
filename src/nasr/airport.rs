@@ -475,10 +475,12 @@ impl Source {
   fn create_indexes(&mut self, to_chart: &ToChart, cancel: util::Cancel) -> bool {
     use vector::LayerAccess;
 
-    let mut id_map = collections::HashMap::new();
-    let mut name_vec = Vec::new();
-    let mut loc_vec = Vec::new();
     let mut layer = self.layer();
+    let count = layer.feature_count() as usize;
+
+    let mut id_map = collections::HashMap::with_capacity(count);
+    let mut name_vec = Vec::with_capacity(count);
+    let mut loc_vec = Vec::with_capacity(count);
 
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
