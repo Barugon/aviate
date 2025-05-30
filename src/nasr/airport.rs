@@ -729,16 +729,18 @@ trait GetUse {
 
 impl GetUse for vector::Feature<'_> {
   fn get_airport_use(&self, fields: &Fields) -> Option<Use> {
+    // If the facility use code is PU then the airport is public.
+    if self.get_string(fields.facility_use_code)? == "PU" {
+      return Some(Use::Public);
+    }
+
+    // Use the ownership type code to determine other use cases.
     match self.get_string(fields.ownership_type_code)?.as_str() {
       "CG" => Some(Use::CoastGuard),
       "MA" => Some(Use::AirForce),
       "MN" => Some(Use::Navy),
       "MR" => Some(Use::Army),
-      "PU" | "PR" => Some(if self.get_string(fields.facility_use_code)? == "PR" {
-        Use::Private
-      } else {
-        Use::Public
-      }),
+      "PU" | "PR" => Some(Use::Private),
       _ => None,
     }
   }
