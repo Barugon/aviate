@@ -97,7 +97,7 @@ impl Reader {
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
   #[allow(unused)]
-  pub fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool) {
+  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool) {
     assert!(dist >= 0.0);
     let cancel = self.cancel_request();
     self.send(Request::Nearby(coord, dist, nph, cancel), true);
@@ -361,7 +361,7 @@ impl RequestProcessor {
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
-  fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
+  fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required to find nearby airports".into());
     }
@@ -392,7 +392,7 @@ impl RequestProcessor {
 enum Request {
   SpatialRef(Option<(String, geom::Bounds)>, util::Cancel),
   Airport(String, util::Cancel),
-  Nearby(geom::Coord, f64, bool, util::Cancel),
+  Nearby(geom::Cht, f64, bool, util::Cancel),
   Search(String, bool, util::Cancel),
 }
 
@@ -551,7 +551,7 @@ impl Source {
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
-  fn nearby(&self, coord: geom::Coord, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<Info> {
+  fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<Info> {
     use vector::LayerAccess;
     let mut layer = self.layer();
     let coord = [coord.x, coord.y];
