@@ -241,7 +241,7 @@ impl Transformation {
   }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum PaletteType {
   Light,
   Dark,
@@ -581,5 +581,60 @@ impl Source {
       h: dst_area.h,
       px: dst,
     }))
+  }
+}
+
+mod test {
+  #[test]
+  fn chart_read() {
+    use super::*;
+
+    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/test/chart.tif");
+    let dataset = gdal::Dataset::open_ex(&path, Source::open_options()).unwrap();
+    let px_size = dataset.raster_size().into();
+    let source = Source {
+      dataset,
+      band_idx: 1,
+      px_size,
+    };
+
+    let palette = {
+      let rasterband = source.dataset.rasterband(1).unwrap();
+      assert!(rasterband.color_interpretation() == raster::ColorInterpretation::PaletteIndex);
+
+      let color_table = rasterband.color_table().unwrap();
+      assert!(color_table.entry_count() == PAL_LEN);
+
+      array::from_fn(|idx| util::color_f32(&color_table.entry_as_rgb(idx).unwrap()))
+    };
+
+    let zoom = *util::ZOOM_RANGE.end();
+    let pal_type = PaletteType::Light;
+    let rect = geom::Rect {
+      pos: geom::Pos { x: 0, y: 0 },
+      size: px_size,
+    };
+
+    // Read a portion of the image at max zoom.
+    let rect = rect.scaled(*util::ZOOM_RANGE.start());
+    let part = ImagePart { rect, zoom, pal_type };
+    let data = source.read(&part, &palette, util::Cancel::default()).unwrap().unwrap();
+    let image = image::RgbaImage::from_vec(data.w as u32, data.h as u32, data.px.into_flattened()).unwrap();
+
+    // Check the image.
+    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/test/test_max.png");
+    let reader = image::ImageReader::open(&path).unwrap();
+    assert!(image == reader.decode().unwrap().to_rgba8());
+
+    // Read the whole image at min zoom.
+    let zoom = *util::ZOOM_RANGE.start();
+    let part = ImagePart { rect, zoom, pal_type };
+    let data = source.read(&part, &palette, util::Cancel::default()).unwrap().unwrap();
+    let image = image::RgbaImage::from_vec(data.w as u32, data.h as u32, data.px.into_flattened()).unwrap();
+
+    // Check the image.
+    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/test/test_min.png");
+    let reader = image::ImageReader::open(&path).unwrap();
+    assert!(image == reader.decode().unwrap().to_rgba8());
   }
 }
