@@ -1,5 +1,6 @@
 use crate::{config, geom, util};
 use gdal::{errors, raster, spatial_ref};
+use godot::{classes::Texture2D, obj::Gd};
 use std::{any, array, cell, path, sync::mpsc, thread};
 
 /// Reader is used for opening and reading
@@ -48,8 +49,9 @@ impl Reader {
           // Read the image data.
           match source.read(&request.part, pal, request.cancel) {
             Ok(image) => {
-              if let Some(image) = image {
-                let reply = Reply::Image(request.part, image);
+              // Convert ImageData to a Gd<Texture2D> before sending.
+              if let Some(texture) = image.and_then(|data| util::create_texture(data)) {
+                let reply = Reply::Image(request.part, Texture(texture));
                 thread_sender.send(reply).unwrap();
               }
             }
@@ -111,9 +113,20 @@ impl Drop for Reader {
   }
 }
 
+/// Wrapper for `Gd<Texture2D>` that implements `Send`.
+pub struct Texture(Gd<Texture2D>);
+
+unsafe impl Send for Texture {}
+
+impl Into<Gd<Texture2D>> for Texture {
+  fn into(self) -> Gd<Texture2D> {
+    self.0
+  }
+}
+
 pub enum Reply {
   /// Image result from a read operation.
-  Image(ImagePart, util::ImageData),
+  Image(ImagePart, Texture),
 
   /// Error message from a read operation.
   Error(ImagePart, util::Error),

@@ -1,8 +1,8 @@
 use crate::{chart, geom, util};
 use godot::{
   classes::{
-    Control, IControl, Image, ImageTexture, InputEvent, InputEventMagnifyGesture, InputEventMouseButton,
-    InputEventMouseMotion, InputEventScreenTouch, Texture2D, image::Format, notify::ControlNotification,
+    Control, IControl, InputEvent, InputEventMagnifyGesture, InputEventMouseButton, InputEventMouseMotion,
+    InputEventScreenTouch, Texture2D, notify::ControlNotification,
   },
   global::{MouseButton, MouseButtonMask},
   prelude::*,
@@ -138,8 +138,8 @@ impl ChartWidget {
     // Collect all chart replies to get to the most recent image.
     while let Some(reply) = raster_reader.get_reply() {
       match reply {
-        chart::Reply::Image(part, data) => {
-          image_info = Some((part, data));
+        chart::Reply::Image(part, texture) => {
+          image_info = Some((part, texture));
         }
         chart::Reply::Error(part, err) => {
           godot_error!("{err} @ {part:?}");
@@ -147,9 +147,8 @@ impl ChartWidget {
       }
     }
 
-    // Convert to texture.
-    let (part, data) = image_info?;
-    let texture = create_texture(data)?;
+    let (part, texture) = image_info?;
+    let texture = texture.into();
     Some(ChartImage { texture, part })
   }
 
@@ -428,11 +427,4 @@ impl Touch {
 
     self.pos = None;
   }
-}
-
-/// Create a `Gd<Texture2D>` from `util::ImageData`.
-fn create_texture(data: util::ImageData) -> Option<Gd<Texture2D>> {
-  let packed = data.px.as_flattened().into();
-  let image = Image::create_from_data(data.w as i32, data.h as i32, false, Format::RGBA8, &packed)?;
-  ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
 }

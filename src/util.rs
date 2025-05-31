@@ -2,7 +2,8 @@ use crate::geom;
 use gdal::raster;
 use godot::{
   classes::{
-    Control, DisplayServer, FileAccess, Os, Window, display_server::WindowMode, file_access::ModeFlags, os::SystemDir,
+    Control, DisplayServer, FileAccess, Image, ImageTexture, Os, Texture2D, Window, display_server::WindowMode,
+    file_access::ModeFlags, image::Format, os::SystemDir,
   },
   prelude::*,
 };
@@ -436,4 +437,11 @@ pub fn adjust_dialog(dialog: &mut Gd<Window>) {
   if new_pos != pos {
     dialog.set_position(new_pos);
   }
+}
+
+/// Create a `Gd<Texture2D>` from `ImageData`.
+pub fn create_texture(data: ImageData) -> Option<Gd<Texture2D>> {
+  let packed = data.px.as_flattened().into();
+  let image = Image::create_from_data(data.w as i32, data.h as i32, false, Format::RGBA8, &packed)?;
+  ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
 }
