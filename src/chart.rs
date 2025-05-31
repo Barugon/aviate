@@ -50,7 +50,7 @@ impl Reader {
           match source.read(&request.part, pal, request.cancel) {
             Ok(image) => {
               // Convert ImageData to a Gd<Texture2D> before sending.
-              if let Some(texture) = image.and_then(|data| util::create_texture(data)) {
+              if let Some(texture) = image.and_then(util::create_texture) {
                 let reply = Reply::Image(request.part, Texture(texture));
                 thread_sender.send(reply).unwrap();
               }
@@ -116,11 +116,13 @@ impl Drop for Reader {
 /// Wrapper for `Gd<Texture2D>` that implements `Send`.
 pub struct Texture(Gd<Texture2D>);
 
+// Should be improved by gdext v0.4 or v0.5 so that this unsafe wrapper is no longer necessary.
+// https://github.com/godot-rust/gdext/issues/18
 unsafe impl Send for Texture {}
 
-impl Into<Gd<Texture2D>> for Texture {
-  fn into(self) -> Gd<Texture2D> {
-    self.0
+impl From<Texture> for Gd<Texture2D> {
+  fn from(texture: Texture) -> Self {
+    texture.0
   }
 }
 
@@ -206,8 +208,8 @@ impl Transformation {
   pub fn get_chart_bounds(&self) -> geom::Bounds {
     // Convert the pixel coordinates to chart coordinates.
     let mut cht_poly = Vec::with_capacity(self.bounds.len());
-    for point in self.bounds.iter() {
-      cht_poly.push(self.px_to_cht(*point));
+    for px in self.bounds.iter() {
+      cht_poly.push(self.px_to_cht(*px));
     }
     geom::Bounds::new(cht_poly)
   }
@@ -462,7 +464,7 @@ impl Source {
         }
 
         // Convert the pixels.
-        for &idx in &src_row {
+        for &idx in src_row.iter() {
           dst.push(pal[idx as usize]);
         }
 
@@ -556,7 +558,7 @@ impl Source {
       // Check if the end of the source data has been reached.
       if !src_area.next() {
         // Output this row.
-        for int_px in &int_row {
+        for int_px in int_row.iter() {
           dst.push(util::color_u8(int_px));
         }
         break;
@@ -574,7 +576,7 @@ impl Source {
         }
 
         // Output the row.
-        for int_px in &mut int_row {
+        for int_px in int_row.iter_mut() {
           dst.push(util::color_u8(int_px));
           *int_px = [0.0, 0.0, 0.0, 0.0];
         }
@@ -621,15 +623,10 @@ mod test {
       array::from_fn(|idx| util::color_f32(&color_table.entry_as_rgb(idx).unwrap()))
     };
 
+    // Read a portion of the image at max zoom.
+    let rect = geom::Rect::new(0, 0, px_size.w, px_size.h).scaled(*util::ZOOM_RANGE.start());
     let zoom = *util::ZOOM_RANGE.end();
     let pal_type = PaletteType::Light;
-    let rect = geom::Rect {
-      pos: geom::Pos { x: 0, y: 0 },
-      size: px_size,
-    };
-
-    // Read a portion of the image at max zoom.
-    let rect = rect.scaled(*util::ZOOM_RANGE.start());
     let part = ImagePart { rect, zoom, pal_type };
     let data = source.read(&part, &palette, util::Cancel::default()).unwrap().unwrap();
     let image = image::RgbaImage::from_vec(data.w as u32, data.h as u32, data.px.into_flattened()).unwrap();

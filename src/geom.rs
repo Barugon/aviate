@@ -468,6 +468,13 @@ pub struct Rect {
 }
 
 impl Rect {
+  pub fn new(x: i32, y: i32, w: u32, h: u32) -> Self {
+    Self {
+      pos: Pos { x, y },
+      size: Size { w, h },
+    }
+  }
+
   pub fn center(&self) -> Pos {
     let x = (self.pos.x + self.size.w as i32) / 2;
     let y = (self.pos.y + self.size.h as i32) / 2;
