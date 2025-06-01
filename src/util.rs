@@ -289,6 +289,20 @@ impl ToU32 for Variant {
   }
 }
 
+pub trait OrIfEmpty {
+  fn or_if_empty(self, def: &str) -> String;
+}
+
+impl<S: Into<String>> OrIfEmpty for S {
+  fn or_if_empty(self, def: &str) -> String {
+    let mut s = self.into();
+    if s.is_empty() {
+      s.push_str(def);
+    }
+    s
+  }
+}
+
 pub struct ImageData {
   pub w: usize,
   pub h: usize,
