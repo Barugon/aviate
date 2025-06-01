@@ -92,6 +92,15 @@ impl Reader {
     self.send(Request::Airport(id, cancel), true);
   }
 
+  /// Lookup airport detail using it's identifier.
+  /// - `id`: airport id
+  #[allow(unused)]
+  pub fn detail(&self, id: String) {
+    assert!(!id.is_empty());
+    let cancel = self.cancel_request();
+    self.send(Request::Detail(id, cancel), true);
+  }
+
   /// Request nearby airports.
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
@@ -146,13 +155,9 @@ impl Drop for Reader {
   }
 }
 
-/// Airport information.
+/// Airport summary information.
 #[derive(Debug)]
 pub struct Info {
-  /// Feature record ID.
-  #[allow(unused)]
-  pub fid: u64,
-
   /// Airport ID.
   pub id: String,
 
@@ -170,7 +175,7 @@ pub struct Info {
 }
 
 impl Info {
-  fn new(feature: Option<&vector::Feature>, fields: &Fields, nph: bool) -> Option<Self> {
+  fn new(feature: Option<&vector::Feature>, fields: &BaseFields, nph: bool) -> Option<Self> {
     let feature = feature?;
     let airport_type = feature.get_airport_type(fields)?;
     let airport_use = feature.get_airport_use(fields)?;
@@ -178,13 +183,11 @@ impl Info {
       return None;
     }
 
-    let fid = feature.fid()?;
     let id = feature.get_string(fields.airport_id)?;
     let name = feature.get_string(fields.airport_name)?;
     let coord = feature.get_coord(fields)?;
 
     Some(Self {
-      fid,
       id,
       name,
       coord,
@@ -201,6 +204,36 @@ impl Info {
       self.apt_type.abv(),
       self.apt_use.abv()
     )
+  }
+}
+
+/// Airport detail information.
+#[derive(Debug)]
+#[allow(unused)]
+pub struct Detail {
+  pub fuel_types: String,
+  pub location: String,
+  pub elevation: String,
+  pub pat_alt: String,
+  pub mag_var: String,
+}
+
+#[allow(unused)]
+impl Detail {
+  fn new(feature: Option<&vector::Feature>, fields: &BaseFields) -> Option<Self> {
+    let feature = feature?;
+    let fuel_types = feature.get_fuel_types(fields)?;
+    let location = feature.get_location(fields)?;
+    let elevation = feature.get_elevation(fields)?;
+    let pat_alt = feature.get_pattern_altitude(fields)?;
+    let mag_var = feature.get_magnetic_variation(fields)?;
+    Some(Self {
+      fuel_types,
+      location,
+      elevation,
+      pat_alt,
+      mag_var,
+    })
   }
 }
 
@@ -257,6 +290,9 @@ impl Use {
 pub enum Reply {
   /// Airport info from ID search.
   Airport(Info),
+
+  /// Airport detail from ID search.
+  Detail(Detail),
 
   /// Airport infos from a nearby search.
   Nearby(Vec<Info>),
@@ -316,6 +352,10 @@ impl RequestProcessor {
         let reply = self.airport(&id, cancel.clone());
         self.send(reply, true, cancel);
       }
+      Request::Detail(id, cancel) => {
+        let reply = self.detail(&id, cancel.clone());
+        self.send(reply, true, cancel);
+      }
       Request::Nearby(coord, dist, nph, cancel) => {
         let reply = self.nearby(coord, dist, nph, cancel.clone());
         self.send(reply, true, cancel);
@@ -361,6 +401,18 @@ impl RequestProcessor {
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
+  fn detail(&self, id: &str, cancel: util::Cancel) -> Reply {
+    if !self.index_status.is_indexed() {
+      return Reply::Error("Chart transformation is required for airport ID search".into());
+    }
+
+    let id = id.trim().to_uppercase();
+    if let Some(detail) = self.source.detail(&id, cancel) {
+      return Reply::Detail(detail);
+    }
+    Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
+  }
+
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required to find nearby airports".into());
@@ -392,6 +444,7 @@ impl RequestProcessor {
 enum Request {
   SpatialRef(Option<(String, geom::Bounds)>, util::Cancel),
   Airport(String, util::Cancel),
+  Detail(String, util::Cancel),
   Nearby(geom::Cht, f64, bool, util::Cancel),
   Search(String, bool, util::Cancel),
 }
@@ -440,7 +493,7 @@ impl IndexStatus {
 
 struct Source {
   dataset: gdal::Dataset,
-  fields: Fields,
+  fields: BaseFields,
   id_map: collections::HashMap<Box<str>, u64>,
   name_vec: Vec<(Box<str>, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
@@ -460,7 +513,7 @@ impl Source {
   /// - `path`: airport CSV file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
-    let fields = Fields::new(&dataset)?;
+    let fields = BaseFields::new(&dataset)?;
     Ok(Self {
       dataset,
       fields,
@@ -547,6 +600,24 @@ impl Source {
     info
   }
 
+  /// Get `Detail` for the specified airport ID.
+  /// - `id`: airport ID
+  fn detail(&self, id: &str, cancel: util::Cancel) -> Option<Detail> {
+    use vector::LayerAccess;
+    let mut layer = self.layer();
+    let info = {
+      let fid = self.id_map.get(id)?;
+      if cancel.canceled() {
+        return None;
+      }
+
+      Detail::new(layer.feature(*fid).as_ref(), &self.fields)
+    };
+
+    layer.reset_feature_reading();
+    info
+  }
+
   /// Find airports within a search radius.
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
@@ -624,7 +695,7 @@ impl Source {
   }
 }
 
-struct Fields {
+struct BaseFields {
   airport_id: usize,
   airport_name: usize,
   site_type_code: usize,
@@ -632,9 +703,17 @@ struct Fields {
   facility_use_code: usize,
   long_decimal: usize,
   lat_decimal: usize,
+  fuel_types: usize,
+  city: usize,
+  state_code: usize,
+  elev: usize,
+  elev_method_code: usize,
+  mag_varn: usize,
+  mag_hemis: usize,
+  tpa: usize,
 }
 
-impl Fields {
+impl BaseFields {
   fn new(dataset: &gdal::Dataset) -> Result<Self, errors::GdalError> {
     use vector::LayerAccess;
     let layer = dataset.layer(0)?;
@@ -647,6 +726,14 @@ impl Fields {
       facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
       long_decimal: defn.field_index("LONG_DECIMAL")?,
       lat_decimal: defn.field_index("LAT_DECIMAL")?,
+      fuel_types: defn.field_index("FUEL_TYPES")?,
+      city: defn.field_index("CITY")?,
+      state_code: defn.field_index("STATE_CODE")?,
+      elev: defn.field_index("ELEV")?,
+      elev_method_code: defn.field_index("ELEV_METHOD_CODE")?,
+      mag_varn: defn.field_index("MAG_VARN")?,
+      mag_hemis: defn.field_index("MAG_HEMIS")?,
+      tpa: defn.field_index("TPA")?,
     })
   }
 }
@@ -706,11 +793,11 @@ impl GetString for vector::Feature<'_> {
 }
 
 trait GetType {
-  fn get_airport_type(&self, fields: &Fields) -> Option<Type>;
+  fn get_airport_type(&self, fields: &BaseFields) -> Option<Type>;
 }
 
 impl GetType for vector::Feature<'_> {
-  fn get_airport_type(&self, fields: &Fields) -> Option<Type> {
+  fn get_airport_type(&self, fields: &BaseFields) -> Option<Type> {
     match self.get_string(fields.site_type_code)?.as_str() {
       "A" => Some(Type::Airport),
       "B" => Some(Type::Balloon),
@@ -724,11 +811,11 @@ impl GetType for vector::Feature<'_> {
 }
 
 trait GetUse {
-  fn get_airport_use(&self, fields: &Fields) -> Option<Use>;
+  fn get_airport_use(&self, fields: &BaseFields) -> Option<Use>;
 }
 
 impl GetUse for vector::Feature<'_> {
-  fn get_airport_use(&self, fields: &Fields) -> Option<Use> {
+  fn get_airport_use(&self, fields: &BaseFields) -> Option<Use> {
     // If the facility use code is PU then the airport is public.
     if self.get_string(fields.facility_use_code)? == "PU" {
       return Some(Use::Public);
@@ -747,14 +834,84 @@ impl GetUse for vector::Feature<'_> {
 }
 
 trait GetCoord {
-  fn get_coord(&self, fields: &Fields) -> Option<geom::DD>;
+  fn get_coord(&self, fields: &BaseFields) -> Option<geom::DD>;
 }
 
 impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self, fields: &Fields) -> Option<geom::DD> {
+  fn get_coord(&self, fields: &BaseFields) -> Option<geom::DD> {
     Some(geom::DD::new(
       self.get_f64(fields.long_decimal)?,
       self.get_f64(fields.lat_decimal)?,
     ))
+  }
+}
+
+trait GetFuelTypes {
+  fn get_fuel_types(&self, fields: &BaseFields) -> Option<String>;
+}
+
+impl GetFuelTypes for vector::Feature<'_> {
+  fn get_fuel_types(&self, fields: &BaseFields) -> Option<String> {
+    let fuel_types = self.get_string(fields.fuel_types)?;
+
+    // Make sure there's a comma and space between each type.
+    Some(fuel_types.split(',').map(|s| s.trim()).collect::<Vec<_>>().join(", "))
+  }
+}
+
+trait GetLocation {
+  fn get_location(&self, fields: &BaseFields) -> Option<String>;
+}
+
+impl GetLocation for vector::Feature<'_> {
+  fn get_location(&self, fields: &BaseFields) -> Option<String> {
+    Some([self.get_string(fields.city)?, self.get_string(fields.state_code)?].join(", "))
+  }
+}
+
+trait GetElevation {
+  fn get_elevation(&self, fields: &BaseFields) -> Option<String>;
+}
+
+impl GetElevation for vector::Feature<'_> {
+  fn get_elevation(&self, fields: &BaseFields) -> Option<String> {
+    let elevation = self.get_string(fields.elev)?;
+    let method = match self.get_string(fields.elev_method_code)?.as_str() {
+      "E" => "(EST)",
+      "S" => "(SURV)",
+      _ => return None,
+    };
+    Some([elevation.as_str(), method].join(" "))
+  }
+}
+
+trait GetPatternAltitude {
+  fn get_pattern_altitude(&self, fields: &BaseFields) -> Option<String>;
+}
+
+impl GetPatternAltitude for vector::Feature<'_> {
+  fn get_pattern_altitude(&self, fields: &BaseFields) -> Option<String> {
+    use util::OrIfEmpty;
+    Some(self.get_string(fields.tpa)?.or_if_empty("1000") + " FEET AGL")
+  }
+}
+
+trait GetMagneticVariation {
+  fn get_magnetic_variation(&self, fields: &BaseFields) -> Option<String>;
+}
+
+impl GetMagneticVariation for vector::Feature<'_> {
+  fn get_magnetic_variation(&self, fields: &BaseFields) -> Option<String> {
+    let var = self.get_string(fields.mag_varn)?;
+    if var.is_empty() {
+      return Some(String::new());
+    }
+
+    let hem = self.get_string(fields.mag_hemis)?;
+    if hem.is_empty() {
+      return Some(String::new());
+    }
+
+    Some([var, hem].join("°"))
   }
 }

@@ -416,6 +416,7 @@ impl IControl for MainWidget {
         airport::Reply::Airport(info) => {
           self.chart_widget.bind_mut().goto_coord(info.coord);
         }
+        airport::Reply::Detail(detail) => godot_print!("{detail:?}"),
         airport::Reply::Nearby(_infos) => (),
         airport::Reply::Search(infos) => {
           if infos.len() > 1 {
