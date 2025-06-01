@@ -262,6 +262,19 @@ impl Type {
       Self::Ultralight => "U",
     }
   }
+
+  /// Airport type text.
+  #[allow(unused)]
+  pub fn text(&self) -> &str {
+    match *self {
+      Self::Airport => "AIRPORT",
+      Self::Balloon => "BALLOONPORT",
+      Self::Glider => "GLIDERPORT",
+      Self::Helicopter => "HELIPORT",
+      Self::Seaplane => "SEAPLANE BASE",
+      Self::Ultralight => "ULTRALIGHT",
+    }
+  }
 }
 
 /// Airport use.
@@ -285,6 +298,19 @@ impl Use {
       Self::Navy => "USN",
       Self::Private => "PVT",
       Self::Public => "PUB",
+    }
+  }
+
+  /// Airport use text.
+  #[allow(unused)]
+  pub fn text(&self) -> &str {
+    match *self {
+      Self::AirForce => "US AIR FORCE",
+      Self::Army => "US ARMY",
+      Self::CoastGuard => "US COAST GUARD",
+      Self::Navy => "US NAVY",
+      Self::Private => "PRIVATE",
+      Self::Public => "PUBLIC",
     }
   }
 }
