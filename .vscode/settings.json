@@ -22,6 +22,7 @@
     "gstring",
     "hasher",
     "hbox",
+    "hemis",
     "libaviate",
     "lisburne",
     "longlat",
@@ -43,6 +44,7 @@
     "trunc",
     "turbojpeg",
     "unresizable",
+    "varn",
     "vcpkg",
     "vsizip"
   ],
