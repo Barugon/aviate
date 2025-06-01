@@ -122,13 +122,20 @@ impl MainWidget {
 
   #[func]
   fn item_selected(&mut self, index: u32) {
+    let index = index as usize;
+
     if let Some((path, files)) = self.chart_info.take() {
-      self.open_chart(&path, files[index as usize].to_str().unwrap());
+      self.open_chart(&path, files[index].to_str().unwrap());
     }
 
     if let Some(infos) = self.airport_infos.take() {
-      let coord = infos[index as usize].coord;
-      self.chart_widget.bind_mut().goto_coord(coord);
+      let info = infos.into_iter().nth(index).unwrap();
+      if let Some(airport_reader) = &self.airport_reader {
+        airport_reader.detail(info);
+      }
+
+      // let coord = info.coord;
+      // self.chart_widget.bind_mut().goto_coord(coord);
     }
   }
 
@@ -414,7 +421,8 @@ impl IControl for MainWidget {
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
         airport::Reply::Airport(info) => {
-          self.chart_widget.bind_mut().goto_coord(info.coord);
+          airport_reader.detail(info);
+          // self.chart_widget.bind_mut().goto_coord(info.coord);
         }
         airport::Reply::Detail(detail) => godot_print!("{detail:?}"),
         airport::Reply::Nearby(_infos) => (),
@@ -422,8 +430,11 @@ impl IControl for MainWidget {
           if infos.len() > 1 {
             airport_infos = Some(infos);
           } else {
-            let coord = infos.first().unwrap().coord;
-            self.chart_widget.bind_mut().goto_coord(coord);
+            let info = infos.into_iter().next().unwrap();
+            airport_reader.detail(info);
+
+            // let coord = info.coord;
+            // self.chart_widget.bind_mut().goto_coord(coord);
           }
         }
         airport::Reply::Error(err) => {

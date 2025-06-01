@@ -83,7 +83,7 @@ impl Reader {
     self.send(Request::SpatialRef(None, cancel), false);
   }
 
-  /// Lookup airport information using it's identifier.
+  /// Lookup airport summary information using it's identifier.
   /// - `id`: airport id
   #[allow(unused)]
   pub fn airport(&self, id: String) {
@@ -92,13 +92,13 @@ impl Reader {
     self.send(Request::Airport(id, cancel), true);
   }
 
-  /// Lookup airport detail using it's identifier.
-  /// - `id`: airport id
+  /// Lookup airport detail information.
+  /// - `info`: airport summary information
   #[allow(unused)]
-  pub fn detail(&self, id: String) {
-    assert!(!id.is_empty());
+  pub fn detail(&self, info: Info) {
+    assert!(!info.id.is_empty());
     let cancel = self.cancel_request();
-    self.send(Request::Detail(id, cancel), true);
+    self.send(Request::Detail(info, cancel), true);
   }
 
   /// Request nearby airports.
@@ -156,7 +156,7 @@ impl Drop for Reader {
 }
 
 /// Airport summary information.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Info {
   /// Airport ID.
   pub id: String,
@@ -165,6 +165,7 @@ pub struct Info {
   pub name: String,
 
   /// Decimal-degree coordinate.
+  #[allow(unused)]
   pub coord: geom::DD,
 
   /// Airport type.
@@ -208,9 +209,10 @@ impl Info {
 }
 
 /// Airport detail information.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[allow(unused)]
 pub struct Detail {
+  pub info: Info,
   pub fuel_types: String,
   pub location: String,
   pub elevation: String,
@@ -218,9 +220,8 @@ pub struct Detail {
   pub mag_var: String,
 }
 
-#[allow(unused)]
 impl Detail {
-  fn new(feature: Option<&vector::Feature>, fields: &BaseFields) -> Option<Self> {
+  fn new(feature: Option<&vector::Feature>, fields: &BaseFields, info: Info) -> Option<Self> {
     let feature = feature?;
     let fuel_types = feature.get_fuel_types(fields)?;
     let location = feature.get_location(fields)?;
@@ -228,6 +229,7 @@ impl Detail {
     let pat_alt = feature.get_pattern_altitude(fields)?;
     let mag_var = feature.get_magnetic_variation(fields)?;
     Some(Self {
+      info,
       fuel_types,
       location,
       elevation,
@@ -238,7 +240,7 @@ impl Detail {
 }
 
 /// Airport type.
-#[derive(Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, PartialEq)]
 pub enum Type {
   Airport,
   Balloon,
@@ -263,7 +265,7 @@ impl Type {
 }
 
 /// Airport use.
-#[derive(Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, Debug, PartialEq)]
 pub enum Use {
   AirForce,
   Army,
@@ -352,8 +354,8 @@ impl RequestProcessor {
         let reply = self.airport(&id, cancel.clone());
         self.send(reply, true, cancel);
       }
-      Request::Detail(id, cancel) => {
-        let reply = self.detail(&id, cancel.clone());
+      Request::Detail(info, cancel) => {
+        let reply = self.detail(info, cancel.clone());
         self.send(reply, true, cancel);
       }
       Request::Nearby(coord, dist, nph, cancel) => {
@@ -401,13 +403,13 @@ impl RequestProcessor {
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
-  fn detail(&self, id: &str, cancel: util::Cancel) -> Reply {
+  fn detail(&self, info: Info, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required for airport ID search".into());
     }
 
-    let id = id.trim().to_uppercase();
-    if let Some(detail) = self.source.detail(&id, cancel) {
+    let id = info.id.clone();
+    if let Some(detail) = self.source.detail(info, cancel) {
       return Reply::Detail(detail);
     }
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
@@ -444,7 +446,7 @@ impl RequestProcessor {
 enum Request {
   SpatialRef(Option<(String, geom::Bounds)>, util::Cancel),
   Airport(String, util::Cancel),
-  Detail(String, util::Cancel),
+  Detail(Info, util::Cancel),
   Nearby(geom::Cht, f64, bool, util::Cancel),
   Search(String, bool, util::Cancel),
 }
@@ -602,16 +604,16 @@ impl Source {
 
   /// Get `Detail` for the specified airport ID.
   /// - `id`: airport ID
-  fn detail(&self, id: &str, cancel: util::Cancel) -> Option<Detail> {
+  fn detail(&self, info: Info, cancel: util::Cancel) -> Option<Detail> {
     use vector::LayerAccess;
     let mut layer = self.layer();
     let info = {
-      let fid = self.id_map.get(id)?;
+      let fid = self.id_map.get(info.id.as_str())?;
       if cancel.canceled() {
         return None;
       }
 
-      Detail::new(layer.feature(*fid).as_ref(), &self.fields)
+      Detail::new(layer.feature(*fid).as_ref(), &self.fields, info)
     };
 
     layer.reset_feature_reading();
