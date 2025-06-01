@@ -1,9 +1,8 @@
 {
   "cSpell.ignoreWords": [
-    "AABB",
-    "ARPT",
-    "Hashable",
-    "NASR",
+    "aabb",
+    "arpt",
+    "balloonport",
     "barugon",
     "bindgen",
     "cdylib",
@@ -19,6 +18,7 @@
     "gdextension",
     "geos",
     "geotiff",
+    "gliderport",
     "gstring",
     "hasher",
     "hbox",
@@ -27,6 +27,7 @@
     "lisburne",
     "longlat",
     "lzma",
+    "nasr",
     "palettized",
     "polyline",
     "rasterband",
@@ -46,7 +47,7 @@
     "unresizable",
     "varn",
     "vcpkg",
-    "vsizip"
+    "vsizip",
   ],
   "editor.rulers": [
     120
