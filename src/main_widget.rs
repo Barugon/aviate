@@ -123,25 +123,36 @@ impl MainWidget {
   #[func]
   fn item_selected(&mut self, index: u32) {
     let index = index as usize;
-
     if let Some((path, files)) = self.chart_info.take() {
       self.open_chart(&path, files[index].to_str().unwrap());
     }
 
     if let Some(infos) = self.airport_infos.take() {
       let info = infos.into_iter().nth(index).unwrap();
+      let coord = info.coord;
+      self.chart_widget.bind_mut().goto_coord(coord);
+    }
+  }
+
+  #[func]
+  fn info_selected(&mut self, index: u32) {
+    if let Some(infos) = self.airport_infos.take() {
+      let info = infos.into_iter().nth(index as usize).unwrap();
       if let Some(airport_reader) = &self.airport_reader {
         airport_reader.detail(info);
       }
-
-      // let coord = info.coord;
-      // self.chart_widget.bind_mut().goto_coord(coord);
     }
   }
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Chart");
+
+    let mut button = dialog.find_child("OkButton").unwrap().cast::<Button>();
+    button.set_text(" OK ");
+
+    let mut button = dialog.find_child("InfoButton").unwrap().cast::<Button>();
+    button.set_visible(false);
 
     let choices = files.iter().map(|f| util::stem_str(f).unwrap().into());
     dialog.bind_mut().show_choices(choices);
@@ -158,6 +169,12 @@ impl MainWidget {
 
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set_title("Select Airport");
+
+    let mut button = dialog.find_child("OkButton").unwrap().cast::<Button>();
+    button.set_text("Go To");
+
+    let mut button = dialog.find_child("InfoButton").unwrap().cast::<Button>();
+    button.set_visible(true);
 
     let choices = airports.iter().map(|a| a.desc().into());
     dialog.bind_mut().show_choices(choices);
@@ -374,9 +391,13 @@ impl IControl for MainWidget {
 
     // Setup and connect the select dialog.
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
+    dialog.set(&title_property, &title_size);
+
     let callable = self.base().callable("item_selected");
     dialog.connect("selected", &callable);
-    dialog.set(&title_property, &title_size);
+
+    let callable = self.base().callable("info_selected");
+    dialog.connect("info", &callable);
 
     // Setup and connect the find dialog.
     let mut dialog = self.get_child::<find_dialog::FindDialog>("FindDialog");
@@ -420,26 +441,11 @@ impl IControl for MainWidget {
     let mut airport_infos = None;
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
-        airport::Reply::Airport(info) => {
-          airport_reader.detail(info);
-          // self.chart_widget.bind_mut().goto_coord(info.coord);
-        }
+        airport::Reply::Airport(info) => airport_infos = Some(vec![info]),
         airport::Reply::Detail(detail) => godot_print!("{detail:?}"),
         airport::Reply::Nearby(_infos) => (),
-        airport::Reply::Search(infos) => {
-          if infos.len() > 1 {
-            airport_infos = Some(infos);
-          } else {
-            let info = infos.into_iter().next().unwrap();
-            airport_reader.detail(info);
-
-            // let coord = info.coord;
-            // self.chart_widget.bind_mut().goto_coord(coord);
-          }
-        }
-        airport::Reply::Error(err) => {
-          self.show_alert(err.as_ref());
-        }
+        airport::Reply::Search(infos) => airport_infos = Some(infos),
+        airport::Reply::Error(err) => self.show_alert(err.as_ref()),
       }
     }
 

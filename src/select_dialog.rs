@@ -19,6 +19,9 @@ impl SelectDialog {
   #[signal]
   fn selected(choice: u32);
 
+  #[signal]
+  fn info(choice: u32);
+
   #[func]
   fn choice_confirmed(&mut self) {
     if let Some(mut item) = self.tree.get_selected() {
@@ -30,16 +33,22 @@ impl SelectDialog {
   }
 
   #[func]
+  fn choice_info(&mut self) {
+    if let Some(mut item) = self.tree.get_selected() {
+      let idx = item.get_index();
+      let mut this = self.base_mut();
+      this.hide();
+      this.emit_signal("info", &[Variant::from(idx as u32)]);
+    }
+  }
+
+  #[func]
   fn choice_selected(&self) {
-    let mut button = self.get_child::<Button>("OkButton");
-    button.set_disabled(false);
+    self.get_child::<Button>("OkButton").set_disabled(false);
+    self.get_child::<Button>("InfoButton").set_disabled(false);
   }
 
   pub fn show_choices<'a, I: Iterator<Item = borrow::Cow<'a, str>>>(&mut self, choices: I) {
-    // Disable the ok button.
-    let mut button = self.get_child::<Button>("OkButton");
-    button.set_disabled(true);
-
     // Remove existing choices and disable scrolling.
     self.tree.clear();
     self.tree.set_column_expand_ratio(0, 2);
@@ -48,17 +57,28 @@ impl SelectDialog {
 
     // Populate with new choices.
     let root = self.tree.create_item().unwrap();
-    for choice in choices {
-      let mut item = self.tree.create_item_ex().parent(&root).done().unwrap();
-      item.set_expand_right(0, true);
-      if let Some(pos) = choice.rfind('(') {
-        let (name, info) = choice.split_at(pos);
-        item.set_text(0, name.trim());
-        item.set_text(1, info.trim());
-      } else {
-        item.set_text(0, choice.trim());
+    let count = {
+      let mut count = 0;
+      for choice in choices {
+        let mut item = self.tree.create_item_ex().parent(&root).done().unwrap();
+        item.set_expand_right(0, true);
+        if let Some(pos) = choice.rfind('(') {
+          let (name, info) = choice.split_at(pos);
+          item.set_text(0, name.trim());
+          item.set_text(1, info.trim());
+        } else {
+          item.set_text(0, choice.trim());
+        }
+        count += 1;
       }
-    }
+      count
+    };
+
+    let mut button = self.get_child::<Button>("OkButton");
+    button.set_disabled(true);
+
+    let mut button = self.get_child::<Button>("InfoButton");
+    button.set_disabled(true);
 
     self.base_mut().reset_size();
 
@@ -71,9 +91,19 @@ impl SelectDialog {
     self.base_mut().set_size(size);
 
     self.base_mut().call_deferred("show", &[]);
+
+    // If there's only one choice then select it.
+    if count == 1 {
+      let mut root = root;
+      if let Some(item) = root.get_child(0) {
+        let args = [Variant::from(item), Variant::from(0)];
+        self.tree.grab_focus();
+        self.tree.call_deferred("set_selected", &args);
+      }
+    }
   }
 
-  fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
+  pub fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
     self.base().find_child(name).unwrap().cast()
   }
 }
@@ -95,9 +125,18 @@ impl IWindow for SelectDialog {
     // Get the items tree.
     self.tree.init(self.get_child("Tree"));
 
+    // Connect the ok button.
     let callable = self.base().callable("choice_confirmed");
+    let mut button = self.get_child::<Button>("OkButton");
+    button.connect("pressed", &callable);
     self.tree.connect("item_activated", &callable);
 
+    // Connect the ok button.
+    let callable = self.base().callable("choice_info");
+    let mut button = self.get_child::<Button>("InfoButton");
+    button.connect("pressed", &callable);
+
+    // Connect the selected callback.
     let callable = self.base().callable("choice_selected");
     self.tree.connect("item_selected", &callable);
 
@@ -111,11 +150,6 @@ impl IWindow for SelectDialog {
 
     // Connect the cancel button.
     let mut button = self.get_child::<Button>("CancelButton");
-    button.connect("pressed", &callable);
-
-    // Connect the cancel button.
-    let callable = self.base().callable("choice_confirmed");
-    let mut button = self.get_child::<Button>("OkButton");
     button.connect("pressed", &callable);
   }
 

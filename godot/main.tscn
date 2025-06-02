@@ -225,7 +225,7 @@ size_flags_horizontal = 3
 [node name="OkButton" type="Button" parent="FindDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 layout_mode = 2
 disabled = true
-text = "OK"
+text = " OK "
 
 [node name="FillerRight" type="Control" parent="FindDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 custom_minimum_size = Vector2(25, 0)
@@ -284,15 +284,28 @@ size_flags_horizontal = 3
 layout_mode = 2
 text = "Cancel"
 
-[node name="FillerCenter" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="FillerCenterLeft" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
 custom_minimum_size = Vector2(25, 0)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.5
+
+[node name="InfoButton" type="Button" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+visible = false
+layout_mode = 2
+disabled = true
+text = "Info"
+
+[node name="FillerCenterRight" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.5
 
 [node name="OkButton" type="Button" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
 layout_mode = 2
 disabled = true
-text = "OK"
+text = " OK "
 
 [node name="FillerRight" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
 custom_minimum_size = Vector2(25, 0)

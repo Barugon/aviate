@@ -94,7 +94,6 @@ impl Reader {
 
   /// Lookup airport detail information.
   /// - `info`: airport summary information
-  #[allow(unused)]
   pub fn detail(&self, info: Info) {
     assert!(!info.id.is_empty());
     let cancel = self.cancel_request();
@@ -165,7 +164,6 @@ pub struct Info {
   pub name: String,
 
   /// Decimal-degree coordinate.
-  #[allow(unused)]
   pub coord: geom::DD,
 
   /// Airport type.
