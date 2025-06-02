@@ -17,12 +17,12 @@ pub struct Reader {
 
 impl Reader {
   /// Create a new airport reader.
-  /// - `path`: path to the airport CSV file.
+  /// - `path`: path to the airport CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
-    let airport_source = match Source::open(path) {
+    let base_source = match BaseSource::open(path) {
       Ok(source) => source,
       Err(err) => {
-        let err = format!("Unable to open airport data source:\n{err}");
+        let err = format!("Unable to open airport base data source:\n{err}");
         return Err(err.into());
       }
     };
@@ -34,12 +34,12 @@ impl Reader {
 
     // Create the thread.
     thread::Builder::new()
-      .name(any::type_name::<Source>().into())
+      .name(any::type_name::<BaseSource>().into())
       .spawn({
         let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
-          let mut request_processor = RequestProcessor::new(airport_source, index_status, request_count, thread_sender);
+          let mut request_processor = RequestProcessor::new(base_source, index_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
           while let Ok(request) = thread_receiver.recv() {
@@ -316,16 +316,16 @@ pub enum Reply {
 }
 
 struct RequestProcessor {
+  base_source: BaseSource,
   index_status: IndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<Reply>,
-  source: Source,
   dd_sr: spatial_ref::SpatialRef,
 }
 
 impl RequestProcessor {
   fn new(
-    source: Source,
+    base_source: BaseSource,
     index_status: IndexStatus,
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
@@ -336,10 +336,10 @@ impl RequestProcessor {
     dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
 
     Self {
+      base_source,
       index_status,
       request_count,
       sender,
-      source,
       dd_sr,
     }
   }
@@ -381,7 +381,7 @@ impl RequestProcessor {
   fn setup_indexes(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
     // Clear airport indexes.
     self.index_status.set_is_indexed(false);
-    self.source.clear_indexes();
+    self.base_source.clear_indexes();
 
     let Some((proj4, bounds)) = spatial_info else {
       return;
@@ -390,7 +390,7 @@ impl RequestProcessor {
     match ToChart::new(&proj4, &self.dd_sr, bounds) {
       Ok(trans) => {
         // Create new airport indexes.
-        let indexed = self.source.create_indexes(&trans, cancel);
+        let indexed = self.base_source.create_indexes(&trans, cancel);
         self.index_status.set_is_indexed(indexed);
       }
       Err(err) => {
@@ -406,7 +406,7 @@ impl RequestProcessor {
     }
 
     let id = id.trim().to_uppercase();
-    if let Some(info) = self.source.airport(&id, cancel) {
+    if let Some(info) = self.base_source.airport(&id, cancel) {
       return Reply::Airport(info);
     }
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
@@ -418,7 +418,7 @@ impl RequestProcessor {
     }
 
     let id = info.id.clone();
-    if let Some(detail) = self.source.detail(info, cancel) {
+    if let Some(detail) = self.base_source.detail(info, cancel) {
       return Reply::Detail(detail);
     }
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
@@ -428,7 +428,7 @@ impl RequestProcessor {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required to find nearby airports".into());
     }
-    Reply::Nearby(self.source.nearby(coord, dist, nph, cancel))
+    Reply::Nearby(self.base_source.nearby(coord, dist, nph, cancel))
   }
 
   fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Reply {
@@ -438,12 +438,12 @@ impl RequestProcessor {
 
     // Search for an airport ID first.
     let term = term.trim().to_uppercase();
-    if let Some(info) = self.source.airport(&term, cancel.clone()) {
+    if let Some(info) = self.base_source.airport(&term, cancel.clone()) {
       return Reply::Airport(info);
     }
 
     // Airport ID not found, search the airport names.
-    let infos = self.source.search(&term, nph, cancel);
+    let infos = self.base_source.search(&term, nph, cancel);
     if infos.is_empty() {
       return Reply::Error(format!("Nothing on this chart matches\n'{term}'").into());
     }
@@ -503,7 +503,7 @@ impl IndexStatus {
   }
 }
 
-struct Source {
+struct BaseSource {
   dataset: gdal::Dataset,
   fields: BaseFields,
   id_map: collections::HashMap<Box<str>, u64>,
@@ -511,7 +511,7 @@ struct Source {
   sp_idx: rstar::RTree<LocIdx>,
 }
 
-impl Source {
+impl BaseSource {
   fn open_options<'a>() -> gdal::DatasetOptions<'a> {
     gdal::DatasetOptions {
       open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY
@@ -521,13 +521,17 @@ impl Source {
     }
   }
 
-  /// Open an airport data source.
-  /// - `path`: airport CSV file path
+  /// Open an airport base data source.
+  /// - `path`: airport `APT_BASE.csv` file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
+    let path = ["/vsizip/", path.to_str().unwrap()].concat();
+    let path = path::Path::new(path.as_str());
+    let path = path.join("APT_BASE.csv");
+
     let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
     let fields = BaseFields::new(&dataset)?;
     Ok(Self {
-      dataset,
+      dataset: dataset,
       fields,
       id_map: collections::HashMap::new(),
       name_vec: Vec::new(),

@@ -211,10 +211,10 @@ impl MainWidget {
   }
 
   fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
-    // Concatenate the VSI prefix and the airport csv path.
-    let path = ["/vsizip//vsizip/", path].concat();
+    // Concatenate the VSI prefix and the airport zip path.
+    let path = ["/vsizip/", path].concat();
     let path = path::Path::new(path.as_str());
-    let path = path.join(csv).join("APT_BASE.csv");
+    let path = path.join(csv);
 
     match airport::Reader::new(&path) {
       Ok(airport_reader) => {
