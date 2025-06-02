@@ -1,7 +1,4 @@
-use crate::{
-  geom::{self, Transform},
-  util,
-};
+use crate::{geom, util};
 use gdal::{errors, spatial_ref, vector};
 use godot::global::godot_error;
 use std::{any, cell, collections, path, sync, thread};
@@ -480,6 +477,7 @@ impl ToChart {
   }
 
   fn transform(&self, coord: geom::DD) -> errors::Result<geom::Cht> {
+    use geom::Transform;
     Ok(self.trans.transform(*coord)?.into())
   }
 }

@@ -7,11 +7,7 @@ use godot::{
   },
   prelude::*,
 };
-use std::{
-  borrow, cmp, collections, ops, path,
-  sync::{self, atomic},
-  time,
-};
+use std::{borrow, cmp, collections, ops, path, sync, time};
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
@@ -50,16 +46,16 @@ impl ExecTime {
 
 #[derive(Clone, Default)]
 pub struct Cancel {
-  canceled: sync::Arc<atomic::AtomicBool>,
+  canceled: sync::Arc<sync::atomic::AtomicBool>,
 }
 
 impl Cancel {
   pub fn cancel(&mut self) {
-    self.canceled.store(true, atomic::Ordering::Relaxed);
+    self.canceled.store(true, sync::atomic::Ordering::Relaxed);
   }
 
   pub fn canceled(&self) -> bool {
-    self.canceled.load(atomic::Ordering::Relaxed)
+    self.canceled.load(sync::atomic::Ordering::Relaxed)
   }
 }
 
