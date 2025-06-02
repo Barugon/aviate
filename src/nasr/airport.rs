@@ -280,10 +280,6 @@ impl Type {
 /// Airport use.
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub enum Use {
-  AirForce,
-  Army,
-  CoastGuard,
-  Navy,
   Private,
   Public,
 }
@@ -292,10 +288,6 @@ impl Use {
   /// Airport use abbreviation.
   pub fn abv(&self) -> &str {
     match *self {
-      Self::AirForce => "USAF",
-      Self::Army => "ARMY",
-      Self::CoastGuard => "USCG",
-      Self::Navy => "USN",
       Self::Private => "PVT",
       Self::Public => "PUB",
     }
@@ -305,10 +297,6 @@ impl Use {
   #[allow(unused)]
   pub fn text(&self) -> &str {
     match *self {
-      Self::AirForce => "US AIR FORCE",
-      Self::Army => "US ARMY",
-      Self::CoastGuard => "US COAST GUARD",
-      Self::Navy => "US NAVY",
       Self::Private => "PRIVATE",
       Self::Public => "PUBLIC",
     }
@@ -727,7 +715,6 @@ struct BaseFields {
   airport_id: usize,
   airport_name: usize,
   site_type_code: usize,
-  ownership_type_code: usize,
   facility_use_code: usize,
   long_decimal: usize,
   lat_decimal: usize,
@@ -750,7 +737,6 @@ impl BaseFields {
       airport_id: defn.field_index("ARPT_ID")?,
       airport_name: defn.field_index("ARPT_NAME")?,
       site_type_code: defn.field_index("SITE_TYPE_CODE")?,
-      ownership_type_code: defn.field_index("OWNERSHIP_TYPE_CODE")?,
       facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
       long_decimal: defn.field_index("LONG_DECIMAL")?,
       lat_decimal: defn.field_index("LAT_DECIMAL")?,
@@ -844,18 +830,9 @@ trait GetUse {
 
 impl GetUse for vector::Feature<'_> {
   fn get_airport_use(&self, fields: &BaseFields) -> Option<Use> {
-    // If the facility use code is PU then the airport is public.
-    if self.get_string(fields.facility_use_code)? == "PU" {
-      return Some(Use::Public);
-    }
-
-    // Use the ownership type code to determine other use cases.
-    match self.get_string(fields.ownership_type_code)?.as_str() {
-      "CG" => Some(Use::CoastGuard),
-      "MA" => Some(Use::AirForce),
-      "MN" => Some(Use::Navy),
-      "MR" => Some(Use::Army),
-      "PU" | "PR" => Some(Use::Private),
+    match self.get_string(fields.facility_use_code)?.as_str() {
+      "PR" => Some(Use::Private),
+      "PU" => Some(Use::Public),
       _ => None,
     }
   }
