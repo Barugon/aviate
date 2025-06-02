@@ -158,10 +158,10 @@ impl Drop for Reader {
 #[derive(Clone, Debug)]
 pub struct Info {
   /// Airport ID.
-  pub id: String,
+  pub id: Box<str>,
 
   /// Airport name.
-  pub name: String,
+  pub name: Box<str>,
 
   /// Decimal-degree coordinate.
   pub coord: geom::DD,
@@ -182,8 +182,8 @@ impl Info {
       return None;
     }
 
-    let id = feature.get_string(fields.arpt_id)?;
-    let name = feature.get_string(fields.arpt_name)?;
+    let id = feature.get_string(fields.arpt_id)?.into();
+    let name = feature.get_string(fields.arpt_name)?.into();
     let coord = feature.get_coord(fields)?;
 
     Some(Self {
@@ -211,21 +211,21 @@ impl Info {
 #[allow(unused)]
 pub struct Detail {
   pub info: Info,
-  pub fuel_types: String,
-  pub location: String,
-  pub elevation: String,
-  pub pat_alt: String,
-  pub mag_var: String,
+  pub fuel_types: Box<str>,
+  pub location: Box<str>,
+  pub elevation: Box<str>,
+  pub pat_alt: Box<str>,
+  pub mag_var: Box<str>,
 }
 
 impl Detail {
   fn new(feature: Option<&vector::Feature>, fields: &BaseFields, info: Info) -> Option<Self> {
     let feature = feature?;
-    let fuel_types = feature.get_fuel_types(fields)?;
-    let location = feature.get_location(fields)?;
-    let elevation = feature.get_elevation(fields)?;
-    let pat_alt = feature.get_pattern_altitude(fields)?;
-    let mag_var = feature.get_magnetic_variation(fields)?;
+    let fuel_types = feature.get_fuel_types(fields)?.into();
+    let location = feature.get_location(fields)?.into();
+    let elevation = feature.get_elevation(fields)?.into();
+    let pat_alt = feature.get_pattern_altitude(fields)?.into();
+    let mag_var = feature.get_magnetic_variation(fields)?.into();
     Some(Self {
       info,
       fuel_types,
@@ -620,7 +620,7 @@ impl Source {
     use vector::LayerAccess;
     let mut layer = self.layer();
     let info = {
-      let fid = self.id_map.get(info.id.as_str())?;
+      let fid = self.id_map.get(&info.id)?;
       if cancel.canceled() {
         return None;
       }
