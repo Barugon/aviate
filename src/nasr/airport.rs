@@ -182,8 +182,8 @@ impl Info {
       return None;
     }
 
-    let id = feature.get_string(fields.airport_id)?;
-    let name = feature.get_string(fields.airport_name)?;
+    let id = feature.get_string(fields.arpt_id)?;
+    let name = feature.get_string(fields.arpt_name)?;
     let coord = feature.get_coord(fields)?;
 
     Some(Self {
@@ -571,11 +571,11 @@ impl Source {
         continue;
       };
 
-      let Some(id) = feature.get_string(self.fields.airport_id) else {
+      let Some(id) = feature.get_string(self.fields.arpt_id) else {
         continue;
       };
 
-      let Some(name) = feature.get_string(self.fields.airport_name) else {
+      let Some(name) = feature.get_string(self.fields.arpt_name) else {
         continue;
       };
 
@@ -709,9 +709,10 @@ impl Source {
   }
 }
 
+/// Field indexes for APT_BASE.
 struct BaseFields {
-  airport_id: usize,
-  airport_name: usize,
+  arpt_id: usize,
+  arpt_name: usize,
   site_type_code: usize,
   facility_use_code: usize,
   long_decimal: usize,
@@ -732,8 +733,8 @@ impl BaseFields {
     let layer = dataset.layer(0)?;
     let defn = layer.defn();
     Ok(Self {
-      airport_id: defn.field_index("ARPT_ID")?,
-      airport_name: defn.field_index("ARPT_NAME")?,
+      arpt_id: defn.field_index("ARPT_ID")?,
+      arpt_name: defn.field_index("ARPT_NAME")?,
       site_type_code: defn.field_index("SITE_TYPE_CODE")?,
       facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
       long_decimal: defn.field_index("LONG_DECIMAL")?,
