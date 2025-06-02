@@ -178,7 +178,7 @@ impl Info {
     let feature = feature?;
     let airport_type = feature.get_airport_type(fields)?;
     let airport_use = feature.get_airport_use(fields)?;
-    if !nph && airport_type == Type::Helicopter && airport_use != Use::Public {
+    if !nph && airport_type == Type::Heliport && airport_use != Use::Public {
       return None;
     }
 
@@ -243,7 +243,7 @@ pub enum Type {
   Airport,
   Balloon,
   Glider,
-  Helicopter,
+  Heliport,
   Seaplane,
   Ultralight,
 }
@@ -255,7 +255,7 @@ impl Type {
       Self::Airport => "A",
       Self::Balloon => "B",
       Self::Glider => "G",
-      Self::Helicopter => "H",
+      Self::Heliport => "H",
       Self::Seaplane => "S",
       Self::Ultralight => "U",
     }
@@ -268,7 +268,7 @@ impl Type {
       Self::Airport => "AIRPORT",
       Self::Balloon => "BALLOONPORT",
       Self::Glider => "GLIDERPORT",
-      Self::Helicopter => "HELIPORT",
+      Self::Heliport => "HELIPORT",
       Self::Seaplane => "SEAPLANE BASE",
       Self::Ultralight => "ULTRALIGHT",
     }
@@ -815,7 +815,7 @@ impl GetType for vector::Feature<'_> {
       "B" => Some(Type::Balloon),
       "C" => Some(Type::Seaplane),
       "G" => Some(Type::Glider),
-      "H" => Some(Type::Helicopter),
+      "H" => Some(Type::Heliport),
       "U" => Some(Type::Ultralight),
       _ => None,
     }

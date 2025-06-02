@@ -16,7 +16,7 @@ pub struct ChartWidget {
   raster_reader: Option<chart::Reader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
-  helicopter: bool,
+  heliport: bool,
 }
 
 impl ChartWidget {
@@ -27,7 +27,7 @@ impl ChartWidget {
 
     // Create a new raster reader.
     let raster_reader = chart::Reader::new(&path)?;
-    self.helicopter = raster_reader.chart_name().ends_with(" HEL");
+    self.heliport = raster_reader.chart_name().ends_with(" HEL");
     self.raster_reader = Some(raster_reader);
     self.display_info.origin = geom::Pos::default();
     self.display_info.zoom = 1.0;
@@ -40,9 +40,9 @@ impl ChartWidget {
     Some(raster_reader.chart_name())
   }
 
-  /// True if a helicopter chart is currently open.
-  pub fn helicopter(&self) -> bool {
-    self.helicopter
+  /// True if a heliport chart is currently open.
+  pub fn heliport(&self) -> bool {
+    self.heliport
   }
 
   pub fn transformation(&self) -> Option<&chart::Transformation> {
@@ -279,7 +279,7 @@ impl IControl for ChartWidget {
       raster_reader: None,
       chart_image: None,
       display_info: DisplayInfo::new(),
-      helicopter: false,
+      heliport: false,
     }
   }
 

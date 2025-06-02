@@ -67,8 +67,8 @@ impl MainWidget {
   #[func]
   fn find_confirmed(&self, text: GString) {
     if let Some(airport_reader) = &self.airport_reader {
-      let helicopter = self.chart_widget.bind().helicopter();
-      airport_reader.search(text.to_string(), helicopter);
+      let heliport = self.chart_widget.bind().heliport();
+      airport_reader.search(text.to_string(), heliport);
     }
   }
 
