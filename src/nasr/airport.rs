@@ -305,7 +305,7 @@ pub enum Reply {
   /// Airport info from ID search.
   Airport(Info),
 
-  /// Airport detail from ID search.
+  /// Airport detail from `Info`.
   Detail(Detail),
 
   /// Airport infos from a nearby search.
@@ -615,7 +615,7 @@ impl Source {
   }
 
   /// Get `Detail` for the specified airport ID.
-  /// - `id`: airport ID
+  /// - `info`: airport `Info` struct
   fn detail(&self, info: Info, cancel: util::Cancel) -> Option<Detail> {
     use vector::LayerAccess;
     let mut layer = self.layer();
