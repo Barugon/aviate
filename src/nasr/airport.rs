@@ -154,19 +154,10 @@ impl Drop for Reader {
 /// Airport summary information.
 #[derive(Clone, Debug)]
 pub struct Info {
-  /// Airport ID.
   pub id: Box<str>,
-
-  /// Airport name.
   pub name: Box<str>,
-
-  /// Decimal-degree coordinate.
   pub coord: geom::DD,
-
-  /// Airport type.
   pub apt_type: Type,
-
-  /// Airport usage.
   pub apt_use: Use,
 }
 
@@ -216,21 +207,34 @@ pub struct Detail {
 }
 
 impl Detail {
-  fn new(feature: Option<&vector::Feature>, fields: &BaseFields, info: Info) -> Option<Self> {
-    let feature = feature?;
-    let fuel_types = feature.get_fuel_types(fields)?.into();
-    let location = feature.get_location(fields)?.into();
-    let elevation = feature.get_elevation(fields)?.into();
-    let pat_alt = feature.get_pattern_altitude(fields)?.into();
-    let mag_var = feature.get_magnetic_variation(fields)?.into();
-    Some(Self {
-      info,
-      fuel_types,
-      location,
-      elevation,
-      pat_alt,
-      mag_var,
-    })
+  fn new(base_source: &BaseSource, info: Info, cancel: util::Cancel) -> Option<Self> {
+    use vector::LayerAccess;
+    let mut base_layer = base_source.layer();
+    let detail = || -> Option<Self> {
+      let feature = base_layer.feature(*base_source.id_map.get(&info.id)?)?;
+      if cancel.canceled() {
+        return None;
+      }
+
+      let fields = &base_source.fields;
+      let fuel_types = feature.get_fuel_types(fields)?.into();
+      let location = feature.get_location(fields)?.into();
+      let elevation = feature.get_elevation(fields)?.into();
+      let pat_alt = feature.get_pattern_altitude(fields)?.into();
+      let mag_var = feature.get_magnetic_variation(fields)?.into();
+
+      Some(Self {
+        info,
+        fuel_types,
+        location,
+        elevation,
+        pat_alt,
+        mag_var,
+      })
+    }();
+
+    base_layer.reset_feature_reading();
+    detail
   }
 }
 
@@ -503,6 +507,7 @@ impl IndexStatus {
   }
 }
 
+/// Dataset source for for `APT_BASE.csv`.
 struct BaseSource {
   dataset: gdal::Dataset,
   fields: BaseFields,
@@ -619,19 +624,7 @@ impl BaseSource {
   /// Get `Detail` for the specified airport ID.
   /// - `info`: airport `Info` struct
   fn detail(&self, info: Info, cancel: util::Cancel) -> Option<Detail> {
-    use vector::LayerAccess;
-    let mut layer = self.layer();
-    let info = {
-      let fid = self.id_map.get(&info.id)?;
-      if cancel.canceled() {
-        return None;
-      }
-
-      Detail::new(layer.feature(*fid).as_ref(), &self.fields, info)
-    };
-
-    layer.reset_feature_reading();
-    info
+    Detail::new(self, info, cancel)
   }
 
   /// Find airports within a search radius.
@@ -711,7 +704,7 @@ impl BaseSource {
   }
 }
 
-/// Field indexes for APT_BASE.
+/// Field indexes for `APT_BASE.csv`.
 struct BaseFields {
   arpt_id: usize,
   arpt_name: usize,
