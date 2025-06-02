@@ -868,7 +868,9 @@ trait GetLocation {
 
 impl GetLocation for vector::Feature<'_> {
   fn get_location(&self, fields: &BaseFields) -> Option<String> {
-    Some([self.get_string(fields.city)?, self.get_string(fields.state_code)?].join(", "))
+    let city = self.get_string(fields.city)?;
+    let state = self.get_string(fields.state_code)?;
+    Some([city, state].join(", "))
   }
 }
 
@@ -884,7 +886,7 @@ impl GetElevation for vector::Feature<'_> {
       "S" => "(SURV)",
       _ => return None,
     };
-    Some([elevation.as_str(), method].join(" "))
+    Some([&elevation, method].join(" "))
   }
 }
 
@@ -894,8 +896,11 @@ trait GetPatternAltitude {
 
 impl GetPatternAltitude for vector::Feature<'_> {
   fn get_pattern_altitude(&self, fields: &BaseFields) -> Option<String> {
-    use util::OrIfEmpty;
-    Some(self.get_string(fields.tpa)?.or_if_empty("1000") + " FEET AGL")
+    let pattern_altitude = self.get_string(fields.tpa)?;
+    if pattern_altitude.is_empty() {
+      return Some(pattern_altitude);
+    }
+    Some([&pattern_altitude, "FEET AGL"].join(" "))
   }
 }
 
