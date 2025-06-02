@@ -534,9 +534,9 @@ impl BaseSource {
     let path = path.join("APT_BASE.csv");
 
     let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
-    let fields = BaseFields::new(&dataset)?;
+    let fields = BaseFields::new(dataset.layer(0)?)?;
     Ok(Self {
-      dataset: dataset,
+      dataset,
       fields,
       id_map: collections::HashMap::new(),
       name_vec: Vec::new(),
@@ -723,9 +723,8 @@ struct BaseFields {
 }
 
 impl BaseFields {
-  fn new(dataset: &gdal::Dataset) -> Result<Self, errors::GdalError> {
+  fn new(layer: vector::Layer) -> Result<Self, errors::GdalError> {
     use vector::LayerAccess;
-    let layer = dataset.layer(0)?;
     let defn = layer.defn();
     Ok(Self {
       arpt_id: defn.field_index("ARPT_ID")?,
@@ -866,6 +865,9 @@ impl GetLocation for vector::Feature<'_> {
   fn get_location(&self, fields: &BaseFields) -> Option<String> {
     let city = self.get_string(fields.city)?;
     let state = self.get_string(fields.state_code)?;
+    if state.is_empty() {
+      return Some(city);
+    }
     Some([city, state].join(", "))
   }
 }
@@ -877,9 +879,14 @@ trait GetElevation {
 impl GetElevation for vector::Feature<'_> {
   fn get_elevation(&self, fields: &BaseFields) -> Option<String> {
     let elevation = self.get_string(fields.elev)?;
-    let method = match self.get_string(fields.elev_method_code)?.as_str() {
-      "E" => "(EST)",
-      "S" => "(SURV)",
+    let method = self.get_string(fields.elev_method_code)?;
+    if method.is_empty() {
+      return Some(elevation);
+    }
+
+    let method = match method.as_str() {
+      "E" => "FEET ASL (EST)",
+      "S" => "FEET ASL (SURV)",
       _ => return None,
     };
     Some([&elevation, method].join(" "))
