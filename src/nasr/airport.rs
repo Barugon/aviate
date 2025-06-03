@@ -852,7 +852,7 @@ impl GetFuelTypes for vector::Feature<'_> {
   fn get_fuel_types(&self, fields: &BaseFields) -> Option<String> {
     let fuel_types = self.get_string(fields.fuel_types)?;
 
-    // Make sure there's a comma and space between each type.
+    // Make sure there's a comma and space between each fuel type.
     Some(fuel_types.split(',').map(|s| s.trim()).collect::<Vec<_>>().join(", "))
   }
 }
@@ -868,7 +868,8 @@ impl GetLocation for vector::Feature<'_> {
     if state.is_empty() {
       return Some(city);
     }
-    Some([city, state].join(", "))
+
+    Some(format!("{city}, {state}"))
   }
 }
 
@@ -885,11 +886,12 @@ impl GetElevation for vector::Feature<'_> {
     }
 
     let method = match method.as_str() {
-      "E" => "FEET ASL (EST)",
-      "S" => "FEET ASL (SURV)",
+      "E" => "EST",
+      "S" => "SURV",
       _ => return None,
     };
-    Some([&elevation, method].join(" "))
+
+    Some(format!("{elevation} FEET ASL ({method})"))
   }
 }
 
@@ -903,7 +905,8 @@ impl GetPatternAltitude for vector::Feature<'_> {
     if pattern_altitude.is_empty() {
       return Some(pattern_altitude);
     }
-    Some([&pattern_altitude, "FEET AGL"].join(" "))
+
+    Some(format!("{pattern_altitude} FEET AGL"))
   }
 }
 
@@ -923,6 +926,6 @@ impl GetMagneticVariation for vector::Feature<'_> {
       return Some(String::new());
     }
 
-    Some([var, hem].join("°"))
+    Some(format!("{var}°{hem}"))
   }
 }
