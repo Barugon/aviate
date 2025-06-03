@@ -413,25 +413,28 @@ impl RequestProcessor {
     if let Some(info) = self.base_source.airport(&id, cancel) {
       return Reply::Airport(info);
     }
+
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
   fn detail(&self, info: Info, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
-      return Reply::Error("Chart transformation is required for airport ID search".into());
+      return Reply::Error("Chart transformation is required for airport information".into());
     }
 
     let id = info.id.clone();
-    if let Some(detail) = self.base_source.detail(info, cancel) {
+    if let Some(detail) = Detail::new(&self.base_source, info, cancel) {
       return Reply::Detail(detail);
     }
-    Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
+
+    Reply::Error(format!("Unable to get airport information for ID\n'{id}'").into())
   }
 
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
     if !self.index_status.is_indexed() {
       return Reply::Error("Chart transformation is required to find nearby airports".into());
     }
+
     Reply::Nearby(self.base_source.nearby(coord, dist, nph, cancel))
   }
 
@@ -527,12 +530,11 @@ impl BaseSource {
   }
 
   /// Open an airport base data source.
-  /// - `path`: airport `APT_BASE.csv` file path
+  /// - `path`: CSV zip file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let path = ["/vsizip/", path.to_str().unwrap()].concat();
     let path = path::Path::new(path.as_str());
     let path = path.join("APT_BASE.csv");
-
     let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
     let fields = BaseFields::new(dataset.layer(0)?)?;
     Ok(Self {
@@ -544,8 +546,9 @@ impl BaseSource {
     })
   }
 
-  /// Create the airport indexes.
+  /// Create the indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
+  /// - `cancel`: cancellation object
   fn create_indexes(&mut self, to_chart: &ToChart, cancel: util::Cancel) -> bool {
     use vector::LayerAccess;
 
@@ -605,6 +608,7 @@ impl BaseSource {
 
   /// Get `Info` for the specified airport ID.
   /// - `id`: airport ID
+  /// - `cancel`: cancellation object
   fn airport(&self, id: &str, cancel: util::Cancel) -> Option<Info> {
     use vector::LayerAccess;
     let mut layer = self.layer();
@@ -621,16 +625,11 @@ impl BaseSource {
     info
   }
 
-  /// Get `Detail` for the specified airport ID.
-  /// - `info`: airport `Info` struct
-  fn detail(&self, info: Info, cancel: util::Cancel) -> Option<Detail> {
-    Detail::new(self, info, cancel)
-  }
-
   /// Find airports within a search radius.
   /// - `coord`: chart coordinate
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
+  /// - `cancel`: cancellation object
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<Info> {
     use vector::LayerAccess;
     let mut layer = self.layer();
@@ -671,6 +670,7 @@ impl BaseSource {
   /// - `term`: search text
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `nph`: include non-public heliports
+  /// - `cancel`: cancellation object
   fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<Info> {
     use vector::LayerAccess;
     let mut layer = self.layer();
