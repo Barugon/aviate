@@ -278,6 +278,16 @@ impl ToU32 for f64 {
   }
 }
 
+impl ToU32 for i64 {
+  fn to_u32(self) -> Option<u32> {
+    let cast = self as u32;
+    if cast as Self == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
 impl ToU32 for Variant {
   fn to_u32(self) -> Option<u32> {
     // JSON values are read as f64.

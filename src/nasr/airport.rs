@@ -1,5 +1,8 @@
 use crate::{geom, util};
-use gdal::{errors, spatial_ref, vector};
+use gdal::{
+  errors, spatial_ref,
+  vector::{self, LayerAccess},
+};
 use godot::global::godot_error;
 use std::{any, cell, collections, path, sync, thread};
 use sync::{atomic, mpsc};
@@ -27,6 +30,14 @@ impl Reader {
       }
     };
 
+    let rwy_source = match RwySource::open(path) {
+      Ok(source) => source,
+      Err(err) => {
+        let err = format!("Unable to open airport runway data source:\n{err}");
+        return Err(err.into());
+      }
+    };
+
     let index_status = IndexStatus::new();
     let request_count = sync::Arc::new(atomic::AtomicI32::new(0));
     let (sender, thread_receiver) = mpsc::channel();
@@ -39,7 +50,8 @@ impl Reader {
         let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
-          let mut request_processor = RequestProcessor::new(base_source, index_status, request_count, thread_sender);
+          let mut request_processor =
+            RequestProcessor::new(base_source, rwy_source, index_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
           while let Ok(request) = thread_receiver.recv() {
@@ -194,6 +206,52 @@ impl Info {
   }
 }
 
+/// Airport runway information.
+#[derive(Clone, Debug)]
+#[allow(unused)]
+pub struct Runway {
+  pub rwy_id: Box<str>,
+  pub length: u32,
+  pub width: u32,
+  pub lighting: Box<str>,
+  pub surface: Box<str>,
+  pub condition: Box<str>,
+}
+
+impl Runway {
+  fn new(rwy_source: &RwySource, id: &str, cancel: util::Cancel) -> Option<Vec<Self>> {
+    use util::ToU32;
+
+    let fids = rwy_source.id_map.get(id)?;
+    let mut layer = rwy_source.layer();
+    let mut runways = Vec::with_capacity(fids.len());
+    for &fid in fids {
+      if cancel.canceled() {
+        return None;
+      }
+
+      let feature = layer.feature(fid)?;
+      let rwy_id = feature.get_string(rwy_source.fields.rwy_id)?.into();
+      let length = feature.get_i64(rwy_source.fields.rwy_len)?.to_u32()?;
+      let width = feature.get_i64(rwy_source.fields.rwy_width)?.to_u32()?;
+      let lighting = feature.get_runway_lighting(&rwy_source.fields)?.into();
+      let surface = feature.get_runway_surface(&rwy_source.fields)?.into();
+      let condition = feature.get_string(rwy_source.fields.cond)?.into();
+      runways.push(Self {
+        rwy_id,
+        length,
+        width,
+        lighting,
+        surface,
+        condition,
+      });
+    }
+
+    layer.reset_feature_reading();
+    Some(runways)
+  }
+}
+
 /// Airport detail information.
 #[derive(Clone, Debug)]
 #[allow(unused)]
@@ -204,14 +262,15 @@ pub struct Detail {
   pub elevation: Box<str>,
   pub pat_alt: Box<str>,
   pub mag_var: Box<str>,
+  pub runways: Box<[Runway]>,
 }
 
 impl Detail {
-  fn new(base_source: &BaseSource, info: Info, cancel: util::Cancel) -> Option<Self> {
+  fn new(base_source: &BaseSource, rwy_source: &RwySource, info: Info, cancel: util::Cancel) -> Option<Self> {
     use vector::LayerAccess;
-    let mut base_layer = base_source.layer();
+    let mut layer = base_source.layer();
     let detail = || -> Option<Self> {
-      let feature = base_layer.feature(*base_source.id_map.get(&info.id)?)?;
+      let feature = layer.feature(*base_source.id_map.get(&info.id)?)?;
       if cancel.canceled() {
         return None;
       }
@@ -222,6 +281,7 @@ impl Detail {
       let elevation = feature.get_elevation(fields)?.into();
       let pat_alt = feature.get_pattern_altitude(fields)?.into();
       let mag_var = feature.get_magnetic_variation(fields)?.into();
+      let runways = Runway::new(rwy_source, &info.id, cancel)?.into();
 
       Some(Self {
         info,
@@ -230,10 +290,11 @@ impl Detail {
         elevation,
         pat_alt,
         mag_var,
+        runways,
       })
     }();
 
-    base_layer.reset_feature_reading();
+    layer.reset_feature_reading();
     detail
   }
 }
@@ -321,6 +382,7 @@ pub enum Reply {
 
 struct RequestProcessor {
   base_source: BaseSource,
+  rwy_source: RwySource,
   index_status: IndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<Reply>,
@@ -330,6 +392,7 @@ struct RequestProcessor {
 impl RequestProcessor {
   fn new(
     base_source: BaseSource,
+    rwy_source: RwySource,
     index_status: IndexStatus,
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
@@ -341,6 +404,7 @@ impl RequestProcessor {
 
     Self {
       base_source,
+      rwy_source,
       index_status,
       request_count,
       sender,
@@ -394,7 +458,8 @@ impl RequestProcessor {
     match ToChart::new(&proj4, &self.dd_sr, bounds) {
       Ok(trans) => {
         // Create new airport indexes.
-        let indexed = self.base_source.create_indexes(&trans, cancel);
+        let indexed = self.base_source.create_indexes(&trans, cancel.clone())
+          && self.rwy_source.create_index(&self.base_source, cancel);
         self.index_status.set_is_indexed(indexed);
       }
       Err(err) => {
@@ -423,7 +488,7 @@ impl RequestProcessor {
     }
 
     let id = info.id.clone();
-    if let Some(detail) = Detail::new(&self.base_source, info, cancel) {
+    if let Some(detail) = Detail::new(&self.base_source, &self.rwy_source, info, cancel) {
       return Reply::Detail(detail);
     }
 
@@ -520,22 +585,13 @@ struct BaseSource {
 }
 
 impl BaseSource {
-  fn open_options<'a>() -> gdal::DatasetOptions<'a> {
-    gdal::DatasetOptions {
-      open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY
-        | gdal::GdalOpenFlags::GDAL_OF_VECTOR
-        | gdal::GdalOpenFlags::GDAL_OF_INTERNAL,
-      ..Default::default()
-    }
-  }
-
   /// Open an airport base data source.
   /// - `path`: CSV zip file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let path = ["/vsizip/", path.to_str().unwrap()].concat();
     let path = path::Path::new(path.as_str());
     let path = path.join("APT_BASE.csv");
-    let dataset = gdal::Dataset::open_ex(path, Self::open_options())?;
+    let dataset = gdal::Dataset::open_ex(path, open_options())?;
     let fields = BaseFields::new(dataset.layer(0)?)?;
     Ok(Self {
       dataset,
@@ -745,6 +801,118 @@ impl BaseFields {
   }
 }
 
+/// Dataset source for for `APT_RWY.csv`.
+struct RwySource {
+  dataset: gdal::Dataset,
+  fields: RwyFields,
+  id_map: collections::HashMap<Box<str>, Box<[u64]>>,
+}
+
+#[allow(unused)]
+impl RwySource {
+  /// Open an airport runway data source.
+  /// - `path`: CSV zip file path
+  fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
+    let path = ["/vsizip/", path.to_str().unwrap()].concat();
+    let path = path::Path::new(path.as_str());
+    let path = path.join("APT_RWY.csv");
+    let dataset = gdal::Dataset::open_ex(path, open_options())?;
+    let fields = RwyFields::new(dataset.layer(0)?)?;
+    Ok(Self {
+      dataset,
+      fields,
+      id_map: collections::HashMap::new(),
+    })
+  }
+
+  /// Create the index.
+  /// - `base_src`: airport base data source
+  /// - `cancel`: cancellation object
+  fn create_index(&mut self, base_src: &BaseSource, cancel: util::Cancel) -> bool {
+    use vector::LayerAccess;
+
+    let mut layer = self.layer();
+    let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::new();
+
+    // Iterator resets feature reading when dropped.
+    for feature in layer.features() {
+      if cancel.canceled() {
+        return false;
+      }
+
+      let Some(id) = feature.get_string(self.fields.arpt_id) else {
+        continue;
+      };
+
+      if !base_src.id_map.contains_key(id.as_str()) {
+        continue;
+      }
+
+      let Some(fid) = feature.fid() else {
+        continue;
+      };
+
+      match id_map.get_mut(id.as_str()) {
+        Some(vec) => vec.push(fid),
+        None => {
+          id_map.insert(id, vec![fid]);
+        }
+      }
+    }
+
+    self.id_map = collections::HashMap::with_capacity(id_map.len());
+    for (id, vec) in id_map {
+      self.id_map.insert(id.into(), vec.into());
+    }
+
+    !self.id_map.is_empty()
+  }
+
+  fn clear_index(&mut self) {
+    self.id_map = collections::HashMap::new();
+  }
+
+  fn layer(&self) -> vector::Layer {
+    self.dataset.layer(0).unwrap()
+  }
+}
+
+/// Field indexes for `APT_BASE.csv`.
+struct RwyFields {
+  arpt_id: usize,
+  rwy_id: usize,
+  rwy_len: usize,
+  rwy_width: usize,
+  rwy_lgt_code: usize,
+  surface_type_code: usize,
+  cond: usize,
+}
+
+impl RwyFields {
+  fn new(layer: vector::Layer) -> Result<Self, errors::GdalError> {
+    use vector::LayerAccess;
+    let defn = layer.defn();
+    Ok(Self {
+      arpt_id: defn.field_index("ARPT_ID")?,
+      rwy_id: defn.field_index("RWY_ID")?,
+      rwy_len: defn.field_index("RWY_LEN")?,
+      rwy_width: defn.field_index("RWY_WIDTH")?,
+      rwy_lgt_code: defn.field_index("RWY_LGT_CODE")?,
+      surface_type_code: defn.field_index("SURFACE_TYPE_CODE")?,
+      cond: defn.field_index("COND")?,
+    })
+  }
+}
+
+fn open_options<'a>() -> gdal::DatasetOptions<'a> {
+  gdal::DatasetOptions {
+    open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY
+      | gdal::GdalOpenFlags::GDAL_OF_VECTOR
+      | gdal::GdalOpenFlags::GDAL_OF_INTERNAL,
+    ..Default::default()
+  }
+}
+
 /// Location spatial index item.
 struct LocIdx {
   coord: geom::Cht,
@@ -764,6 +932,22 @@ impl rstar::PointDistance for LocIdx {
     let dx = point[0] - self.coord.x;
     let dy = point[1] - self.coord.y;
     dx * dx + dy * dy
+  }
+}
+
+trait GetI64 {
+  fn get_i64(&self, index: usize) -> Option<i64>;
+}
+
+impl GetI64 for vector::Feature<'_> {
+  fn get_i64(&self, index: usize) -> Option<i64> {
+    match self.field_as_integer64(index) {
+      Ok(val) => val,
+      Err(err) => {
+        godot_error!("{err}");
+        None
+      }
+    }
   }
 }
 
@@ -927,5 +1111,51 @@ impl GetMagneticVariation for vector::Feature<'_> {
     }
 
     Some(format!("{var}°{hem}"))
+  }
+}
+
+trait GetRunwayLighting {
+  fn get_runway_lighting(&self, fields: &RwyFields) -> Option<String>;
+}
+
+impl GetRunwayLighting for vector::Feature<'_> {
+  fn get_runway_lighting(&self, fields: &RwyFields) -> Option<String> {
+    let lighting = self.get_string(fields.rwy_lgt_code)?;
+    if lighting.is_empty() {
+      return Some(lighting);
+    }
+
+    // Expand abbreviations.
+    Some(match lighting.as_str() {
+      "MED" => String::from("MEDIUM"),
+      "NSTD" => String::from("NON-STANDARD"),
+      _ => lighting,
+    })
+  }
+}
+
+trait GetRunwaySurface {
+  fn get_runway_surface(&self, fields: &RwyFields) -> Option<String>;
+}
+
+impl GetRunwaySurface for vector::Feature<'_> {
+  fn get_runway_surface(&self, fields: &RwyFields) -> Option<String> {
+    let surface = self.get_string(fields.surface_type_code)?;
+    if surface.is_empty() {
+      return Some(surface);
+    }
+
+    // Expand abbreviations.
+    Some(match surface.as_str() {
+      "CONC" => String::from("PORTLAND CEMENT CONCRETE"),
+      "ASPH" => String::from("ASPHALT OR BITUMINOUS CONCRETE"),
+      "MATS" => String::from("PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES"),
+      "TREATED" => String::from("OILED; SOIL CEMENT OR LIME STABILIZED"),
+      "GRAVEL" => String::from("GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG"),
+      "TURF" => String::from("GRASS; SOD"),
+      "DIRT" => String::from("NATURAL SOIL"),
+      "PEM" => String::from("PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM"),
+      _ => surface,
+    })
   }
 }
