@@ -2,6 +2,7 @@
   "cSpell.ignoreWords": [
     "aabb",
     "arpt",
+    "asph",
     "balloonport",
     "barugon",
     "bindgen",
@@ -28,6 +29,7 @@
     "longlat",
     "lzma",
     "nasr",
+    "nstd",
     "palettized",
     "polyline",
     "rasterband",
@@ -47,7 +49,7 @@
     "unresizable",
     "varn",
     "vcpkg",
-    "vsizip",
+    "vsizip"
   ],
   "editor.rulers": [
     120
