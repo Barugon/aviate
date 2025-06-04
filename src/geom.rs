@@ -11,6 +11,16 @@ impl DD {
   pub fn new(lon: f64, lat: f64) -> Self {
     Self(Coord::new(lon, lat))
   }
+
+  #[allow(unused)]
+  pub fn latitude(&self) -> String {
+    format_dd::<'S', 'N'>(self.y)
+  }
+
+  #[allow(unused)]
+  pub fn longitude(&self) -> String {
+    format_dd::<'W', 'E'>(self.x)
+  }
 }
 
 impl From<Coord> for DD {
@@ -25,6 +35,20 @@ impl ops::Deref for DD {
   fn deref(&self) -> &Self::Target {
     &self.0
   }
+}
+
+fn format_dd<const NEG: char, const POS: char>(dd: f64) -> String {
+  let lat = NEG == 'S' && POS == 'N' && (-90.0..=90.0).contains(&dd);
+  let lon = NEG == 'W' && POS == 'E' && (-180.0..=180.0).contains(&dd);
+  assert!(lat || lon);
+
+  let dir = if dd.signum() < 0.0 { NEG } else { POS };
+  let dd = dd.abs();
+  let deg = dd.trunc();
+  let dm = (dd - deg) * 60.0;
+  let min = dm.trunc();
+  let sec = (dm - min) * 60.0;
+  format!("{deg:00$}°{min:02}'{sec:0>5.2}\"{dir}", if lon { 3 } else { 2 })
 }
 
 /// Chart coordinate.
@@ -549,6 +573,39 @@ impl From<Rect> for Rect2 {
 }
 
 mod test {
+  #[test]
+  fn test_format_dd() {
+    use super::*;
+
+    pub fn to_dec_deg(deg: f64, min: f64, sec: f64) -> f64 {
+      const DEG_PER_MIN: f64 = 1.0 / 60.0;
+      const DEG_PER_SEC: f64 = DEG_PER_MIN / 60.0;
+      return deg.signum() * (deg.abs() + min * DEG_PER_MIN + sec * DEG_PER_SEC);
+    }
+
+    let dd = to_dec_deg(0.0, 59.0, 60.0);
+    assert!(dd == 1.0);
+
+    let dd = to_dec_deg(-0.0, 59.0, 60.0);
+    assert!(dd == -1.0);
+
+    let dd = to_dec_deg(34.0, 5.0, 6.9);
+    let lat = format_dd::<'S', 'N'>(dd);
+    assert!(lat == "34°05'06.90\"N");
+
+    let dd = to_dec_deg(-26.0, 15.0, 44.63);
+    let lat = format_dd::<'S', 'N'>(dd);
+    assert!(lat == "26°15'44.63\"S");
+
+    let dd = to_dec_deg(22.0, 24.0, 3.03);
+    let lon = format_dd::<'W', 'E'>(dd);
+    assert!(lon == "022°24'03.03\"E");
+
+    let dd = to_dec_deg(-117.0, 8.0, 47.0);
+    let lon = format_dd::<'W', 'E'>(dd);
+    assert!(lon == "117°08'47.00\"W");
+  }
+
   #[test]
   fn polygon_contains() {
     use super::*;
