@@ -40,6 +40,7 @@
     "rustup",
     "rwkb",
     "serde",
+    "signum",
     "stdc",
     "svgs",
     "tfws",
