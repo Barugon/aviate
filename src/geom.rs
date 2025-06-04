@@ -13,12 +13,12 @@ impl DD {
   }
 
   #[allow(unused)]
-  pub fn latitude(&self) -> String {
+  pub fn get_latitude(&self) -> String {
     format_dms::<'S', 'N'>(self.y)
   }
 
   #[allow(unused)]
-  pub fn longitude(&self) -> String {
+  pub fn get_longitude(&self) -> String {
     format_dms::<'W', 'E'>(self.x)
   }
 }
