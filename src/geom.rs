@@ -43,7 +43,7 @@ fn format_dms<const NEG: char, const POS: char>(dd: f64) -> String {
   let lon = NEG == 'W' && POS == 'E' && (-180.0..=180.0).contains(&dd);
   assert!(lat || lon);
 
-  let dir = if dd.signum() < 0.0 { NEG } else { POS };
+  let dir = if dd < 0.0 { NEG } else { POS };
   let dd = dd.abs();
   let deg = dd.trunc();
   let dm = (dd - deg) * 60.0;
