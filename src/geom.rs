@@ -14,12 +14,12 @@ impl DD {
 
   #[allow(unused)]
   pub fn latitude(&self) -> String {
-    format_dd::<'S', 'N'>(self.y)
+    format_dms::<'S', 'N'>(self.y)
   }
 
   #[allow(unused)]
   pub fn longitude(&self) -> String {
-    format_dd::<'W', 'E'>(self.x)
+    format_dms::<'W', 'E'>(self.x)
   }
 }
 
@@ -37,7 +37,8 @@ impl ops::Deref for DD {
   }
 }
 
-fn format_dd<const NEG: char, const POS: char>(dd: f64) -> String {
+/// Convert a decimal degree value to a degrees-minutes-seconds string.
+fn format_dms<const NEG: char, const POS: char>(dd: f64) -> String {
   let lat = NEG == 'S' && POS == 'N' && (-90.0..=90.0).contains(&dd);
   let lon = NEG == 'W' && POS == 'E' && (-180.0..=180.0).contains(&dd);
   assert!(lat || lon);
@@ -574,7 +575,7 @@ impl From<Rect> for Rect2 {
 
 mod test {
   #[test]
-  fn test_format_dd() {
+  fn test_format_dms() {
     use super::*;
 
     pub fn to_dec_deg(deg: f64, min: f64, sec: f64) -> f64 {
@@ -590,19 +591,19 @@ mod test {
     assert!(dd == -1.0);
 
     let dd = to_dec_deg(34.0, 5.0, 6.9);
-    let lat = format_dd::<'S', 'N'>(dd);
+    let lat = format_dms::<'S', 'N'>(dd);
     assert!(lat == "34°05'06.90\"N");
 
     let dd = to_dec_deg(-26.0, 15.0, 44.63);
-    let lat = format_dd::<'S', 'N'>(dd);
+    let lat = format_dms::<'S', 'N'>(dd);
     assert!(lat == "26°15'44.63\"S");
 
     let dd = to_dec_deg(22.0, 24.0, 3.03);
-    let lon = format_dd::<'W', 'E'>(dd);
+    let lon = format_dms::<'W', 'E'>(dd);
     assert!(lon == "022°24'03.03\"E");
 
     let dd = to_dec_deg(-117.0, 8.0, 47.0);
-    let lon = format_dd::<'W', 'E'>(dd);
+    let lon = format_dms::<'W', 'E'>(dd);
     assert!(lon == "117°08'47.00\"W");
   }
 
