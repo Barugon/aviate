@@ -586,11 +586,10 @@ struct BaseSource {
 
 impl BaseSource {
   /// Open an airport base data source.
-  /// - `path`: CSV zip file path
+  /// - `path`: airport CSV zip file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let path = ["/vsizip/", path.to_str().unwrap()].concat();
-    let path = path::Path::new(path.as_str());
-    let path = path.join("APT_BASE.csv");
+    let path = path::Path::new(path.as_str()).join("APT_BASE.csv");
     let dataset = gdal::Dataset::open_ex(path, open_options())?;
     let fields = BaseFields::new(dataset.layer(0)?)?;
     Ok(Self {
@@ -811,11 +810,10 @@ struct RwySource {
 #[allow(unused)]
 impl RwySource {
   /// Open an airport runway data source.
-  /// - `path`: CSV zip file path
+  /// - `path`: airport CSV zip file path
   fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let path = ["/vsizip/", path.to_str().unwrap()].concat();
-    let path = path::Path::new(path.as_str());
-    let path = path.join("APT_RWY.csv");
+    let path = path::Path::new(path.as_str()).join("APT_RWY.csv");
     let dataset = gdal::Dataset::open_ex(path, open_options())?;
     let fields = RwyFields::new(dataset.layer(0)?)?;
     Ok(Self {
@@ -832,7 +830,7 @@ impl RwySource {
     use vector::LayerAccess;
 
     let mut layer = self.layer();
-    let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::new();
+    let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::with_capacity(base_src.id_map.len());
 
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
