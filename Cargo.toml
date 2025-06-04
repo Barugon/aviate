@@ -11,7 +11,7 @@ dev = []
 
 [dependencies]
 gdal = {version = "0.18", features = ["bindgen"]}
-godot = {version = "0.2", features = ["experimental-threads"]}
+godot = {version = "0.3", features = ["experimental-threads"]}
 rstar = "0.12"
 
 [dev-dependencies]
