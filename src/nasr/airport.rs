@@ -174,7 +174,7 @@ pub struct Info {
 }
 
 impl Info {
-  fn new(feature: Option<&vector::Feature>, fields: &BaseFields, nph: bool) -> Option<Self> {
+  fn new(feature: Option<vector::Feature>, fields: &BaseFields, nph: bool) -> Option<Self> {
     let feature = feature?;
     let airport_type = feature.get_airport_type(fields)?;
     let airport_use = feature.get_airport_use(fields)?;
@@ -219,36 +219,23 @@ pub struct Runway {
 }
 
 impl Runway {
-  fn new(rwy_source: &RwySource, id: &str, cancel: util::Cancel) -> Option<Vec<Self>> {
+  fn new(feature: Option<vector::Feature>, fields: &RwyFields) -> Option<Self> {
     use util::ToU32;
-
-    let fids = rwy_source.id_map.get(id)?;
-    let mut layer = rwy_source.layer();
-    let mut runways = Vec::with_capacity(fids.len());
-    for &fid in fids {
-      if cancel.canceled() {
-        return None;
-      }
-
-      let feature = layer.feature(fid)?;
-      let rwy_id = feature.get_string(rwy_source.fields.rwy_id)?.into();
-      let length = feature.get_i64(rwy_source.fields.rwy_len)?.to_u32()?;
-      let width = feature.get_i64(rwy_source.fields.rwy_width)?.to_u32()?;
-      let lighting = feature.get_runway_lighting(&rwy_source.fields)?.into();
-      let surface = feature.get_runway_surface(&rwy_source.fields)?.into();
-      let condition = feature.get_string(rwy_source.fields.cond)?.into();
-      runways.push(Self {
-        rwy_id,
-        length,
-        width,
-        lighting,
-        surface,
-        condition,
-      });
-    }
-
-    layer.reset_feature_reading();
-    Some(runways)
+    let feature = feature?;
+    let rwy_id = feature.get_string(fields.rwy_id)?.into();
+    let length = feature.get_i64(fields.rwy_len)?.to_u32()?;
+    let width = feature.get_i64(fields.rwy_width)?.to_u32()?;
+    let lighting = feature.get_runway_lighting(fields)?.into();
+    let surface = feature.get_runway_surface(fields)?.into();
+    let condition = feature.get_string(fields.cond)?.into();
+    Some(Self {
+      rwy_id,
+      length,
+      width,
+      lighting,
+      surface,
+      condition,
+    })
   }
 }
 
@@ -266,36 +253,23 @@ pub struct Detail {
 }
 
 impl Detail {
-  fn new(base_source: &BaseSource, rwy_source: &RwySource, info: Info, cancel: util::Cancel) -> Option<Self> {
-    use vector::LayerAccess;
-    let mut layer = base_source.layer();
-    let detail = || -> Option<Self> {
-      let feature = layer.feature(*base_source.id_map.get(&info.id)?)?;
-      if cancel.canceled() {
-        return None;
-      }
-
-      let fields = &base_source.fields;
-      let fuel_types = feature.get_fuel_types(fields)?.into();
-      let location = feature.get_location(fields)?.into();
-      let elevation = feature.get_elevation(fields)?.into();
-      let pat_alt = feature.get_pattern_altitude(fields)?.into();
-      let mag_var = feature.get_magnetic_variation(fields)?.into();
-      let runways = Runway::new(rwy_source, &info.id, cancel)?.into();
-
-      Some(Self {
-        info,
-        fuel_types,
-        location,
-        elevation,
-        pat_alt,
-        mag_var,
-        runways,
-      })
-    }();
-
-    layer.reset_feature_reading();
-    detail
+  fn new(feature: Option<vector::Feature>, fields: &BaseFields, info: Info, runways: Vec<Runway>) -> Option<Self> {
+    let feature = feature?;
+    let runways = runways.into();
+    let fuel_types = feature.get_fuel_types(fields)?.into();
+    let location = feature.get_location(fields)?.into();
+    let elevation = feature.get_elevation(fields)?.into();
+    let pat_alt = feature.get_pattern_altitude(fields)?.into();
+    let mag_var = feature.get_magnetic_variation(fields)?.into();
+    Some(Self {
+      info,
+      fuel_types,
+      location,
+      elevation,
+      pat_alt,
+      mag_var,
+      runways,
+    })
   }
 }
 
@@ -488,8 +462,10 @@ impl RequestProcessor {
     }
 
     let id = info.id.clone();
-    if let Some(detail) = Detail::new(&self.base_source, &self.rwy_source, info, cancel) {
-      return Reply::Detail(detail);
+    if let Some(runways) = self.rwy_source.runways(&id, cancel.clone()) {
+      if let Some(detail) = self.base_source.detail(info, runways, cancel) {
+        return Reply::Detail(detail);
+      }
     }
 
     Reply::Error(format!("Unable to get airport information for ID\n'{id}'").into())
@@ -661,7 +637,7 @@ impl BaseSource {
     self.sp_idx = rstar::RTree::new();
   }
 
-  /// Get `Info` for the specified airport ID.
+  /// Get airport summary information for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
   fn airport(&self, id: &str, cancel: util::Cancel) -> Option<Info> {
@@ -673,11 +649,31 @@ impl BaseSource {
         return None;
       }
 
-      Info::new(layer.feature(*fid).as_ref(), &self.fields, true)
+      Info::new(layer.feature(*fid), &self.fields, true)
     };
 
     layer.reset_feature_reading();
     info
+  }
+
+  /// Get airport detail information.
+  /// - `info`: airport summary information
+  /// - `runways`: vector of runway information
+  /// - `cancel`: cancellation object
+  fn detail(&self, info: Info, runways: Vec<Runway>, cancel: util::Cancel) -> Option<Detail> {
+    use vector::LayerAccess;
+    let mut layer = self.layer();
+    let detail = {
+      let fid = self.id_map.get(&info.id)?;
+      if cancel.canceled() {
+        return None;
+      }
+
+      Detail::new(layer.feature(*fid), &self.fields, info, runways)
+    };
+
+    layer.reset_feature_reading();
+    detail
   }
 
   /// Find airports within a search radius.
@@ -707,7 +703,7 @@ impl BaseSource {
         return Vec::new();
       }
 
-      let Some(info) = Info::new(layer.feature(fid).as_ref(), &self.fields, nph) else {
+      let Some(info) = Info::new(layer.feature(fid), &self.fields, nph) else {
         continue;
       };
 
@@ -740,7 +736,7 @@ impl BaseSource {
         continue;
       }
 
-      let Some(info) = Info::new(layer.feature(*fid).as_ref(), &self.fields, nph) else {
+      let Some(info) = Info::new(layer.feature(*fid), &self.fields, nph) else {
         continue;
       };
 
@@ -864,6 +860,27 @@ impl RwySource {
     }
 
     !self.id_map.is_empty()
+  }
+
+  /// Get runways for the specified airport ID.
+  /// - `id`: airport ID
+  /// - `cancel`: cancellation object
+  fn runways(&self, id: &str, cancel: util::Cancel) -> Option<Vec<Runway>> {
+    let mut layer = self.layer();
+    let runways = || -> Option<Vec<Runway>> {
+      let fids = self.id_map.get(id)?;
+      let mut runways = Vec::with_capacity(fids.len());
+      for &fid in fids {
+        if cancel.canceled() {
+          return None;
+        }
+        runways.push(Runway::new(layer.feature(fid), &self.fields)?);
+      }
+      Some(runways)
+    }();
+
+    layer.reset_feature_reading();
+    runways
   }
 
   fn clear_index(&mut self) {
