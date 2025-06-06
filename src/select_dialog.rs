@@ -48,7 +48,13 @@ impl SelectDialog {
     self.get_child::<Button>("InfoButton").set_disabled(false);
   }
 
-  pub fn show_choices<'a, I: Iterator<Item = borrow::Cow<'a, str>>>(&mut self, choices: I) {
+  pub fn show_choices<'a, I: Iterator<Item = borrow::Cow<'a, str>>>(
+    &mut self,
+    choices: I,
+    title: &str,
+    ok_name: &str,
+    show_info: bool,
+  ) {
     // Remove existing choices and disable scrolling.
     self.tree.clear();
     self.tree.set_column_expand_ratio(0, 2);
@@ -76,10 +82,13 @@ impl SelectDialog {
 
     let mut button = self.get_child::<Button>("OkButton");
     button.set_disabled(true);
+    button.set_text(ok_name);
 
     let mut button = self.get_child::<Button>("InfoButton");
     button.set_disabled(true);
+    button.set_visible(show_info);
 
+    self.base_mut().set_title(title);
     self.base_mut().reset_size();
 
     // Reenable scrolling.

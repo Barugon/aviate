@@ -146,16 +146,8 @@ impl MainWidget {
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    dialog.set_title("Select Chart");
-
-    let mut button = dialog.find_child("OkButton").unwrap().cast::<Button>();
-    button.set_text(" OK ");
-
-    let mut button = dialog.find_child("InfoButton").unwrap().cast::<Button>();
-    button.set_visible(false);
-
     let choices = files.iter().map(|f| util::stem_str(f).unwrap().into());
-    dialog.bind_mut().show_choices(choices);
+    dialog.bind_mut().show_choices(choices, "Select Chart", " OK ", false);
 
     self.chart_info = Some((path, files));
     self.airport_infos = None;
@@ -168,16 +160,8 @@ impl MainWidget {
     }
 
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    dialog.set_title("Select Airport");
-
-    let mut button = dialog.find_child("OkButton").unwrap().cast::<Button>();
-    button.set_text("Go To");
-
-    let mut button = dialog.find_child("InfoButton").unwrap().cast::<Button>();
-    button.set_visible(true);
-
     let choices = airports.iter().map(|a| a.desc().into());
-    dialog.bind_mut().show_choices(choices);
+    dialog.bind_mut().show_choices(choices, "Select Airport", "Go To", true);
 
     self.airport_infos = Some(airports);
     self.chart_info = None;
