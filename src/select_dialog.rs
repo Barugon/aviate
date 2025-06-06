@@ -57,8 +57,13 @@ impl SelectDialog {
   ) {
     // Remove existing choices and disable scrolling.
     self.tree.clear();
-    self.tree.set_column_expand_ratio(0, 2);
+
+    // Set column sizing.
     self.tree.set_column_expand(0, true);
+    self.tree.set_column_custom_minimum_width(1, 100);
+    self.tree.set_column_expand(1, false);
+
+    // Disable scrolling.
     self.tree.set_v_scroll_enabled(false);
 
     // Populate with new choices.
@@ -99,6 +104,7 @@ impl SelectDialog {
     let size = Vector2i::new(self.width, self.base().get_size().y);
     self.base_mut().set_size(size);
 
+    // Show the window.
     self.base_mut().call_deferred("show", &[]);
 
     // If there's only one choice then select it.
