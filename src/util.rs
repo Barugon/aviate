@@ -15,6 +15,7 @@ pub const ZOOM_RANGE: ops::RangeInclusive<f32> = 1.0 / 8.0..=1.0;
 pub const TITLE_HEIGHT: i32 = 32;
 pub const BORDER_WIDTH: i32 = 8;
 pub const BORDER_HEIGHT: i32 = 6;
+pub const MIN_FIND_CHARS: usize = 3;
 
 /// Convert `Result` into `Option` and print any error.
 pub fn ok<T, E: std::fmt::Display>(result: Result<T, E>) -> Option<T> {

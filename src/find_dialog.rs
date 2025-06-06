@@ -19,13 +19,13 @@ impl FindDialog {
 
   #[func]
   fn changed(&mut self, text: String) {
-    self.ok.set_disabled(text.trim().len() < 3);
+    self.ok.set_disabled(text.trim().len() < util::MIN_FIND_CHARS);
   }
 
   #[func]
   fn submit(&mut self, text: String) {
     let text = text.trim();
-    if text.len() < 3 {
+    if text.len() < util::MIN_FIND_CHARS {
       return;
     }
 
@@ -39,7 +39,7 @@ impl FindDialog {
   fn confirm(&mut self) {
     let text = self.get_child::<LineEdit>("LineEdit").get_text().to_string();
     let text = text.trim();
-    if text.len() < 3 {
+    if text.len() < util::MIN_FIND_CHARS {
       return;
     }
 

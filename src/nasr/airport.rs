@@ -124,7 +124,7 @@ impl Reader {
   /// - `term`: search term
   /// - `nph`: include non-public heliports
   pub fn search(&self, term: String, nph: bool) {
-    assert!(!term.is_empty());
+    assert!(util::MIN_FIND_CHARS == 0 || !term.is_empty());
     let cancel = self.cancel_request();
     self.send(Request::Search(term, nph, cancel), true);
   }
