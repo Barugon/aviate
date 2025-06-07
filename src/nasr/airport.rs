@@ -1144,6 +1144,7 @@ impl GetRunwayLighting for vector::Feature<'_> {
     Some(match lighting.as_str() {
       "MED" => String::from("MEDIUM"),
       "NSTD" => String::from("NON-STANDARD"),
+      "PERI" => String::from("PERIPHERAL"),
       _ => lighting,
     })
   }
