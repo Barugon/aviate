@@ -1,10 +1,10 @@
-use crate::{geom, util};
-use gdal::{
-  errors, spatial_ref,
-  vector::{self, LayerAccess},
+use crate::{
+  geom,
+  nasr::{apt_base, apt_rwy, common},
+  util,
 };
-use godot::global::godot_error;
-use std::{any, cell, collections, path, sync, thread};
+use gdal::spatial_ref;
+use std::{any, cell, path, sync, thread};
 use sync::{atomic, mpsc};
 
 /// Reader is used for opening and reading
@@ -22,7 +22,7 @@ impl Reader {
   /// Create a new airport reader.
   /// - `path`: path to the airport CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
-    let base_source = match BaseSource::open(path) {
+    let base_source = match apt_base::Source::open(path) {
       Ok(source) => source,
       Err(err) => {
         let err = format!("Unable to open airport base data source:\n{err}");
@@ -30,7 +30,7 @@ impl Reader {
       }
     };
 
-    let rwy_source = match RwySource::open(path) {
+    let rwy_source = match apt_rwy::Source::open(path) {
       Ok(source) => source,
       Err(err) => {
         let err = format!("Unable to open airport runway data source:\n{err}");
@@ -45,7 +45,7 @@ impl Reader {
 
     // Create the thread.
     thread::Builder::new()
-      .name(any::type_name::<BaseSource>().into())
+      .name(any::type_name::<apt_base::Source>().into())
       .spawn({
         let index_status = index_status.clone();
         let request_count = request_count.clone();
@@ -174,27 +174,6 @@ pub struct Info {
 }
 
 impl Info {
-  fn new(feature: Option<vector::Feature>, fields: &BaseFields, nph: bool) -> Option<Self> {
-    let feature = feature?;
-    let airport_type = feature.get_airport_type(fields)?;
-    let airport_use = feature.get_airport_use(fields)?;
-    if !nph && airport_type == Type::Heliport && airport_use != Use::Public {
-      return None;
-    }
-
-    let id = feature.get_string(fields.arpt_id)?.into();
-    let name = feature.get_string(fields.arpt_name)?.into();
-    let coord = feature.get_coord(fields)?;
-
-    Some(Self {
-      id,
-      name,
-      coord,
-      apt_type: airport_type,
-      apt_use: airport_use,
-    })
-  }
-
   pub fn desc(&self) -> String {
     format!(
       "{} ({}), {}, {}",
@@ -218,27 +197,6 @@ pub struct Runway {
   pub condition: Box<str>,
 }
 
-impl Runway {
-  fn new(feature: Option<vector::Feature>, fields: &RwyFields) -> Option<Self> {
-    use util::ToU32;
-    let feature = feature?;
-    let rwy_id = feature.get_string(fields.rwy_id)?.into();
-    let length = feature.get_i64(fields.rwy_len)?.to_u32()?;
-    let width = feature.get_i64(fields.rwy_width)?.to_u32()?;
-    let lighting = feature.get_runway_lighting(fields)?.into();
-    let surface = feature.get_runway_surface(fields)?.into();
-    let condition = feature.get_string(fields.cond)?.into();
-    Some(Self {
-      rwy_id,
-      length,
-      width,
-      lighting,
-      surface,
-      condition,
-    })
-  }
-}
-
 /// Airport detail information.
 #[derive(Clone, Debug)]
 #[allow(unused)]
@@ -250,27 +208,6 @@ pub struct Detail {
   pub pat_alt: Box<str>,
   pub mag_var: Box<str>,
   pub runways: Box<[Runway]>,
-}
-
-impl Detail {
-  fn new(feature: Option<vector::Feature>, fields: &BaseFields, info: Info, runways: Vec<Runway>) -> Option<Self> {
-    let feature = feature?;
-    let runways = runways.into();
-    let fuel_types = feature.get_fuel_types(fields)?.into();
-    let location = feature.get_location(fields)?.into();
-    let elevation = feature.get_elevation(fields)?.into();
-    let pat_alt = feature.get_pattern_altitude(fields)?.into();
-    let mag_var = feature.get_magnetic_variation(fields)?.into();
-    Some(Self {
-      info,
-      fuel_types,
-      location,
-      elevation,
-      pat_alt,
-      mag_var,
-      runways,
-    })
-  }
 }
 
 /// Airport type.
@@ -355,8 +292,8 @@ pub enum Reply {
 }
 
 struct RequestProcessor {
-  base_source: BaseSource,
-  rwy_source: RwySource,
+  base_source: apt_base::Source,
+  rwy_source: apt_rwy::Source,
   index_status: IndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<Reply>,
@@ -365,8 +302,8 @@ struct RequestProcessor {
 
 impl RequestProcessor {
   fn new(
-    base_source: BaseSource,
-    rwy_source: RwySource,
+    base_source: apt_base::Source,
+    rwy_source: apt_rwy::Source,
     index_status: IndexStatus,
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
@@ -421,15 +358,16 @@ impl RequestProcessor {
   }
 
   fn setup_indexes(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
-    // Clear airport indexes.
+    // Clear existing airport indexes.
     self.index_status.set_is_indexed(false);
     self.base_source.clear_indexes();
+    self.rwy_source.clear_index();
 
     let Some((proj4, bounds)) = spatial_info else {
       return;
     };
 
-    match ToChart::new(&proj4, &self.dd_sr, bounds) {
+    match common::ToChart::new(&proj4, &self.dd_sr, bounds) {
       Ok(trans) => {
         // Create new airport indexes.
         let indexed = self.base_source.create_indexes(&trans, cancel.clone())
@@ -508,28 +446,6 @@ enum Request {
   Search(String, bool, util::Cancel),
 }
 
-struct ToChart {
-  /// Coordinate transformation from decimal-degree coordinates to chart coordinates.
-  trans: spatial_ref::CoordTransform,
-
-  /// Chart bounds.
-  bounds: geom::Bounds,
-}
-
-impl ToChart {
-  fn new(proj4: &str, dd_sr: &spatial_ref::SpatialRef, bounds: geom::Bounds) -> errors::Result<Self> {
-    // Create a transformation from decimal-degree coordinates to chart coordinates.
-    let chart_sr = spatial_ref::SpatialRef::from_proj4(proj4)?;
-    let trans = spatial_ref::CoordTransform::new(dd_sr, &chart_sr)?;
-    Ok(ToChart { trans, bounds })
-  }
-
-  fn transform(&self, coord: geom::DD) -> errors::Result<geom::Cht> {
-    use geom::Transform;
-    Ok(self.trans.transform(*coord)?.into())
-  }
-}
-
 #[derive(Clone)]
 struct IndexStatus {
   indexed: sync::Arc<atomic::AtomicBool>,
@@ -548,630 +464,5 @@ impl IndexStatus {
 
   fn is_indexed(&self) -> bool {
     self.indexed.load(atomic::Ordering::Relaxed)
-  }
-}
-
-/// Dataset source for for `APT_BASE.csv`.
-struct BaseSource {
-  dataset: gdal::Dataset,
-  fields: BaseFields,
-  id_map: collections::HashMap<Box<str>, u64>,
-  name_vec: Vec<(Box<str>, u64)>,
-  sp_idx: rstar::RTree<LocIdx>,
-}
-
-impl BaseSource {
-  /// Open an airport base data source.
-  /// - `path`: airport CSV zip file path
-  fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
-    let path = ["/vsizip/", path.to_str().unwrap()].concat();
-    let path = path::Path::new(path.as_str()).join("APT_BASE.csv");
-    let dataset = gdal::Dataset::open_ex(path, open_options())?;
-    let fields = BaseFields::new(dataset.layer(0)?)?;
-    Ok(Self {
-      dataset,
-      fields,
-      id_map: collections::HashMap::new(),
-      name_vec: Vec::new(),
-      sp_idx: rstar::RTree::new(),
-    })
-  }
-
-  /// Create the indexes.
-  /// - `to_chart`: coordinate transformation and chart bounds
-  /// - `cancel`: cancellation object
-  fn create_indexes(&mut self, to_chart: &ToChart, cancel: util::Cancel) -> bool {
-    use vector::LayerAccess;
-
-    let mut layer = self.layer();
-    let count = layer.feature_count() as usize;
-
-    let mut id_map = collections::HashMap::with_capacity(count);
-    let mut name_vec = Vec::with_capacity(count);
-    let mut loc_vec = Vec::with_capacity(count);
-
-    // Iterator resets feature reading when dropped.
-    for feature in layer.features() {
-      if cancel.canceled() {
-        return false;
-      }
-
-      let Some(coord) = feature.get_coord(&self.fields) else {
-        continue;
-      };
-
-      let Some(coord) = util::ok(to_chart.transform(coord)) else {
-        continue;
-      };
-
-      if !to_chart.bounds.contains(coord) {
-        continue;
-      }
-
-      let Some(fid) = feature.fid() else {
-        continue;
-      };
-
-      let Some(id) = feature.get_string(self.fields.arpt_id) else {
-        continue;
-      };
-
-      let Some(name) = feature.get_string(self.fields.arpt_name) else {
-        continue;
-      };
-
-      id_map.insert(id.into(), fid);
-      name_vec.push((name.into(), fid));
-      loc_vec.push(LocIdx { coord, fid })
-    }
-
-    self.id_map = id_map;
-    self.name_vec = name_vec;
-    self.sp_idx = rstar::RTree::bulk_load(loc_vec);
-    !self.id_map.is_empty() && !self.name_vec.is_empty() && self.sp_idx.size() > 0
-  }
-
-  fn clear_indexes(&mut self) {
-    self.id_map = collections::HashMap::new();
-    self.name_vec = Vec::new();
-    self.sp_idx = rstar::RTree::new();
-  }
-
-  /// Get airport summary information for the specified airport ID.
-  /// - `id`: airport ID
-  /// - `cancel`: cancellation object
-  fn airport(&self, id: &str, cancel: util::Cancel) -> Option<Info> {
-    use vector::LayerAccess;
-    let mut layer = self.layer();
-    let info = {
-      let fid = self.id_map.get(id)?;
-      if cancel.canceled() {
-        return None;
-      }
-
-      Info::new(layer.feature(*fid), &self.fields, true)
-    };
-
-    layer.reset_feature_reading();
-    info
-  }
-
-  /// Get airport detail information.
-  /// - `info`: airport summary information
-  /// - `runways`: vector of runway information
-  /// - `cancel`: cancellation object
-  fn detail(&self, info: Info, runways: Vec<Runway>, cancel: util::Cancel) -> Option<Detail> {
-    use vector::LayerAccess;
-    let mut layer = self.layer();
-    let detail = {
-      let fid = self.id_map.get(&info.id)?;
-      if cancel.canceled() {
-        return None;
-      }
-
-      Detail::new(layer.feature(*fid), &self.fields, info, runways)
-    };
-
-    layer.reset_feature_reading();
-    detail
-  }
-
-  /// Find airports within a search radius.
-  /// - `coord`: chart coordinate
-  /// - `dist`: search distance in meters
-  /// - `nph`: include non-public heliports
-  /// - `cancel`: cancellation object
-  fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<Info> {
-    use vector::LayerAccess;
-    let mut layer = self.layer();
-    let coord = [coord.x, coord.y];
-    let dsq = dist * dist;
-
-    // Get the feature IDs within the search radius.
-    let mut fids: Vec<u64> = self.sp_idx.locate_within_distance(coord, dsq).map(|i| i.fid).collect();
-    if cancel.canceled() {
-      return Vec::new();
-    }
-
-    // Sort the feature IDs so that feature lookups are sequential.
-    fids.sort_unstable();
-
-    let mut airports = Vec::with_capacity(fids.len());
-    for fid in fids {
-      if cancel.canceled() {
-        layer.reset_feature_reading();
-        return Vec::new();
-      }
-
-      let Some(info) = Info::new(layer.feature(fid), &self.fields, nph) else {
-        continue;
-      };
-
-      airports.push(info);
-    }
-
-    layer.reset_feature_reading();
-
-    // Sort ascending by name.
-    airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-    airports
-  }
-
-  /// Search for airports with names that contain the specified text.
-  /// - `term`: search text
-  /// - `to_chart`: coordinate transformation and chart bounds
-  /// - `nph`: include non-public heliports
-  /// - `cancel`: cancellation object
-  fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<Info> {
-    use vector::LayerAccess;
-    let mut layer = self.layer();
-    let mut airports = Vec::new();
-    for (name, fid) in &self.name_vec {
-      if cancel.canceled() {
-        layer.reset_feature_reading();
-        return Vec::new();
-      }
-
-      if !name.contains(term) {
-        continue;
-      }
-
-      let Some(info) = Info::new(layer.feature(*fid), &self.fields, nph) else {
-        continue;
-      };
-
-      airports.push(info);
-    }
-
-    layer.reset_feature_reading();
-
-    // Sort ascending by name.
-    airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
-    airports
-  }
-
-  fn layer(&self) -> vector::Layer {
-    self.dataset.layer(0).unwrap()
-  }
-}
-
-/// Field indexes for `APT_BASE.csv`.
-struct BaseFields {
-  arpt_id: usize,
-  arpt_name: usize,
-  site_type_code: usize,
-  facility_use_code: usize,
-  long_decimal: usize,
-  lat_decimal: usize,
-  fuel_types: usize,
-  city: usize,
-  state_code: usize,
-  elev: usize,
-  elev_method_code: usize,
-  mag_varn: usize,
-  mag_hemis: usize,
-  tpa: usize,
-}
-
-impl BaseFields {
-  fn new(layer: vector::Layer) -> Result<Self, errors::GdalError> {
-    use vector::LayerAccess;
-    let defn = layer.defn();
-    Ok(Self {
-      arpt_id: defn.field_index("ARPT_ID")?,
-      arpt_name: defn.field_index("ARPT_NAME")?,
-      site_type_code: defn.field_index("SITE_TYPE_CODE")?,
-      facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
-      long_decimal: defn.field_index("LONG_DECIMAL")?,
-      lat_decimal: defn.field_index("LAT_DECIMAL")?,
-      fuel_types: defn.field_index("FUEL_TYPES")?,
-      city: defn.field_index("CITY")?,
-      state_code: defn.field_index("STATE_CODE")?,
-      elev: defn.field_index("ELEV")?,
-      elev_method_code: defn.field_index("ELEV_METHOD_CODE")?,
-      mag_varn: defn.field_index("MAG_VARN")?,
-      mag_hemis: defn.field_index("MAG_HEMIS")?,
-      tpa: defn.field_index("TPA")?,
-    })
-  }
-}
-
-/// Dataset source for for `APT_RWY.csv`.
-struct RwySource {
-  dataset: gdal::Dataset,
-  fields: RwyFields,
-  id_map: collections::HashMap<Box<str>, Box<[u64]>>,
-}
-
-#[allow(unused)]
-impl RwySource {
-  /// Open an airport runway data source.
-  /// - `path`: airport CSV zip file path
-  fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
-    let path = ["/vsizip/", path.to_str().unwrap()].concat();
-    let path = path::Path::new(path.as_str()).join("APT_RWY.csv");
-    let dataset = gdal::Dataset::open_ex(path, open_options())?;
-    let fields = RwyFields::new(dataset.layer(0)?)?;
-    Ok(Self {
-      dataset,
-      fields,
-      id_map: collections::HashMap::new(),
-    })
-  }
-
-  /// Create the index.
-  /// - `base_src`: airport base data source
-  /// - `cancel`: cancellation object
-  fn create_index(&mut self, base_src: &BaseSource, cancel: util::Cancel) -> bool {
-    use vector::LayerAccess;
-
-    let mut layer = self.layer();
-    let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::with_capacity(base_src.id_map.len());
-
-    // Iterator resets feature reading when dropped.
-    for feature in layer.features() {
-      if cancel.canceled() {
-        return false;
-      }
-
-      let Some(id) = feature.get_string(self.fields.arpt_id) else {
-        continue;
-      };
-
-      if !base_src.id_map.contains_key(id.as_str()) {
-        continue;
-      }
-
-      let Some(fid) = feature.fid() else {
-        continue;
-      };
-
-      match id_map.get_mut(id.as_str()) {
-        Some(vec) => vec.push(fid),
-        None => {
-          id_map.insert(id, vec![fid]);
-        }
-      }
-    }
-
-    self.id_map = collections::HashMap::with_capacity(id_map.len());
-    for (id, vec) in id_map {
-      self.id_map.insert(id.into(), vec.into());
-    }
-
-    !self.id_map.is_empty()
-  }
-
-  /// Get runways for the specified airport ID.
-  /// - `id`: airport ID
-  /// - `cancel`: cancellation object
-  fn runways(&self, id: &str, cancel: util::Cancel) -> Option<Vec<Runway>> {
-    let mut layer = self.layer();
-    let runways = || -> Option<Vec<Runway>> {
-      let fids = self.id_map.get(id)?;
-      let mut runways = Vec::with_capacity(fids.len());
-      for &fid in fids {
-        if cancel.canceled() {
-          return None;
-        }
-        runways.push(Runway::new(layer.feature(fid), &self.fields)?);
-      }
-      Some(runways)
-    }();
-
-    layer.reset_feature_reading();
-    runways
-  }
-
-  fn clear_index(&mut self) {
-    self.id_map = collections::HashMap::new();
-  }
-
-  fn layer(&self) -> vector::Layer {
-    self.dataset.layer(0).unwrap()
-  }
-}
-
-/// Field indexes for `APT_BASE.csv`.
-struct RwyFields {
-  arpt_id: usize,
-  rwy_id: usize,
-  rwy_len: usize,
-  rwy_width: usize,
-  rwy_lgt_code: usize,
-  surface_type_code: usize,
-  cond: usize,
-}
-
-impl RwyFields {
-  fn new(layer: vector::Layer) -> Result<Self, errors::GdalError> {
-    use vector::LayerAccess;
-    let defn = layer.defn();
-    Ok(Self {
-      arpt_id: defn.field_index("ARPT_ID")?,
-      rwy_id: defn.field_index("RWY_ID")?,
-      rwy_len: defn.field_index("RWY_LEN")?,
-      rwy_width: defn.field_index("RWY_WIDTH")?,
-      rwy_lgt_code: defn.field_index("RWY_LGT_CODE")?,
-      surface_type_code: defn.field_index("SURFACE_TYPE_CODE")?,
-      cond: defn.field_index("COND")?,
-    })
-  }
-}
-
-fn open_options<'a>() -> gdal::DatasetOptions<'a> {
-  gdal::DatasetOptions {
-    open_flags: gdal::GdalOpenFlags::GDAL_OF_READONLY
-      | gdal::GdalOpenFlags::GDAL_OF_VECTOR
-      | gdal::GdalOpenFlags::GDAL_OF_INTERNAL,
-    ..Default::default()
-  }
-}
-
-/// Location spatial index item.
-struct LocIdx {
-  coord: geom::Cht,
-  fid: u64,
-}
-
-impl rstar::RTreeObject for LocIdx {
-  type Envelope = rstar::AABB<[f64; 2]>;
-
-  fn envelope(&self) -> Self::Envelope {
-    Self::Envelope::from_point([self.coord.x, self.coord.y])
-  }
-}
-
-impl rstar::PointDistance for LocIdx {
-  fn distance_2(&self, point: &[f64; 2]) -> f64 {
-    let dx = point[0] - self.coord.x;
-    let dy = point[1] - self.coord.y;
-    dx * dx + dy * dy
-  }
-}
-
-trait GetI64 {
-  fn get_i64(&self, index: usize) -> Option<i64>;
-}
-
-impl GetI64 for vector::Feature<'_> {
-  fn get_i64(&self, index: usize) -> Option<i64> {
-    match self.field_as_integer64(index) {
-      Ok(val) => val,
-      Err(err) => {
-        godot_error!("{err}");
-        None
-      }
-    }
-  }
-}
-
-trait GetF64 {
-  fn get_f64(&self, index: usize) -> Option<f64>;
-}
-
-impl GetF64 for vector::Feature<'_> {
-  fn get_f64(&self, index: usize) -> Option<f64> {
-    match self.field_as_double(index) {
-      Ok(val) => val,
-      Err(err) => {
-        godot_error!("{err}");
-        None
-      }
-    }
-  }
-}
-
-trait GetString {
-  fn get_string(&self, index: usize) -> Option<String>;
-}
-
-impl GetString for vector::Feature<'_> {
-  fn get_string(&self, index: usize) -> Option<String> {
-    match self.field_as_string(index) {
-      Ok(val) => val,
-      Err(err) => {
-        godot_error!("{err}");
-        None
-      }
-    }
-  }
-}
-
-trait GetType {
-  fn get_airport_type(&self, fields: &BaseFields) -> Option<Type>;
-}
-
-impl GetType for vector::Feature<'_> {
-  fn get_airport_type(&self, fields: &BaseFields) -> Option<Type> {
-    match self.get_string(fields.site_type_code)?.as_str() {
-      "A" => Some(Type::Airport),
-      "B" => Some(Type::Balloon),
-      "C" => Some(Type::Seaplane),
-      "G" => Some(Type::Glider),
-      "H" => Some(Type::Heliport),
-      "U" => Some(Type::Ultralight),
-      _ => None,
-    }
-  }
-}
-
-trait GetUse {
-  fn get_airport_use(&self, fields: &BaseFields) -> Option<Use>;
-}
-
-impl GetUse for vector::Feature<'_> {
-  fn get_airport_use(&self, fields: &BaseFields) -> Option<Use> {
-    match self.get_string(fields.facility_use_code)?.as_str() {
-      "PR" => Some(Use::Private),
-      "PU" => Some(Use::Public),
-      _ => None,
-    }
-  }
-}
-
-trait GetCoord {
-  fn get_coord(&self, fields: &BaseFields) -> Option<geom::DD>;
-}
-
-impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self, fields: &BaseFields) -> Option<geom::DD> {
-    Some(geom::DD::new(
-      self.get_f64(fields.long_decimal)?,
-      self.get_f64(fields.lat_decimal)?,
-    ))
-  }
-}
-
-trait GetFuelTypes {
-  fn get_fuel_types(&self, fields: &BaseFields) -> Option<String>;
-}
-
-impl GetFuelTypes for vector::Feature<'_> {
-  fn get_fuel_types(&self, fields: &BaseFields) -> Option<String> {
-    let fuel_types = self.get_string(fields.fuel_types)?;
-
-    // Make sure there's a comma and space between each fuel type.
-    Some(fuel_types.split(',').map(|s| s.trim()).collect::<Vec<_>>().join(", "))
-  }
-}
-
-trait GetLocation {
-  fn get_location(&self, fields: &BaseFields) -> Option<String>;
-}
-
-impl GetLocation for vector::Feature<'_> {
-  fn get_location(&self, fields: &BaseFields) -> Option<String> {
-    let city = self.get_string(fields.city)?;
-    let state = self.get_string(fields.state_code)?;
-    if state.is_empty() {
-      return Some(city);
-    }
-
-    Some(format!("{city}, {state}"))
-  }
-}
-
-trait GetElevation {
-  fn get_elevation(&self, fields: &BaseFields) -> Option<String>;
-}
-
-impl GetElevation for vector::Feature<'_> {
-  fn get_elevation(&self, fields: &BaseFields) -> Option<String> {
-    let elevation = self.get_string(fields.elev)?;
-    let method = self.get_string(fields.elev_method_code)?;
-    if method.is_empty() {
-      return Some(elevation);
-    }
-
-    let method = match method.as_str() {
-      "E" => "EST",
-      "S" => "SURV",
-      _ => return None,
-    };
-
-    Some(format!("{elevation} FEET ASL ({method})"))
-  }
-}
-
-trait GetPatternAltitude {
-  fn get_pattern_altitude(&self, fields: &BaseFields) -> Option<String>;
-}
-
-impl GetPatternAltitude for vector::Feature<'_> {
-  fn get_pattern_altitude(&self, fields: &BaseFields) -> Option<String> {
-    let pattern_altitude = self.get_string(fields.tpa)?;
-    if pattern_altitude.is_empty() {
-      return Some(pattern_altitude);
-    }
-
-    Some(format!("{pattern_altitude} FEET AGL"))
-  }
-}
-
-trait GetMagneticVariation {
-  fn get_magnetic_variation(&self, fields: &BaseFields) -> Option<String>;
-}
-
-impl GetMagneticVariation for vector::Feature<'_> {
-  fn get_magnetic_variation(&self, fields: &BaseFields) -> Option<String> {
-    let var = self.get_string(fields.mag_varn)?;
-    if var.is_empty() {
-      return Some(String::new());
-    }
-
-    let hem = self.get_string(fields.mag_hemis)?;
-    if hem.is_empty() {
-      return Some(String::new());
-    }
-
-    Some(format!("{var}°{hem}"))
-  }
-}
-
-trait GetRunwayLighting {
-  fn get_runway_lighting(&self, fields: &RwyFields) -> Option<String>;
-}
-
-impl GetRunwayLighting for vector::Feature<'_> {
-  fn get_runway_lighting(&self, fields: &RwyFields) -> Option<String> {
-    let lighting = self.get_string(fields.rwy_lgt_code)?;
-    if lighting.is_empty() {
-      return Some(lighting);
-    }
-
-    // Expand abbreviations.
-    Some(match lighting.as_str() {
-      "MED" => String::from("MEDIUM"),
-      "NSTD" => String::from("NON-STANDARD"),
-      "PERI" => String::from("PERIPHERAL"),
-      _ => lighting,
-    })
-  }
-}
-
-trait GetRunwaySurface {
-  fn get_runway_surface(&self, fields: &RwyFields) -> Option<String>;
-}
-
-impl GetRunwaySurface for vector::Feature<'_> {
-  fn get_runway_surface(&self, fields: &RwyFields) -> Option<String> {
-    let surface = self.get_string(fields.surface_type_code)?;
-    if surface.is_empty() {
-      return Some(surface);
-    }
-
-    // Expand abbreviations.
-    Some(match surface.as_str() {
-      "CONC" => String::from("PORTLAND CEMENT CONCRETE"),
-      "ASPH" => String::from("ASPHALT OR BITUMINOUS CONCRETE"),
-      "MATS" => String::from("PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES"),
-      "TREATED" => String::from("OILED; SOIL CEMENT OR LIME STABILIZED"),
-      "GRAVEL" => String::from("GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG"),
-      "TURF" => String::from("GRASS; SOD"),
-      "DIRT" => String::from("NATURAL SOIL"),
-      "PEM" => String::from("PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM"),
-      _ => surface,
-    })
   }
 }
