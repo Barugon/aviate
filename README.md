@@ -14,4 +14,4 @@ The GUI for Aviate was originally egui but there's no path forward for mobile de
 
 ---
 
-With the current administration, I fear that the future of the FAA's digital assets (and all of GA) is unclear and at risk. Therefore, I'm putting this project on hold for now. While this project is fun to work on, I don't want to spend large amounts of my free time developing it just for it to become not relevant.
+With the current administration, I fear that the future of the FAA's digital assets (and all of GA as well) is unclear and at risk. Hopefully, this project won't become irrelevant.
