@@ -172,6 +172,7 @@ size = Vector2i(300, 100)
 unresizable = true
 popup_window = true
 min_size = Vector2i(300, 0)
+ok_button_text = " OK "
 dialog_autowrap = true
 
 [node name="FindDialog" type="FindDialog" parent="."]
