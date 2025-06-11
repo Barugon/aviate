@@ -1,4 +1,4 @@
-use crate::util;
+use crate::ok;
 use gdal::spatial_ref;
 use godot::prelude::*;
 use std::{cmp, ops};
@@ -113,9 +113,9 @@ impl Coord {
   }
 
   pub fn from_variant(value: Variant) -> Option<Self> {
-    let value: Array<Variant> = util::ok(value.try_to())?;
-    let x = util::ok(value.get(0)?.try_to())?;
-    let y = util::ok(value.get(1)?.try_to())?;
+    let value: Array<Variant> = ok!(value.try_to())?;
+    let x = ok!(value.get(0)?.try_to())?;
+    let y = ok!(value.get(1)?.try_to())?;
     Some(Self { x, y })
   }
 }
@@ -295,7 +295,7 @@ pub struct Pos {
 impl Pos {
   pub fn from_variant(value: Variant) -> Option<Self> {
     use crate::util::ToI32;
-    let value: Array<Variant> = util::ok(value.try_to())?;
+    let value: Array<Variant> = ok!(value.try_to())?;
     let x = value.get(0)?.to_i32()?;
     let y = value.get(1)?.to_i32()?;
     Some(Self { x, y })
@@ -386,7 +386,7 @@ pub struct Size {
 impl Size {
   pub fn from_variant(value: Variant) -> Option<Self> {
     use crate::util::ToU32;
-    let value: Array<Variant> = util::ok(value.try_to())?;
+    let value: Array<Variant> = ok!(value.try_to())?;
     let w = value.get(0)?.to_u32()?;
     let h = value.get(1)?.to_u32()?;
     Some(Self { w, h })

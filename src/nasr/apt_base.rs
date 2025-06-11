@@ -1,7 +1,7 @@
 use crate::{
   geom,
   nasr::{airport, common},
-  util,
+  ok, util,
 };
 use gdal::{errors, vector};
 use std::{collections, path};
@@ -56,7 +56,7 @@ impl Source {
         continue;
       };
 
-      let Some(coord) = util::ok(to_chart.transform(coord)) else {
+      let Some(coord) = ok!(to_chart.transform(coord)) else {
         continue;
       };
 
