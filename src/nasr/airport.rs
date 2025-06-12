@@ -275,16 +275,16 @@ impl Use {
 }
 
 pub enum Reply {
-  /// Airport info from ID search.
+  /// Airport summary information from ID search.
   Airport(Info),
 
-  /// Airport detail from `Info`.
+  /// Airport detail information from `Info`.
   Detail(Detail),
 
-  /// Airport infos from a nearby search.
+  /// Airport summaries from a nearby search.
   Nearby(Vec<Info>),
 
-  /// Airport infos matching a name/ID search.
+  /// Airport summaries matching a name/ID search.
   Search(Vec<Info>),
 
   /// Request resulted in an error.
