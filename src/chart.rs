@@ -542,7 +542,7 @@ impl Source {
     }
 
     let mut dst_area = Area::new(part.rect);
-    let mut int_row = vec![[0.0, 0.0, 0.0, 0.0]; dst_area.w];
+    let mut acc_row = vec![[0.0, 0.0, 0.0, 0.0]; dst_area.w];
     let mut dst = Vec::with_capacity(dst_area.w * dst_area.h);
     let mut ratio = part.zoom;
     let mut remain = 1.0;
@@ -553,13 +553,13 @@ impl Source {
       }
 
       // Process the source row.
-      process_row(&mut int_row, &src_row, pal, part.zoom, ratio);
+      process_row(&mut acc_row, &src_row, pal, part.zoom, ratio);
 
       // Check if the end of the source data has been reached.
       if !src_area.next() {
         // Output this row.
-        for int_px in int_row.iter() {
-          dst.push(util::color_u8(int_px));
+        for acc_px in acc_row.iter() {
+          dst.push(util::color_u8(acc_px));
         }
         break;
       }
@@ -572,13 +572,13 @@ impl Source {
       if remain < part.zoom {
         if remain > 0.0 {
           // Process the remaining amount from this source row.
-          process_row(&mut int_row, &src_row, pal, part.zoom, remain);
+          process_row(&mut acc_row, &src_row, pal, part.zoom, remain);
         }
 
         // Output the row.
-        for int_px in int_row.iter_mut() {
-          dst.push(util::color_u8(int_px));
-          *int_px = [0.0, 0.0, 0.0, 0.0];
+        for acc_px in acc_row.iter_mut() {
+          dst.push(util::color_u8(acc_px));
+          *acc_px = [0.0, 0.0, 0.0, 0.0];
         }
 
         // Check if the end of the destination has been reached.
