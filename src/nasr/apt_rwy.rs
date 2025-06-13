@@ -81,21 +81,16 @@ impl Source {
   pub fn runways(&self, id: &str, cancel: util::Cancel) -> Option<Vec<airport::Runway>> {
     use vector::LayerAccess;
 
-    let mut layer = self.layer();
-    let runways = || -> Option<Vec<airport::Runway>> {
-      let fids = self.id_map.get(id)?;
-      let mut runways = Vec::with_capacity(fids.len());
-      for &fid in fids {
-        if cancel.canceled() {
-          return None;
-        }
-        runways.push(airport::Runway::new(layer.feature(fid), &self.fields)?);
+    let fids = self.id_map.get(id)?;
+    let layer = util::Layer::new(self.layer());
+    let mut runways = Vec::with_capacity(fids.len());
+    for &fid in fids {
+      if cancel.canceled() {
+        return None;
       }
-      Some(runways)
-    }();
-
-    layer.reset_feature_reading();
-    runways
+      runways.push(airport::Runway::new(layer.feature(fid), &self.fields)?);
+    }
+    Some(runways)
   }
 
   fn layer(&self) -> vector::Layer {

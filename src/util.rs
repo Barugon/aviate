@@ -1,5 +1,5 @@
 use crate::geom;
-use gdal::raster;
+use gdal::{raster, vector};
 use godot::{
   classes::{
     Control, DisplayServer, FileAccess, Image, ImageTexture, Os, Texture2D, Window, display_server::WindowMode,
@@ -454,4 +454,35 @@ pub fn create_texture(data: ImageData) -> Option<Gd<Texture2D>> {
   let packed = data.px.as_flattened().into();
   let image = Image::create_from_data(data.w as i32, data.h as i32, false, Format::RGBA8, &packed)?;
   ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
+}
+
+/// RAII type that will reset feature reading when dropped.
+pub struct Layer<'a>(vector::Layer<'a>);
+
+impl<'a> Layer<'a> {
+  pub fn new(layer: vector::Layer<'a>) -> Self {
+    Self(layer)
+  }
+}
+
+impl<'a> ops::Deref for Layer<'a> {
+  type Target = vector::Layer<'a>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+impl ops::DerefMut for Layer<'_> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.0
+  }
+}
+
+impl Drop for Layer<'_> {
+  fn drop(&mut self) {
+    use vector::LayerAccess;
+
+    self.0.reset_feature_reading();
+  }
 }

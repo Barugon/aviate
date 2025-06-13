@@ -99,18 +99,13 @@ impl Source {
   pub fn airport(&self, id: &str, cancel: util::Cancel) -> Option<airport::Info> {
     use vector::LayerAccess;
 
-    let mut layer = self.layer();
-    let info = {
-      let fid = self.id_map.get(id)?;
-      if cancel.canceled() {
-        return None;
-      }
+    let fid = self.id_map.get(id)?;
+    if cancel.canceled() {
+      return None;
+    }
 
-      airport::Info::new(layer.feature(*fid), &self.fields, true)
-    };
-
-    layer.reset_feature_reading();
-    info
+    let layer = util::Layer::new(self.layer());
+    airport::Info::new(layer.feature(*fid), &self.fields, true)
   }
 
   /// Get airport detail information.
@@ -124,18 +119,14 @@ impl Source {
     cancel: util::Cancel,
   ) -> Option<airport::Detail> {
     use vector::LayerAccess;
-    let mut layer = self.layer();
-    let detail = {
-      let fid = self.id_map.get(&info.id)?;
-      if cancel.canceled() {
-        return None;
-      }
 
-      airport::Detail::new(layer.feature(*fid), &self.fields, info, runways)
-    };
+    let fid = self.id_map.get(&info.id)?;
+    if cancel.canceled() {
+      return None;
+    }
 
-    layer.reset_feature_reading();
-    detail
+    let layer = util::Layer::new(self.layer());
+    airport::Detail::new(layer.feature(*fid), &self.fields, info, runways)
   }
 
   /// Find airports within a search radius.
@@ -145,7 +136,7 @@ impl Source {
   /// - `cancel`: cancellation object
   pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<airport::Info> {
     use vector::LayerAccess;
-    let mut layer = self.layer();
+
     let coord = [coord.x, coord.y];
     let dsq = dist * dist;
 
@@ -158,10 +149,10 @@ impl Source {
     // Sort the feature IDs so that feature lookups are sequential.
     fids.sort_unstable();
 
+    let layer = util::Layer::new(self.layer());
     let mut airports = Vec::with_capacity(fids.len());
     for fid in fids {
       if cancel.canceled() {
-        layer.reset_feature_reading();
         return Vec::new();
       }
 
@@ -171,8 +162,6 @@ impl Source {
 
       airports.push(info);
     }
-
-    layer.reset_feature_reading();
 
     // Sort ascending by name.
     airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
@@ -186,11 +175,11 @@ impl Source {
   /// - `cancel`: cancellation object
   pub fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<airport::Info> {
     use vector::LayerAccess;
-    let mut layer = self.layer();
+
+    let layer = util::Layer::new(self.layer());
     let mut airports = Vec::new();
     for (name, fid) in &self.name_vec {
       if cancel.canceled() {
-        layer.reset_feature_reading();
         return Vec::new();
       }
 
@@ -204,8 +193,6 @@ impl Source {
 
       airports.push(info);
     }
-
-    layer.reset_feature_reading();
 
     // Sort ascending by name.
     airports.sort_unstable_by(|a, b| a.name.cmp(&b.name));
