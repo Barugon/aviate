@@ -150,7 +150,7 @@ impl Source {
     let dsq = dist * dist;
 
     // Get the feature IDs within the search radius.
-    let mut fids: Vec<u64> = self.sp_idx.locate_within_distance(coord, dsq).map(|i| i.fid).collect();
+    let mut fids: Vec<_> = self.sp_idx.locate_within_distance(coord, dsq).map(|i| i.fid).collect();
     if cancel.canceled() {
       return Vec::new();
     }
