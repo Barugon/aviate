@@ -105,18 +105,16 @@ impl Items {
   }
 
   fn load_items(path: &GString) -> Dictionary {
-    if let Some(text) = util::load_text(path) {
-      let items = Json::parse_string(&text);
-      match items.try_to::<Dictionary>() {
-        Ok(items) => {
-          return items;
-        }
-        Err(err) => {
-          godot_error!("{:?}: {}", path, err);
-        }
-      }
-    }
-    Dictionary::new()
+    let Some(text) = util::load_text(path) else {
+      return Dictionary::new();
+    };
+
+    let var = Json::parse_string(&text);
+    let Some(items) = ok!(var.try_to::<Dictionary>().map_err(|err| format!("{path:?}: {err}"))) else {
+      return Dictionary::new();
+    };
+
+    items
   }
 }
 
