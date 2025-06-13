@@ -32,6 +32,7 @@
     "nstd",
     "palettized",
     "polyline",
+    "raii",
     "rasterband",
     "reloadable",
     "rfind",
