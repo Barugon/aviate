@@ -251,7 +251,7 @@ impl ChartWidget {
     // Scale and translate the coordinates to the current view.
     let zoom = self.display_info.zoom as f64;
     let pos = self.display_info.origin.into();
-    let mut dest: Vec<Vector2> = Vec::with_capacity(source.len() + 1);
+    let mut dest = Vec::with_capacity(source.len() + 1);
     for point in source.iter() {
       let point = **point * zoom - pos;
       dest.push(point.into());
