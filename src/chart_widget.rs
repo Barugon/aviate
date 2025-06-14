@@ -283,33 +283,35 @@ impl IControl for ChartWidget {
   }
 
   fn on_notification(&mut self, what: ControlNotification) {
-    if what == ControlNotification::RESIZED {
-      let rect: geom::Rect = self.base().get_rect().into();
-      if self.chart_image.is_some() {
-        // Correct the current zoom (may change based on widget size).
-        if let Some((zoom, _)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
-          self.display_info.zoom = zoom;
+    if what != ControlNotification::RESIZED {
+      return;
+    }
 
-          let pos = if rect.pos.x == self.display_info.ctl_rect.pos.x {
-            // Recenter the chart.
-            self.display_info.origin + self.display_info.ctl_rect.center() - rect.center()
-          } else {
-            // Side panel was toggled, just compensate for that.
-            self.display_info.origin + (rect.pos.x - self.display_info.ctl_rect.pos.x, 0).into()
-          };
+    let rect: geom::Rect = self.base().get_rect().into();
+    if self.chart_image.is_some() {
+      // Correct the current zoom (may change based on widget size).
+      if let Some((zoom, _)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
+        self.display_info.zoom = zoom;
 
-          // Correct the position.
-          if let Some(pos) = self.correct_pos(pos) {
-            self.display_info.origin = pos;
-            self.request_image();
-            self.base_mut().queue_redraw();
-          }
+        let pos = if rect.pos.x == self.display_info.ctl_rect.pos.x {
+          // Recenter the chart.
+          self.display_info.origin + self.display_info.ctl_rect.center() - rect.center()
+        } else {
+          // Side panel was toggled, just compensate for that.
+          self.display_info.origin + (rect.pos.x - self.display_info.ctl_rect.pos.x, 0).into()
+        };
+
+        // Correct the position.
+        if let Some(pos) = self.correct_pos(pos) {
+          self.display_info.origin = pos;
+          self.request_image();
+          self.base_mut().queue_redraw();
         }
       }
-
-      // Remember the widget rectangle for next time.
-      self.display_info.ctl_rect = rect;
     }
+
+    // Remember the widget rectangle for next time.
+    self.display_info.ctl_rect = rect;
   }
 
   fn draw(&mut self) {
@@ -339,28 +341,41 @@ impl IControl for ChartWidget {
         let pos = self.display_info.origin - delta.into();
         self.set_pos(pos);
       }
-    } else if let Ok(event) = event.clone().try_cast::<InputEventMouseButton>() {
+      return;
+    }
+
+    if let Ok(event) = event.clone().try_cast::<InputEventMouseButton>() {
       if event.is_pressed() {
-        match event.get_button_index() {
-          MouseButton::WHEEL_DOWN => {
-            let zoom = self.display_info.zoom * 0.8;
-            self.set_zoom(zoom, event.get_position());
-          }
-          MouseButton::WHEEL_UP => {
-            let zoom = self.display_info.zoom * 1.25;
-            self.set_zoom(zoom, event.get_position());
-          }
-          _ => (),
-        };
+        return;
       }
-    } else if let Ok(event) = event.clone().try_cast::<InputEventScreenTouch>() {
+
+      match event.get_button_index() {
+        MouseButton::WHEEL_DOWN => {
+          let zoom = self.display_info.zoom * 0.8;
+          self.set_zoom(zoom, event.get_position());
+        }
+        MouseButton::WHEEL_UP => {
+          let zoom = self.display_info.zoom * 1.25;
+          self.set_zoom(zoom, event.get_position());
+        }
+        _ => (),
+      }
+      return;
+    }
+
+    if let Ok(event) = event.clone().try_cast::<InputEventScreenTouch>() {
       self.display_info.touch.update(event);
-    } else if let Ok(event) = event.try_cast::<InputEventMagnifyGesture>() {
-      if let Some(pos) = self.display_info.touch.pos {
-        let factor = 1.0 - 2.0 * (1.0 - event.get_factor()) / self.display_info.ui_scale;
-        let zoom = self.display_info.zoom * factor;
-        self.set_zoom(zoom, pos);
-      }
+      return;
+    }
+
+    if let Ok(event) = event.try_cast::<InputEventMagnifyGesture>() {
+      let Some(pos) = self.display_info.touch.pos else {
+        return;
+      };
+
+      let factor = 1.0 - 2.0 * (1.0 - event.get_factor()) / self.display_info.ui_scale;
+      let zoom = self.display_info.zoom * factor;
+      self.set_zoom(zoom, pos);
     }
   }
 }

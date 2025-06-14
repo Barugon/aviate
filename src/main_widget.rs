@@ -95,27 +95,30 @@ impl MainWidget {
 
   #[func]
   fn open_zip_file_confirmed(&mut self, path: String) {
-    match util::get_zip_info(&path) {
-      Ok(info) => match info {
-        util::ZipInfo::Chart(files) => {
-          self.save_asset_folder(&path);
-
-          if files.len() > 1 {
-            self.select_chart(path, files);
-          } else {
-            self.open_chart(&path, files.first().and_then(|f| f.to_str()).unwrap());
-          }
-        }
-        util::ZipInfo::Aero { csv, shp } => {
-          self.save_asset_folder(&path);
-
-          let csv = csv.to_str().unwrap();
-          let shp = shp.to_str().unwrap();
-          self.open_nasr(&path, csv, shp);
-        }
-      },
+    let info = match util::get_zip_info(&path) {
+      Ok(info) => info,
       Err(err) => {
         self.show_alert(err.as_ref());
+        return;
+      }
+    };
+
+    match info {
+      util::ZipInfo::Chart(files) => {
+        self.save_asset_folder(&path);
+
+        if files.len() > 1 {
+          self.select_chart(path, files);
+        } else {
+          self.open_chart(&path, files.first().and_then(|f| f.to_str()).unwrap());
+        }
+      }
+      util::ZipInfo::Aero { csv, shp } => {
+        self.save_asset_folder(&path);
+
+        let csv = csv.to_str().unwrap();
+        let shp = shp.to_str().unwrap();
+        self.open_nasr(&path, csv, shp);
       }
     }
   }
@@ -170,27 +173,28 @@ impl MainWidget {
   fn open_chart(&mut self, path: &str, file: &str) {
     let result = self.chart_widget.bind_mut().open_raster_reader(path, file);
     match result {
-      Ok(()) => {
-        if let Some(airport_reader) = &self.airport_reader {
-          if let Some(transformation) = self.chart_widget.bind().transformation() {
-            // Send the chart spatial reference to the airport reader.
-            let proj4 = transformation.get_proj4();
-            let bounds = transformation.get_chart_bounds();
-            airport_reader.set_chart_spatial_ref(proj4, bounds);
-          }
-        }
-
-        if let Some(chart_name) = self.chart_widget.bind().chart_name() {
-          let mut chart_label = self.get_child::<Label>("ChartLabel");
-          chart_label.set_text(chart_name);
-
-          let mut status = self.get_child::<HBoxContainer>("ChartStatus");
-          status.set_visible(true);
-        }
-      }
+      Ok(()) => (),
       Err(err) => {
         self.show_alert(err.as_ref());
+        return;
       }
+    }
+
+    if let Some(airport_reader) = &self.airport_reader {
+      if let Some(transformation) = self.chart_widget.bind().transformation() {
+        // Send the chart spatial reference to the airport reader.
+        let proj4 = transformation.get_proj4();
+        let bounds = transformation.get_chart_bounds();
+        airport_reader.set_chart_spatial_ref(proj4, bounds);
+      }
+    }
+
+    if let Some(chart_name) = self.chart_widget.bind().chart_name() {
+      let mut chart_label = self.get_child::<Label>("ChartLabel");
+      chart_label.set_text(chart_name);
+
+      let mut status = self.get_child::<HBoxContainer>("ChartStatus");
+      status.set_visible(true);
     }
   }
 
@@ -200,20 +204,22 @@ impl MainWidget {
     let path = path::Path::new(path.as_str());
     let path = path.join(csv);
 
-    match airport::Reader::new(&path) {
-      Ok(airport_reader) => {
-        if let Some(transformation) = self.chart_widget.bind().transformation() {
-          // Send the chart spatial reference to the airport reader.
-          let proj4 = transformation.get_proj4();
-          let bounds = transformation.get_chart_bounds();
-          airport_reader.set_chart_spatial_ref(proj4, bounds);
-        }
-        self.airport_reader = Some(airport_reader);
-      }
+    let airport_reader = match airport::Reader::new(&path) {
+      Ok(airport_reader) => airport_reader,
       Err(err) => {
         self.show_alert(err.as_ref());
+        return;
       }
+    };
+
+    if let Some(transformation) = self.chart_widget.bind().transformation() {
+      // Send the chart spatial reference to the airport reader.
+      let proj4 = transformation.get_proj4();
+      let bounds = transformation.get_chart_bounds();
+      airport_reader.set_chart_spatial_ref(proj4, bounds);
     }
+
+    self.airport_reader = Some(airport_reader);
   }
 
   fn show_alert(&self, text: &str) {
