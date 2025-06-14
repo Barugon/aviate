@@ -60,9 +60,9 @@ impl ChartWidget {
     }
   }
 
-  pub fn set_show_bounds(&mut self, bounds: bool) {
-    if self.display_info.bounds != bounds {
-      self.display_info.bounds = bounds;
+  pub fn set_show_bounds(&mut self, show_bounds: bool) {
+    if self.display_info.show_bounds != show_bounds {
+      self.display_info.show_bounds = show_bounds;
       self.base_mut().queue_redraw();
     }
   }
@@ -234,7 +234,7 @@ impl ChartWidget {
   }
 
   fn draw_bounds(&mut self) {
-    if !self.display_info.bounds {
+    if !self.display_info.show_bounds {
       return;
     }
 
@@ -377,7 +377,7 @@ struct DisplayInfo {
   zoom: f32,
   scale: f32,
   night_mode: bool,
-  bounds: bool,
+  show_bounds: bool,
 }
 
 impl DisplayInfo {
@@ -389,7 +389,7 @@ impl DisplayInfo {
       zoom: 1.0,
       scale: 1.0,
       night_mode: false,
-      bounds: false,
+      show_bounds: false,
     }
   }
 }
