@@ -139,7 +139,7 @@ impl ChartWidget {
     while let Some(reply) = raster_reader.get_reply() {
       match reply {
         chart::Reply::Image(part, texture) => {
-          image_info = Some((part, texture));
+          image_info = Some((part, texture.into()));
         }
         chart::Reply::Error(part, err) => {
           godot_error!("{err} @ {part:?}");
@@ -148,7 +148,6 @@ impl ChartWidget {
     }
 
     let (part, texture) = image_info?;
-    let texture = texture.into();
     Some(ChartImage { texture, part })
   }
 
