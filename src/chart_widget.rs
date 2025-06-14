@@ -50,7 +50,7 @@ impl ChartWidget {
   }
 
   pub fn set_scale(&mut self, scale: f32) {
-    self.display_info.scale = scale;
+    self.display_info.ui_scale = scale;
   }
 
   pub fn set_night_mode(&mut self, dark: bool) {
@@ -60,9 +60,9 @@ impl ChartWidget {
     }
   }
 
-  pub fn set_show_bounds(&mut self, bounds: bool) {
-    if self.display_info.bounds != bounds {
-      self.display_info.bounds = bounds;
+  pub fn set_show_bounds(&mut self, show_bounds: bool) {
+    if self.display_info.show_bounds != show_bounds {
+      self.display_info.show_bounds = show_bounds;
       self.base_mut().queue_redraw();
     }
   }
@@ -234,7 +234,7 @@ impl ChartWidget {
   }
 
   fn draw_bounds(&mut self) {
-    if !self.display_info.bounds {
+    if !self.display_info.show_bounds {
       return;
     }
 
@@ -290,12 +290,12 @@ impl IControl for ChartWidget {
         if let Some((zoom, _)) = self.correct_zoom(self.display_info.zoom, Vector2::default()) {
           self.display_info.zoom = zoom;
 
-          let pos = if rect.pos.x == self.display_info.rect.pos.x {
+          let pos = if rect.pos.x == self.display_info.ctl_rect.pos.x {
             // Recenter the chart.
-            self.display_info.origin + self.display_info.rect.center() - rect.center()
+            self.display_info.origin + self.display_info.ctl_rect.center() - rect.center()
           } else {
             // Side panel was toggled, just compensate for that.
-            self.display_info.origin + (rect.pos.x - self.display_info.rect.pos.x, 0).into()
+            self.display_info.origin + (rect.pos.x - self.display_info.ctl_rect.pos.x, 0).into()
           };
 
           // Correct the position.
@@ -308,7 +308,7 @@ impl IControl for ChartWidget {
       }
 
       // Remember the widget rectangle for next time.
-      self.display_info.rect = rect;
+      self.display_info.ctl_rect = rect;
     }
   }
 
@@ -335,7 +335,7 @@ impl IControl for ChartWidget {
 
     if let Ok(event) = event.clone().try_cast::<InputEventMouseMotion>() {
       if event.get_button_mask() == MouseButtonMask::LEFT && !self.display_info.touch.multi {
-        let delta = event.get_screen_relative() / self.display_info.scale;
+        let delta = event.get_screen_relative() / self.display_info.ui_scale;
         let pos = self.display_info.origin - delta.into();
         self.set_pos(pos);
       }
@@ -357,7 +357,7 @@ impl IControl for ChartWidget {
       self.display_info.touch.update(event);
     } else if let Ok(event) = event.try_cast::<InputEventMagnifyGesture>() {
       if let Some(pos) = self.display_info.touch.pos {
-        let factor = 1.0 - 2.0 * (1.0 - event.get_factor()) / self.display_info.scale;
+        let factor = 1.0 - 2.0 * (1.0 - event.get_factor()) / self.display_info.ui_scale;
         let zoom = self.display_info.zoom * factor;
         self.set_zoom(zoom, pos);
       }
@@ -372,24 +372,24 @@ struct ChartImage {
 
 struct DisplayInfo {
   touch: Touch,
+  ui_scale: f32,
+  ctl_rect: geom::Rect,
   origin: geom::Pos,
-  rect: geom::Rect,
   zoom: f32,
-  scale: f32,
   night_mode: bool,
-  bounds: bool,
+  show_bounds: bool,
 }
 
 impl DisplayInfo {
   fn new() -> Self {
     Self {
       touch: Touch::default(),
+      ui_scale: 1.0,
+      ctl_rect: geom::Rect::default(),
       origin: geom::Pos::default(),
-      rect: geom::Rect::default(),
       zoom: 1.0,
-      scale: 1.0,
       night_mode: false,
-      bounds: false,
+      show_bounds: false,
     }
   }
 }
