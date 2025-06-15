@@ -95,7 +95,7 @@ impl MainWidget {
 
   #[func]
   fn open_zip_file_confirmed(&mut self, path: String) {
-    let info = match util::get_zip_info(&path) {
+    let info = match util::get_zip_info(path::Path::new(&path)) {
       Ok(info) => info,
       Err(err) => {
         self.show_alert(err.as_ref());
