@@ -419,26 +419,25 @@ struct Touch {
 impl Touch {
   fn update(&mut self, event: Gd<InputEventScreenTouch>) {
     let index = event.get_index();
-    if (0..=1).contains(&index) {
-      let index = index as usize;
-      if event.is_pressed() {
-        self.touch[index] = Some(event.get_position());
-      } else {
-        self.touch[index] = None;
-      }
-
-      if let [Some(pt1), Some(pt2)] = &self.touch {
-        self.pos = Some((*pt1 + *pt2) * 0.5);
-      }
-
-      // Toggle multi flag.
-      if self.touch[0].is_some() == self.touch[1].is_some() {
-        self.multi = self.touch[0].is_some();
-      }
-
+    if !(0..=1).contains(&index) {
+      self.pos = None;
       return;
     }
 
-    self.pos = None;
+    let index = index as usize;
+    if event.is_pressed() {
+      self.touch[index] = Some(event.get_position());
+    } else {
+      self.touch[index] = None;
+    }
+
+    if let [Some(pt1), Some(pt2)] = &self.touch {
+      self.pos = Some((*pt1 + *pt2) * 0.5);
+    }
+
+    // Toggle multi flag.
+    if self.touch[0].is_some() == self.touch[1].is_some() {
+      self.multi = self.touch[0].is_some();
+    }
   }
 }
