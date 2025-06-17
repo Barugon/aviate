@@ -99,13 +99,13 @@ impl Source {
   pub fn airport(&self, id: &str, cancel: util::Cancel) -> Option<airport::Info> {
     use vector::LayerAccess;
 
-    let fid = self.id_map.get(id)?;
+    let &fid = self.id_map.get(id)?;
     if cancel.canceled() {
       return None;
     }
 
     let layer = util::Layer::new(self.layer());
-    airport::Info::new(layer.feature(*fid), &self.fields, true)
+    airport::Info::new(layer.feature(fid), &self.fields, true)
   }
 
   /// Get airport detail information.
@@ -120,13 +120,13 @@ impl Source {
   ) -> Option<airport::Detail> {
     use vector::LayerAccess;
 
-    let fid = self.id_map.get(&info.id)?;
+    let &fid = self.id_map.get(&info.id)?;
     if cancel.canceled() {
       return None;
     }
 
     let layer = util::Layer::new(self.layer());
-    airport::Detail::new(layer.feature(*fid), &self.fields, info, runways)
+    airport::Detail::new(layer.feature(fid), &self.fields, info, runways)
   }
 
   /// Find airports within a search radius.
