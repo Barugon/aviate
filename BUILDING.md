@@ -6,6 +6,8 @@ To build against a shared library of GDAL, just install `gdal-devel` and build.
 
 ```sh
 sudo dnf install gdal-devel
+# -- or -- #
+sudo apt install libgdal-dev
 ```
 
 > NOTE: That, of course, will not work for Android.
