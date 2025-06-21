@@ -29,7 +29,7 @@ impl Reader {
       .name(any::type_name::<Reader>().to_owned())
       .spawn(move || {
         fn convert_palette(palette: Vec<raster::RgbaEntry>) -> (PaletteF32, PaletteF32) {
-          assert!(palette.len() == PAL_LEN);
+          let palette = &palette[..PAL_LEN];
           let light = array::from_fn(|idx| util::color_f32(&palette[idx]));
           let dark = array::from_fn(|idx| util::inverted_color_f32(&palette[idx]));
           (light, dark)
