@@ -14,8 +14,5 @@ gdal = {version = "0.18", features = ["bindgen"]}
 godot = {version = "0.3", features = ["experimental-threads"]}
 rstar = "0.12"
 
-[dev-dependencies]
-image = "0.25"
-
 [profile.release]
 strip = "symbols"

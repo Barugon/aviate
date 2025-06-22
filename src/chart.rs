@@ -1,7 +1,10 @@
 use crate::{config, geom, util};
 use gdal::{errors, raster, spatial_ref};
-use godot::{classes::Texture2D, global::godot_print, obj::Gd};
-use std::{any, array, cell, path, sync::mpsc, thread};
+use godot::{
+  classes::{Image, ImageTexture, Texture2D, image::Format},
+  obj::Gd,
+};
+use std::{any, array, cell, ops, path, sync::mpsc, thread};
 
 /// Reader is used for opening and reading
 /// [VFR charts](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/) in zipped GEO-TIFF format.
@@ -28,11 +31,48 @@ impl Reader {
     thread::Builder::new()
       .name(any::type_name::<Reader>().to_owned())
       .spawn(move || {
+        /// Convert a GDAL `RgbaEntry` to a `ColorF32`.
+        fn color_f32(color: &raster::RgbaEntry) -> ColorF32 {
+          // Convert colors to floating point in 0.0..=1.0 range.
+          const SCALE: f32 = 1.0 / u8::MAX as f32;
+          [
+            color.r as f32 * SCALE,
+            color.g as f32 * SCALE,
+            color.b as f32 * SCALE,
+            1.0,
+          ]
+        }
+
+        /// Convert a GDAL `RgbaEntry` to a luminance inverted `ColorF32`.
+        fn inverted_color_f32(color: &raster::RgbaEntry) -> ColorF32 {
+          let [r, g, b, a] = color_f32(color);
+
+          // Convert to YCbCr and invert the luminance.
+          let y = 1.0 - (r * 0.299 + g * 0.587 + b * 0.114);
+          let cb = b * 0.5 - r * 0.168736 - g * 0.331264;
+          let cr = r * 0.5 - g * 0.418688 - b * 0.081312;
+
+          // Convert back to RGB.
+          let r = y + 1.402 * cr;
+          let g = y - 0.344136 * cb - 0.714136 * cr;
+          let b = y + 1.772 * cb;
+
+          [r, g, b, a]
+        }
+
         fn convert_palette(palette: Vec<raster::RgbaEntry>) -> (PaletteF32, PaletteF32) {
           let palette = &palette[..PAL_LEN];
-          let light = array::from_fn(|idx| util::color_f32(&palette[idx]));
-          let dark = array::from_fn(|idx| util::inverted_color_f32(&palette[idx]));
+          let light = array::from_fn(|idx| color_f32(&palette[idx]));
+          let dark = array::from_fn(|idx| inverted_color_f32(&palette[idx]));
           (light, dark)
+        }
+
+        /// Create a `Gd<Texture2D>` from `ImageData`.
+        fn create_texture(data: Option<ImageData>) -> Option<Gd<Texture2D>> {
+          let data = data?;
+          let packed = data.px.into_flattened().into();
+          let image = Image::create_from_data(data.w as i32, data.h as i32, false, Format::RGBA8, &packed)?;
+          ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
         }
 
         // Convert the color palette.
@@ -50,7 +90,7 @@ impl Reader {
           match source.read(&request.part, pal, request.cancel) {
             Ok(image) => {
               // Convert ImageData to a Gd<Texture2D> before sending.
-              if let Some(texture) = util::create_texture(image) {
+              if let Some(texture) = create_texture(image) {
                 let reply = Reply::Image(request.part, Texture(texture));
                 thread_sender.send(reply).unwrap();
               }
@@ -280,10 +320,6 @@ impl ImagePart {
   }
 }
 
-const PAL_LEN: usize = u8::MAX as usize + 1;
-type PaletteF32 = [util::ColorF32; PAL_LEN];
-type PaletteU8 = [util::ColorU8; PAL_LEN];
-
 struct Request {
   part: ImagePart,
   cancel: util::Cancel,
@@ -363,6 +399,16 @@ impl Source {
     };
 
     let (band_idx, palette) = || -> Result<(usize, Vec<raster::RgbaEntry>), util::Error> {
+      /// Check if a GDAL `RgbaEntry` will fit into a `ColorU8`.
+      fn check_color(color: &raster::RgbaEntry) -> bool {
+        const MAX: i16 = u8::MAX as i16;
+        const COMP_RANGE: ops::RangeInclusive<i16> = 0..=MAX;
+        COMP_RANGE.contains(&color.r)
+          && COMP_RANGE.contains(&color.g)
+          && COMP_RANGE.contains(&color.b)
+          && color.a == MAX
+      }
+
       // Raster bands start at index one.
       for index in 1..=dataset.raster_count() {
         let rasterband = dataset.rasterband(index).unwrap();
@@ -390,7 +436,7 @@ impl Source {
           };
 
           // All components must be in 0..256 range.
-          if !util::check_color(&color) {
+          if !check_color(&color) {
             return Err(error_msg!("color table contains invalid colors"));
           }
 
@@ -414,11 +460,13 @@ impl Source {
     ))
   }
 
-  fn read(&self, part: &ImagePart, pal: &PaletteF32, cancel: util::Cancel) -> errors::Result<Option<util::ImageData>> {
+  /// Read and scale part of the chart raster image.
+  fn read(&self, part: &ImagePart, pal: &PaletteF32, cancel: util::Cancel) -> errors::Result<Option<ImageData>> {
     if !part.is_valid() || cancel.canceled() {
       return Ok(None);
     }
 
+    /// Structure that defines a raster area and provides some iterator-like functionality.
     struct Area {
       x: isize,
       y: isize,
@@ -447,6 +495,17 @@ impl Source {
       }
     }
 
+    /// Convert a `ColorF32` to `ColorU8`
+    fn color_u8(color: &ColorF32) -> ColorU8 {
+      const SCALE: f32 = u8::MAX as f32;
+      [
+        (color[0] * SCALE) as u8,
+        (color[1] * SCALE) as u8,
+        (color[2] * SCALE) as u8,
+        u8::MAX,
+      ]
+    }
+
     let raster = self.dataset.rasterband(self.band_idx)?;
     let mut src_area = Area::new(part.rect.scaled(1.0 / part.zoom).fitted(self.px_size));
 
@@ -455,7 +514,7 @@ impl Source {
     let (src_size, mut src_row) = src_buf.into_shape_and_vec();
 
     if part.zoom == 1.0 {
-      let pal: PaletteU8 = array::from_fn(|idx| util::color_u8(&pal[idx]));
+      let pal: [ColorU8; PAL_LEN] = array::from_fn(|idx| color_u8(&pal[idx]));
       let mut dst = Vec::with_capacity(src_area.w * src_area.h);
 
       loop {
@@ -477,7 +536,7 @@ impl Source {
         raster.read_into_slice(src_area.pos(), src_size, src_size, &mut src_row, None)?;
       }
 
-      return Ok(Some(util::ImageData {
+      return Ok(Some(ImageData {
         w: src_area.w,
         h: src_area.h,
         px: dst,
@@ -485,7 +544,15 @@ impl Source {
     }
 
     /// Process a source image row and accumulate into an intermediate result.
-    fn process_row(dst: &mut [util::ColorF32], src: &[u8], pal: &PaletteF32, xr: f32, yr: f32) {
+    fn process_row(dst: &mut [ColorF32], src: &[u8], pal: &PaletteF32, xr: f32, yr: f32) {
+      /// Resample and accumulate a single pixel.
+      fn resample(dst: &mut ColorF32, src: &ColorF32, scale: f32) {
+        dst[0] += src[0] * scale;
+        dst[1] += src[1] * scale;
+        dst[2] += src[2] * scale;
+        dst[3] += src[3] * scale;
+      }
+
       let mut dst_iter = dst.iter_mut();
       let mut src_iter = src.iter();
       let mut ratio = xr;
@@ -503,12 +570,7 @@ impl Source {
 
       loop {
         // Resample the source pixel.
-        let rgb = &pal[src as usize];
-        let pxr = ratio * yr;
-        dst[0] += rgb[0] * pxr;
-        dst[1] += rgb[1] * pxr;
-        dst[2] += rgb[2] * pxr;
-        dst[3] += rgb[3] * pxr;
+        resample(dst, &pal[src as usize], ratio * yr);
 
         // Get the next source pixel.
         src = match src_iter.next() {
@@ -521,12 +583,7 @@ impl Source {
         if remain < xr {
           if remain > 0.0 {
             // Resample what remains of this pixel.
-            let rgb = &pal[src as usize];
-            let pxr = remain * yr;
-            dst[0] += rgb[0] * pxr;
-            dst[1] += rgb[1] * pxr;
-            dst[2] += rgb[2] * pxr;
-            dst[3] += rgb[3] * pxr;
+            resample(dst, &pal[src as usize], remain * yr);
           }
 
           // Move to the next destination pixel.
@@ -542,12 +599,10 @@ impl Source {
     }
 
     let mut dst_area = Area::new(part.rect);
-    let mut acc_row = vec![[0.0, 0.0, 0.0, 0.0]; dst_area.w];
+    let mut acc_row = vec![ColorF32::default(); dst_area.w];
     let mut dst = Vec::with_capacity(dst_area.w * dst_area.h);
     let mut ratio = part.zoom;
     let mut remain = 1.0;
-
-    let time = util::ExecTime::new();
 
     loop {
       if cancel.canceled() {
@@ -561,7 +616,7 @@ impl Source {
       if !src_area.next() {
         // Output this row.
         for acc_px in acc_row.iter() {
-          dst.push(util::color_u8(acc_px));
+          dst.push(color_u8(acc_px));
         }
         break;
       }
@@ -579,8 +634,8 @@ impl Source {
 
         // Output the row.
         for acc_px in acc_row.iter_mut() {
-          dst.push(util::color_u8(acc_px));
-          *acc_px = [0.0, 0.0, 0.0, 0.0];
+          dst.push(color_u8(acc_px));
+          *acc_px = ColorF32::default();
         }
 
         // Check if the end of the destination has been reached.
@@ -593,12 +648,22 @@ impl Source {
       }
     }
 
-    godot_print!("{}", time.elapsed());
-
-    Ok(Some(util::ImageData {
+    Ok(Some(ImageData {
       w: dst_area.w,
       h: dst_area.h,
       px: dst,
     }))
   }
 }
+
+struct ImageData {
+  w: usize,
+  h: usize,
+  px: Vec<ColorU8>,
+}
+
+type ColorF32 = [f32; 4];
+type ColorU8 = [u8; 4];
+
+const PAL_LEN: usize = u8::MAX as usize + 1;
+type PaletteF32 = [ColorF32; PAL_LEN];

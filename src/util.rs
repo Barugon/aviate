@@ -1,9 +1,8 @@
 use crate::geom;
-use gdal::{raster, vector};
+use gdal::vector;
 use godot::{
   classes::{
-    Control, DisplayServer, FileAccess, Image, ImageTexture, Os, Texture2D, Window, display_server::WindowMode,
-    file_access::ModeFlags, image::Format, os::SystemDir,
+    Control, DisplayServer, FileAccess, Os, Window, display_server::WindowMode, file_access::ModeFlags, os::SystemDir,
   },
   prelude::*,
 };
@@ -306,62 +305,6 @@ impl ToU32 for Variant {
   }
 }
 
-pub struct ImageData {
-  pub w: usize,
-  pub h: usize,
-  pub px: Vec<ColorU8>,
-}
-
-pub type ColorF32 = [f32; 4];
-pub type ColorU8 = [u8; 4];
-
-/// Check if a GDAL `RgbaEntry` will fit into a `ColorU8`.
-pub fn check_color(color: &raster::RgbaEntry) -> bool {
-  const MAX: i16 = u8::MAX as i16;
-  const COMP_RANGE: ops::RangeInclusive<i16> = 0..=MAX;
-  COMP_RANGE.contains(&color.r) && COMP_RANGE.contains(&color.g) && COMP_RANGE.contains(&color.b) && color.a == MAX
-}
-
-/// Convert a GDAL `RgbaEntry` to a `ColorF32`.
-pub fn color_f32(color: &raster::RgbaEntry) -> ColorF32 {
-  // Convert colors to floating point in 0.0..=1.0 range.
-  const SCALE: f32 = 1.0 / u8::MAX as f32;
-  [
-    color.r as f32 * SCALE,
-    color.g as f32 * SCALE,
-    color.b as f32 * SCALE,
-    1.0,
-  ]
-}
-
-/// Convert a GDAL `RgbaEntry` to a luminance inverted `ColorF32`.
-pub fn inverted_color_f32(color: &raster::RgbaEntry) -> ColorF32 {
-  let [r, g, b, a] = color_f32(color);
-
-  // Convert to YCbCr and invert the luminance.
-  let y = 1.0 - (r * 0.299 + g * 0.587 + b * 0.114);
-  let cb = b * 0.5 - r * 0.168736 - g * 0.331264;
-  let cr = r * 0.5 - g * 0.418688 - b * 0.081312;
-
-  // Convert back to RGB.
-  let r = y + 1.402 * cr;
-  let g = y - 0.344136 * cb - 0.714136 * cr;
-  let b = y + 1.772 * cb;
-
-  [r, g, b, a]
-}
-
-/// Convert a `ColorF32` to `ColorU8`
-pub fn color_u8(color: &ColorF32) -> ColorU8 {
-  const SCALE: f32 = u8::MAX as f32;
-  [
-    (color[0] * SCALE) as u8,
-    (color[1] * SCALE) as u8,
-    (color[2] * SCALE) as u8,
-    u8::MAX,
-  ]
-}
-
 /// Return the file stem portion of a path as a `&str`.
 pub fn stem_str(path: &path::Path) -> Option<&str> {
   path.file_stem()?.to_str()
@@ -452,14 +395,6 @@ pub fn adjust_dialog(dialog: &mut Gd<Window>) {
   if new_pos != pos {
     dialog.set_position(new_pos);
   }
-}
-
-/// Create a `Gd<Texture2D>` from `ImageData`.
-pub fn create_texture(data: Option<ImageData>) -> Option<Gd<Texture2D>> {
-  let data = data?;
-  let packed = data.px.into_flattened().into();
-  let image = Image::create_from_data(data.w as i32, data.h as i32, false, Format::RGBA8, &packed)?;
-  ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
 }
 
 /// RAII type that will reset feature reading when dropped.
