@@ -50,7 +50,7 @@ impl Reader {
           match source.read(&request.part, pal, request.cancel) {
             Ok(image) => {
               // Convert ImageData to a Gd<Texture2D> before sending.
-              if let Some(texture) = image.and_then(util::create_texture) {
+              if let Some(texture) = util::create_texture(image) {
                 let reply = Reply::Image(request.part, Texture(texture));
                 thread_sender.send(reply).unwrap();
               }

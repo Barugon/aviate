@@ -455,8 +455,9 @@ pub fn adjust_dialog(dialog: &mut Gd<Window>) {
 }
 
 /// Create a `Gd<Texture2D>` from `ImageData`.
-pub fn create_texture(data: ImageData) -> Option<Gd<Texture2D>> {
-  let packed = data.px.as_flattened().into();
+pub fn create_texture(data: Option<ImageData>) -> Option<Gd<Texture2D>> {
+  let data = data?;
+  let packed = data.px.into_flattened().into();
   let image = Image::create_from_data(data.w as i32, data.h as i32, false, Format::RGBA8, &packed)?;
   ImageTexture::create_from_image(&image).map(|texture| texture.upcast())
 }
