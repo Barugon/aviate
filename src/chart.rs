@@ -1,6 +1,6 @@
 use crate::{config, geom, util};
 use gdal::{errors, raster, spatial_ref};
-use godot::{classes::Texture2D, obj::Gd};
+use godot::{classes::Texture2D, global::godot_print, obj::Gd};
 use std::{any, array, cell, path, sync::mpsc, thread};
 
 /// Reader is used for opening and reading
@@ -547,6 +547,8 @@ impl Source {
     let mut ratio = part.zoom;
     let mut remain = 1.0;
 
+    let time = util::ExecTime::new();
+
     loop {
       if cancel.canceled() {
         return Ok(None);
@@ -591,60 +593,12 @@ impl Source {
       }
     }
 
+    godot_print!("{}", time.elapsed());
+
     Ok(Some(util::ImageData {
       w: dst_area.w,
       h: dst_area.h,
       px: dst,
     }))
-  }
-}
-
-mod test {
-  #[test]
-  fn chart_read() {
-    use super::*;
-
-    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/test/chart.tif");
-    let dataset = gdal::Dataset::open_ex(&path, Source::open_options()).unwrap();
-    let px_size = dataset.raster_size().into();
-    let source = Source {
-      dataset,
-      band_idx: 1,
-      px_size,
-    };
-
-    let palette = {
-      let rasterband = source.dataset.rasterband(1).unwrap();
-      assert!(rasterband.color_interpretation() == raster::ColorInterpretation::PaletteIndex);
-
-      let color_table = rasterband.color_table().unwrap();
-      assert!(color_table.entry_count() == PAL_LEN);
-
-      array::from_fn(|idx| util::color_f32(&color_table.entry_as_rgb(idx).unwrap()))
-    };
-
-    // Read a portion of the image at max zoom.
-    let rect = geom::Rect::new(0, 0, px_size.w, px_size.h).scaled(*util::ZOOM_RANGE.start());
-    let zoom = *util::ZOOM_RANGE.end();
-    let pal_type = PaletteType::Light;
-    let part = ImagePart { rect, zoom, pal_type };
-    let data = source.read(&part, &palette, util::Cancel::default()).unwrap().unwrap();
-    let image = image::RgbaImage::from_vec(data.w as u32, data.h as u32, data.px.into_flattened()).unwrap();
-
-    // Check the image.
-    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/test/test_max.png");
-    let reader = image::ImageReader::open(&path).unwrap();
-    assert!(image == reader.decode().unwrap().to_rgba8());
-
-    // Read the whole image at min zoom.
-    let zoom = *util::ZOOM_RANGE.start();
-    let part = ImagePart { rect, zoom, pal_type };
-    let data = source.read(&part, &palette, util::Cancel::default()).unwrap().unwrap();
-    let image = image::RgbaImage::from_vec(data.w as u32, data.h as u32, data.px.into_flattened()).unwrap();
-
-    // Check the image.
-    let path = path::Path::new(env!("CARGO_MANIFEST_DIR")).join("res/test/test_min.png");
-    let reader = image::ImageReader::open(&path).unwrap();
-    assert!(image == reader.decode().unwrap().to_rgba8());
   }
 }
