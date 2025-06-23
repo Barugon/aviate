@@ -30,20 +30,24 @@ macro_rules! ok {
   };
 }
 
-pub struct ExecTime {
+pub struct Timer {
   start: time::Instant,
 }
 
 #[allow(unused)]
-impl ExecTime {
+impl Timer {
   pub fn new() -> Self {
     let start = time::Instant::now();
     Self { start }
   }
 
-  /// Get the elapsed time in seconds.
-  pub fn elapsed(&self) -> f64 {
-    (time::Instant::now() - self.start).as_secs_f64()
+  pub fn elapsed(&self) -> time::Duration {
+    self.start.elapsed()
+  }
+
+  /// Print the elapsed time to the console.
+  pub fn print(&self) {
+    godot_print!("{:?}", self.elapsed());
   }
 }
 
