@@ -83,60 +83,69 @@ pub enum ZipInfo {
 
 /// Returns information about what type of FAA data (if any) is contained in a zip file.
 pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
-  /// Return a path if the folder contains CSV data.
-  fn get_csv_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-    let files = ok!(gdal::vsi::read_dir(path.join(folder), false))?;
+  /// Make sure all files in the set are present.
+  fn check_files(path: &path::Path, mut req: collections::HashSet<&str>) -> bool {
+    let Ok(files) = gdal::vsi::read_dir(path, false) else {
+      return false;
+    };
+
+    for file in files {
+      let Some(name) = name_str(&file) else {
+        continue;
+      };
+
+      if req.remove(name) && req.is_empty() {
+        return true;
+      }
+    }
+
+    false
+  }
+
+  /// Get the CSV path.
+  fn get_csv_path(path: &path::Path) -> Option<path::PathBuf> {
+    let folder = path::Path::new("CSV_Data");
+    let path = path.join(folder);
+    let files = gdal::vsi::read_dir(&path, false).ok()?;
     for file in files {
       let Some(ext) = file.extension() else {
         continue;
       };
 
-      if !ext.eq_ignore_ascii_case("zip") {
+      if !ext.eq("zip") {
         continue;
       }
 
-      let Some(stem) = stem_str(&file) else {
-        continue;
-      };
-
-      if stem.to_ascii_uppercase().ends_with("_CSV") {
+      let path = ["/vsizip/", path.join(&file).to_str()?].concat();
+      let req = collections::HashSet::from(["APT_BASE.csv", "APT_RWY.csv"]);
+      if check_files(path::Path::new(&path), req) {
         return Some(folder.join(file));
       }
     }
+
     None
   }
 
-  /// Return a path if the folder contains shape-file data.
-  fn get_shp_path(path: &path::Path, folder: &path::Path) -> Option<path::PathBuf> {
-    let files = ok!(gdal::vsi::read_dir(path.join(folder), false))?;
-    for file in files {
-      let Some(name) = file.file_name() else {
-        continue;
-      };
+  /// Get the shape file path.
+  fn get_shp_path(path: &path::Path) -> Option<path::PathBuf> {
+    let folder = path::Path::new("Additional_Data").join("Shape_Files");
+    let path = path.join(&folder);
+    let req = collections::HashSet::from([
+      "Class_Airspace.dbf",
+      "Class_Airspace.prj",
+      "Class_Airspace.shp",
+      "Class_Airspace.shx",
+    ]);
 
-      if name.eq_ignore_ascii_case("Shape_Files") {
-        return get_shp_path(path, &folder.join(name));
-      }
-
-      let Some(stem) = path::Path::new(name).file_stem() else {
-        continue;
-      };
-
-      if stem.eq_ignore_ascii_case("Class_Airspace") {
-        // Use the folder for shape files.
-        return Some(folder.into());
-      }
+    if check_files(&path, req) {
+      return Some(folder);
     }
+
     None
   }
 
-  const EXT_ERR: Error = borrow::Cow::Borrowed("Path must have 'zip' extension");
-  if let Some(ext) = path.extension() {
-    if !ext.eq_ignore_ascii_case("zip") {
-      return Err(EXT_ERR);
-    }
-  } else {
-    return Err(EXT_ERR);
+  if !path.extension().unwrap_or_default().eq("zip") {
+    return Err("Path must have 'zip' extension".into());
   }
 
   let Some(path) = path.to_str() else {
@@ -144,48 +153,33 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   };
 
   // Concatenate the VSI prefix.
-  let path = ["/vsizip/", path].concat();
-  let path = path::PathBuf::from(path);
+  let path = path::PathBuf::from(["/vsizip/", path].concat());
 
+  // Look for aeronautical data.
+  if let Some(csv) = get_csv_path(&path) {
+    if let Some(shp) = get_shp_path(&path) {
+      return Ok(ZipInfo::Aero { csv, shp });
+    }
+  }
+
+  // Search for chart raster files
+  let mut tfws = collections::HashSet::new();
+  let mut tifs = Vec::new();
   let files = match gdal::vsi::read_dir(&path, false) {
     Ok(files) => files,
     Err(_) => return Err("Unable to read zip file".into()),
   };
 
-  let mut csv = path::PathBuf::new();
-  let mut shp = path::PathBuf::new();
-  let mut tfws = collections::HashSet::new();
-  let mut tifs = Vec::new();
   for file in files {
-    let Some(name) = file.file_name() else {
-      continue;
-    };
-
-    // Look for aeronautical data.
-    if name.eq_ignore_ascii_case("Additional_Data") {
-      if let Some(shp_path) = get_shp_path(&path, path::Path::new(name)) {
-        shp = shp_path;
-      }
-    } else if name.eq_ignore_ascii_case("CSV_Data") {
-      if let Some(csv_path) = get_csv_path(&path, path::Path::new(name)) {
-        csv = csv_path;
-      }
-    }
-
-    if !csv.as_os_str().is_empty() && !shp.as_os_str().is_empty() {
-      return Ok(ZipInfo::Aero { csv, shp });
-    }
-
     let Some(ext) = file.extension() else {
       continue;
     };
 
-    // Check for chart data.
-    if ext.eq_ignore_ascii_case("tfw") {
+    if ext.eq("tfw") {
       if let Some(stem) = file.file_stem() {
         tfws.insert(path::PathBuf::from(stem));
       }
-    } else if ext.eq_ignore_ascii_case("tif") {
+    } else if ext.eq("tif") {
       tifs.push(file);
     }
   }
@@ -314,14 +308,19 @@ pub fn stem_str(path: &path::Path) -> Option<&str> {
   path.file_stem()?.to_str()
 }
 
-/// Return the folder of a path as a `GString`.
-pub fn folder_gstring<P: AsRef<path::Path>>(path: P) -> Option<GString> {
-  Some(folder_str(path.as_ref())?.into())
+/// Return the file name of a path as a `&str`.
+pub fn name_str(path: &path::Path) -> Option<&str> {
+  path.file_name()?.to_str()
 }
 
 /// Return the folder of a path as a `&str`.
 pub fn folder_str(path: &path::Path) -> Option<&str> {
   path.parent()?.to_str()
+}
+
+/// Return the folder of a path as a `GString`.
+pub fn folder_gstring<P: AsRef<path::Path>>(path: P) -> Option<GString> {
+  Some(folder_str(path.as_ref())?.into())
 }
 
 /// Get the OS specific downloads folder.
