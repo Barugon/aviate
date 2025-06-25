@@ -104,6 +104,8 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
 
   /// Get the CSV path.
   fn get_csv_path(path: &path::Path) -> Option<path::PathBuf> {
+    const REQ_FILES: [&str; 2] = ["APT_BASE.csv", "APT_RWY.csv"];
+
     let folder = path::Path::new("CSV_Data");
     let path = path.join(folder);
     let files = gdal::vsi::read_dir(&path, false).ok()?;
@@ -112,13 +114,12 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
         continue;
       };
 
-      if !ext.eq("zip") {
+      if ext != "zip" {
         continue;
       }
 
       let path = ["/vsizip/", path.join(&file).to_str()?].concat();
-      let req = collections::HashSet::from(["APT_BASE.csv", "APT_RWY.csv"]);
-      if check_files(path::Path::new(&path), req) {
+      if check_files(path::Path::new(&path), collections::HashSet::from(REQ_FILES)) {
         return Some(folder.join(file));
       }
     }
@@ -128,23 +129,22 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
 
   /// Get the shape file path.
   fn get_shp_path(path: &path::Path) -> Option<path::PathBuf> {
-    let folder = path::Path::new("Additional_Data").join("Shape_Files");
-    let path = path.join(&folder);
-    let req = collections::HashSet::from([
+    const REQ_FILES: [&str; 4] = [
       "Class_Airspace.dbf",
       "Class_Airspace.prj",
       "Class_Airspace.shp",
       "Class_Airspace.shx",
-    ]);
+    ];
 
-    if check_files(&path, req) {
+    let folder = path::Path::new("Additional_Data").join("Shape_Files");
+    if check_files(&path.join(&folder), collections::HashSet::from(REQ_FILES)) {
       return Some(folder);
     }
 
     None
   }
 
-  if !path.extension().unwrap_or_default().eq("zip") {
+  if path.extension().unwrap_or_default() != "zip" {
     return Err("Path must have 'zip' extension".into());
   }
 
@@ -163,8 +163,8 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   }
 
   // Search for chart raster files
-  let mut tfws = collections::HashSet::new();
   let mut tifs = Vec::new();
+  let mut tfws = collections::HashSet::new();
   let files = match gdal::vsi::read_dir(&path, false) {
     Ok(files) => files,
     Err(_) => return Err("Unable to read zip file".into()),
@@ -175,12 +175,12 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
       continue;
     };
 
-    if ext.eq("tfw") {
+    if ext == "tif" {
+      tifs.push(file);
+    } else if ext == "tfw" {
       if let Some(stem) = file.file_stem() {
         tfws.insert(path::PathBuf::from(stem));
       }
-    } else if ext.eq("tif") {
-      tifs.push(file);
     }
   }
 
