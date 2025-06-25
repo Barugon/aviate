@@ -34,6 +34,7 @@ export CXX=clang++
 - Build for Android
 
 ```sh
+unset CC CXX
 export ANDROID_NDK_HOME=<path/to/android-ndk>
 ./vcpkg install gdal[core,geos]:arm64-android
 ```
