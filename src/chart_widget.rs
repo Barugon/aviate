@@ -88,7 +88,7 @@ impl ChartWidget {
     }
   }
 
-  pub fn set_pos(&mut self, pos: geom::Pos) {
+  fn set_pos(&mut self, pos: geom::Pos) {
     let Some(pos) = self.correct_pos(pos) else {
       return;
     };
@@ -100,7 +100,29 @@ impl ChartWidget {
     }
   }
 
-  pub fn set_zoom(&mut self, zoom: f32, offset: Vector2) {
+  fn correct_pos(&mut self, mut pos: geom::Pos) -> Option<geom::Pos> {
+    let chart_size = self.get_raster_size()?;
+    let max_size = chart_size * self.display_info.zoom as f64;
+    let widget_size: geom::Size = self.base().get_size().into();
+
+    // Make sure its within the horizontal limits.
+    if pos.x < 0 {
+      pos.x = 0;
+    } else if pos.x + widget_size.w as i32 > max_size.w as i32 {
+      pos.x = max_size.w as i32 - widget_size.w as i32;
+    }
+
+    // Make sure its within the vertical limits.
+    if pos.y < 0 {
+      pos.y = 0;
+    } else if pos.y + widget_size.h as i32 > max_size.h as i32 {
+      pos.y = max_size.h as i32 - widget_size.h as i32;
+    }
+
+    Some(pos)
+  }
+
+  fn set_zoom(&mut self, zoom: f32, offset: Vector2) {
     let Some((zoom, pos)) = self.correct_zoom(zoom, offset) else {
       return;
     };
@@ -111,6 +133,55 @@ impl ChartWidget {
       self.request_image();
       self.base_mut().queue_redraw();
     }
+  }
+
+  fn correct_zoom(&mut self, zoom: f32, offset: Vector2) -> Option<(f32, geom::Pos)> {
+    let chart_size = self.get_raster_size()?;
+
+    // Clamp the zoom value.
+    let mut zoom = zoom.clamp(*util::ZOOM_RANGE.start(), *util::ZOOM_RANGE.end());
+
+    let mut max_size = chart_size * zoom as f64;
+    let widget_size: geom::Size = self.base().get_size().into();
+
+    // Make sure the maximum chart size is not smaller than the widget.
+    if max_size.w < widget_size.w {
+      zoom = widget_size.w as f32 / chart_size.w as f32;
+      max_size = chart_size * zoom as f64;
+    }
+
+    if max_size.h < widget_size.h {
+      zoom = widget_size.h as f32 / chart_size.h as f32;
+      max_size = chart_size * zoom as f64;
+    }
+
+    // Keep the zoom position at the offset.
+    let pos = Vector2::from(self.display_info.origin) + offset;
+    let pos = pos * zoom / self.display_info.zoom - offset;
+    let mut pos = geom::Pos {
+      x: pos.x.round() as i32,
+      y: pos.y.round() as i32,
+    };
+
+    // Make sure its within the horizontal limits.
+    if pos.x < 0 {
+      pos.x = 0;
+    } else if pos.x + widget_size.w as i32 > max_size.w as i32 {
+      pos.x = max_size.w as i32 - widget_size.w as i32;
+    }
+
+    // Make sure its within the vertical limits.
+    if pos.y < 0 {
+      pos.y = 0;
+    } else if pos.y + widget_size.h as i32 > max_size.h as i32 {
+      pos.y = max_size.h as i32 - widget_size.h as i32;
+    }
+
+    Some((zoom, pos))
+  }
+
+  fn get_raster_size(&self) -> Option<geom::Size> {
+    Some(self.transformation()?.px_size())
   }
 
   fn request_image(&self) {
@@ -159,78 +230,6 @@ impl ChartWidget {
     let rect = Rect2::new(pos, size);
     let texture = chart_image.texture.clone();
     Some((texture, rect))
-  }
-
-  fn get_raster_size(&self) -> Option<geom::Size> {
-    let raster_reader = self.raster_reader.as_ref()?;
-    Some(raster_reader.transformation().px_size())
-  }
-
-  fn correct_pos(&mut self, mut pos: geom::Pos) -> Option<geom::Pos> {
-    let chart_size = self.get_raster_size()?;
-    let max_size = chart_size * self.display_info.zoom as f64;
-    let widget_size: geom::Size = self.base().get_size().into();
-
-    // Make sure its within the horizontal limits.
-    if pos.x < 0 {
-      pos.x = 0;
-    } else if pos.x + widget_size.w as i32 > max_size.w as i32 {
-      pos.x = max_size.w as i32 - widget_size.w as i32;
-    }
-
-    // Make sure its within the vertical limits.
-    if pos.y < 0 {
-      pos.y = 0;
-    } else if pos.y + widget_size.h as i32 > max_size.h as i32 {
-      pos.y = max_size.h as i32 - widget_size.h as i32;
-    }
-
-    Some(pos)
-  }
-
-  fn correct_zoom(&mut self, zoom: f32, offset: Vector2) -> Option<(f32, geom::Pos)> {
-    let chart_size = self.get_raster_size()?;
-
-    // Clamp the zoom value.
-    let mut zoom = zoom.clamp(*util::ZOOM_RANGE.start(), *util::ZOOM_RANGE.end());
-
-    let mut max_size = chart_size * zoom as f64;
-    let widget_size: geom::Size = self.base().get_size().into();
-
-    // Make sure the maximum chart size is not smaller than the widget.
-    if max_size.w < widget_size.w {
-      zoom = widget_size.w as f32 / chart_size.w as f32;
-      max_size = chart_size * zoom as f64;
-    }
-
-    if max_size.h < widget_size.h {
-      zoom = widget_size.h as f32 / chart_size.h as f32;
-      max_size = chart_size * zoom as f64;
-    }
-
-    // Keep the zoom position at the offset.
-    let pos = Vector2::from(self.display_info.origin) + offset;
-    let pos = pos * zoom / self.display_info.zoom - offset;
-    let mut pos = geom::Pos {
-      x: pos.x.round() as i32,
-      y: pos.y.round() as i32,
-    };
-
-    // Make sure its within the horizontal limits.
-    if pos.x < 0 {
-      pos.x = 0;
-    } else if pos.x + widget_size.w as i32 > max_size.w as i32 {
-      pos.x = max_size.w as i32 - widget_size.w as i32;
-    }
-
-    // Make sure its within the vertical limits.
-    if pos.y < 0 {
-      pos.y = 0;
-    } else if pos.y + widget_size.h as i32 > max_size.h as i32 {
-      pos.y = max_size.h as i32 - widget_size.h as i32;
-    }
-
-    Some((zoom, pos))
   }
 
   fn draw_bounds(&mut self) {
