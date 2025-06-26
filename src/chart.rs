@@ -410,8 +410,11 @@ impl Source {
       }
 
       // Raster bands start at index one.
-      for index in 1..=dataset.raster_count() {
-        let rasterband = dataset.rasterband(index).unwrap();
+      for band_idx in 1..=dataset.raster_count() {
+        let rasterband = match dataset.rasterband(band_idx) {
+          Ok(rasterband) => rasterband,
+          Err(err) => return Err(error_msg!(err)),
+        };
 
         // The color interpretation for a FAA chart is PaletteIndex.
         if rasterband.color_interpretation() != raster::ColorInterpretation::PaletteIndex {
@@ -443,7 +446,7 @@ impl Source {
           palette.push(color);
         }
 
-        return Ok((index, palette));
+        return Ok((band_idx, palette));
       }
       Err(error_msg!("raster layer not found"))
     }()?;
