@@ -213,7 +213,7 @@ impl ChartWidget {
           image_info = Some((part, texture.into()));
         }
         chart::Reply::Error(part, err) => {
-          godot_error!("{err} @ {part:?}");
+          godot_error!("{err}\n{part:?}");
         }
       }
     }
