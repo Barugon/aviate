@@ -432,7 +432,7 @@ impl IControl for MainWidget {
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
         airport::Reply::Airport(info) => airport_infos = Some(vec![info]),
-        airport::Reply::Detail(detail) => godot_print!("{detail:#?}\n"),
+        airport::Reply::Detail(detail) => godot_print!("{detail:?}\n"),
         airport::Reply::Nearby(_infos) => (),
         airport::Reply::Search(infos) => airport_infos = Some(infos),
         airport::Reply::Error(err) => self.show_alert(err.as_ref()),
