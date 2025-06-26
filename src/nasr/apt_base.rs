@@ -19,8 +19,7 @@ impl Source {
   /// Open an airport base data source.
   /// - `path`: CSV zip file path
   pub fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
-    let path = ["/vsizip/", path.to_str().unwrap()].concat();
-    let path = path::Path::new(path.as_str()).join("APT_BASE.csv");
+    let path = path::PathBuf::from(["/vsizip/", path.to_str().unwrap()].concat()).join("APT_BASE.csv");
     let dataset = gdal::Dataset::open_ex(path, common::open_options())?;
     let fields = Fields::new(dataset.layer(0)?)?;
     Ok(Self {

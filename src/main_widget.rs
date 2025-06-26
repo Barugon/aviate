@@ -200,9 +200,7 @@ impl MainWidget {
 
   fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
     // Concatenate the VSI prefix and the airport zip path.
-    let path = ["/vsizip/", path].concat();
-    let path = path::Path::new(path.as_str());
-    let path = path.join(csv);
+    let path = path::PathBuf::from(["/vsizip/", path].concat()).join(csv);
 
     let airport_reader = match airport::Reader::new(&path) {
       Ok(airport_reader) => airport_reader,
@@ -212,11 +210,9 @@ impl MainWidget {
       }
     };
 
-    if let Some(transformation) = self.chart_widget.bind().transformation() {
-      // Send the chart spatial reference to the airport reader.
-      let proj4 = transformation.get_proj4();
-      let bounds = transformation.get_chart_bounds();
-      airport_reader.set_chart_spatial_ref(proj4, bounds);
+    if let Some(trans) = self.chart_widget.bind().transformation() {
+      // Send the chart spatial reference and bounds to the airport reader.
+      airport_reader.set_chart_spatial_ref(trans.get_proj4(), trans.get_chart_bounds());
     }
 
     self.airport_reader = Some(airport_reader);

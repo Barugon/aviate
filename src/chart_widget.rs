@@ -22,8 +22,7 @@ pub struct ChartWidget {
 impl ChartWidget {
   pub fn open_raster_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
     // Concatenate the VSI prefix and the file path.
-    let path = ["/vsizip/", path].concat();
-    let path = path::Path::new(path.as_str()).join(file);
+    let path = path::PathBuf::from(["/vsizip/", path].concat()).join(file);
 
     // Create a new raster reader.
     let raster_reader = chart::Reader::new(&path)?;
