@@ -477,6 +477,7 @@ struct AirportStatus {
   pending: bool,
 }
 
+/// Remove unnecessary widgets from the file dialog.
 fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>) {
   let vbox = file_dialog.get_vbox().unwrap();
   let vbox_children = vbox.get_children();
