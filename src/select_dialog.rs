@@ -17,29 +17,33 @@ pub struct SelectDialog {
 #[godot_api]
 impl SelectDialog {
   #[signal]
-  fn selected(choice: u32);
+  fn item_confirmed(choice: u32);
 
   #[signal]
-  fn info(choice: u32);
+  fn info_confirmed(choice: u32);
 
   #[func]
-  fn choice_confirmed(&mut self) {
-    if let Some(mut item) = self.tree.get_selected() {
-      let idx = item.get_index();
-      let mut this = self.base_mut();
-      this.hide();
-      this.emit_signal("selected", &[Variant::from(idx as u32)]);
-    }
+  fn choose_item(&mut self) {
+    let Some(mut item) = self.tree.get_selected() else {
+      return;
+    };
+
+    let idx = item.get_index();
+    let mut this = self.base_mut();
+    this.hide();
+    this.emit_signal("item_confirmed", &[Variant::from(idx as u32)]);
   }
 
   #[func]
-  fn choice_info(&mut self) {
-    if let Some(mut item) = self.tree.get_selected() {
-      let idx = item.get_index();
-      let mut this = self.base_mut();
-      this.hide();
-      this.emit_signal("info", &[Variant::from(idx as u32)]);
-    }
+  fn choose_info(&mut self) {
+    let Some(mut item) = self.tree.get_selected() else {
+      return;
+    };
+
+    let idx = item.get_index();
+    let mut this = self.base_mut();
+    this.hide();
+    this.emit_signal("info_confirmed", &[Variant::from(idx as u32)]);
   }
 
   #[func]
@@ -141,13 +145,13 @@ impl IWindow for SelectDialog {
     self.tree.init(self.get_child("Tree"));
 
     // Connect the ok button.
-    let callable = self.base().callable("choice_confirmed");
+    let callable = self.base().callable("choose_item");
     let mut button = self.get_child::<Button>("OkButton");
     button.connect("pressed", &callable);
     self.tree.connect("item_activated", &callable);
 
     // Connect the ok button.
-    let callable = self.base().callable("choice_info");
+    let callable = self.base().callable("choose_info");
     let mut button = self.get_child::<Button>("InfoButton");
     button.connect("pressed", &callable);
 

@@ -118,8 +118,8 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
         continue;
       }
 
-      let path = ["/vsizip/", path.join(&file).to_str()?].concat();
-      if check_files(path::Path::new(&path), collections::HashSet::from(REQ_FILES)) {
+      let path = path::PathBuf::from(["/vsizip/", path.join(&file).to_str()?].concat());
+      if check_files(&path, collections::HashSet::from(REQ_FILES)) {
         return Some(folder.join(file));
       }
     }

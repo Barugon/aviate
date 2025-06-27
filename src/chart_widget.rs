@@ -80,20 +80,20 @@ impl ChartWidget {
           let y = px.y as f32 - 0.5 * widget_size.y;
 
           self.display_info.zoom = 1.0;
-          self.set_pos((x, y).into());
+          self.set_origin((x, y).into());
         }
       }
       Err(err) => godot_error!("{err}"),
     }
   }
 
-  fn set_pos(&mut self, pos: geom::Pos) {
-    let Some(pos) = self.correct_pos(pos, self.display_info.zoom) else {
+  fn set_origin(&mut self, origin: geom::Pos) {
+    let Some(origin) = self.correct_origin(origin, self.display_info.zoom) else {
       return;
     };
 
-    if pos != self.display_info.origin {
-      self.display_info.origin = pos;
+    if origin != self.display_info.origin {
+      self.display_info.origin = origin;
       self.request_image();
       self.base_mut().queue_redraw();
     }
@@ -106,43 +106,39 @@ impl ChartWidget {
 
     // Keep the position at the offset.
     let pos = Vector2::from(self.display_info.origin) + offset;
-    let pos = pos * zoom / self.display_info.zoom - offset;
-    let pos = geom::Pos {
-      x: pos.x.round() as i32,
-      y: pos.y.round() as i32,
-    };
+    let origin = geom::Pos::round(pos * zoom / self.display_info.zoom - offset);
 
-    let Some(pos) = self.correct_pos(pos, zoom) else {
+    let Some(origin) = self.correct_origin(origin, zoom) else {
       return;
     };
 
-    if zoom != self.display_info.zoom || pos != self.display_info.origin {
-      self.display_info.origin = pos;
+    if zoom != self.display_info.zoom || origin != self.display_info.origin {
+      self.display_info.origin = origin;
       self.display_info.zoom = zoom;
       self.request_image();
       self.base_mut().queue_redraw();
     }
   }
 
-  fn correct_pos(&self, mut pos: geom::Pos, zoom: f32) -> Option<geom::Pos> {
-    let max_chart_size = self.get_raster_size()? * zoom as f64;
+  fn correct_origin(&self, mut origin: geom::Pos, zoom: f32) -> Option<geom::Pos> {
+    let max_chart_size = self.get_raster_size()? * zoom;
     let widget_size: geom::Size = self.base().get_size().into();
 
     // Make sure its within the horizontal limits.
-    if pos.x < 0 {
-      pos.x = 0;
-    } else if pos.x + widget_size.w as i32 > max_chart_size.w as i32 {
-      pos.x = max_chart_size.w as i32 - widget_size.w as i32;
+    if origin.x < 0 {
+      origin.x = 0;
+    } else if origin.x + widget_size.w as i32 > max_chart_size.w as i32 {
+      origin.x = max_chart_size.w as i32 - widget_size.w as i32;
     }
 
     // Make sure its within the vertical limits.
-    if pos.y < 0 {
-      pos.y = 0;
-    } else if pos.y + widget_size.h as i32 > max_chart_size.h as i32 {
-      pos.y = max_chart_size.h as i32 - widget_size.h as i32;
+    if origin.y < 0 {
+      origin.y = 0;
+    } else if origin.y + widget_size.h as i32 > max_chart_size.h as i32 {
+      origin.y = max_chart_size.h as i32 - widget_size.h as i32;
     }
 
-    Some(pos)
+    Some(origin)
   }
 
   fn correct_zoom(&self, zoom: f32) -> Option<f32> {
@@ -151,7 +147,7 @@ impl ChartWidget {
     // Clamp the zoom value.
     let mut zoom = zoom.clamp(*util::ZOOM_RANGE.start(), *util::ZOOM_RANGE.end());
 
-    let max_chart_size = chart_size * zoom as f64;
+    let max_chart_size = chart_size * zoom;
     let widget_size: geom::Size = self.base().get_size().into();
 
     // Make sure the maximum chart size is not smaller than the widget.
@@ -210,9 +206,9 @@ impl ChartWidget {
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
     let chart_image = self.chart_image.as_ref()?;
-    let zoom = self.display_info.zoom / chart_image.part.zoom;
-    let pos = Vector2::from(chart_image.part.rect.pos) * zoom - self.display_info.origin.into();
-    let size = chart_image.texture.get_size() * zoom;
+    let zoom_delta = self.display_info.zoom / chart_image.part.zoom;
+    let pos = Vector2::from(chart_image.part.rect.pos) * zoom_delta - self.display_info.origin.into();
+    let size = chart_image.texture.get_size() * zoom_delta;
     let rect = Rect2::new(pos, size);
     let texture = chart_image.texture.clone();
     Some((texture, rect))
@@ -272,30 +268,40 @@ impl IControl for ChartWidget {
       return;
     }
 
-    let rect: geom::Rect = self.base().get_rect().into();
-    if self.chart_image.is_some() {
-      // Correct the current zoom (may change based on widget size).
-      if let Some(zoom) = self.correct_zoom(self.display_info.zoom) {
-        let pos = if rect.pos.x == self.display_info.ctl_rect.pos.x {
-          // Recenter the chart.
-          self.display_info.origin + self.display_info.ctl_rect.center() - rect.center()
-        } else {
-          // Side panel was toggled, just compensate for that.
-          self.display_info.origin + (rect.pos.x - self.display_info.ctl_rect.pos.x, 0).into()
-        };
-
-        // Correct the position.
-        if let Some(pos) = self.correct_pos(pos, zoom) {
-          self.display_info.origin = pos;
-          self.display_info.zoom = zoom;
-          self.request_image();
-          self.base_mut().queue_redraw();
-        }
-      }
-    }
+    let prev_rect = self.display_info.ctl_rect;
+    let cur_rect = self.base().get_rect().into();
 
     // Remember the widget rectangle for next time.
-    self.display_info.ctl_rect = rect;
+    self.display_info.ctl_rect = cur_rect;
+
+    if self.chart_image.is_none() {
+      return;
+    }
+
+    let origin = if cur_rect.pos.x == prev_rect.pos.x {
+      // Recenter the chart.
+      self.display_info.origin + prev_rect.center() - cur_rect.center()
+    } else {
+      // Side panel was toggled, just compensate for that.
+      self.display_info.origin + (cur_rect.pos.x - prev_rect.pos.x, 0).into()
+    };
+
+    // Correct the current zoom (may change based on widget size).
+    let Some(zoom) = self.correct_zoom(self.display_info.zoom) else {
+      return;
+    };
+
+    // Correct the origin.
+    let Some(origin) = self.correct_origin(origin, zoom) else {
+      return;
+    };
+
+    if zoom != self.display_info.zoom || origin != self.display_info.origin {
+      self.display_info.origin = origin;
+      self.display_info.zoom = zoom;
+      self.request_image();
+      self.base_mut().queue_redraw();
+    }
   }
 
   fn draw(&mut self) {
@@ -322,8 +328,8 @@ impl IControl for ChartWidget {
     if let Ok(event) = event.clone().try_cast::<InputEventMouseMotion>() {
       if event.get_button_mask() == MouseButtonMask::LEFT && !self.display_info.touch.multi {
         let delta = event.get_screen_relative() / self.display_info.ui_scale;
-        let pos = self.display_info.origin - delta.into();
-        self.set_pos(pos);
+        let origin = self.display_info.origin - delta.into();
+        self.set_origin(origin);
       }
       return;
     }

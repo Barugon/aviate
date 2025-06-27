@@ -301,6 +301,13 @@ impl Pos {
   pub fn to_variant(self) -> Variant {
     Variant::from([self.x, self.y])
   }
+
+  pub fn round(pos: Vector2) -> Self {
+    Self {
+      x: pos.x.round() as i32,
+      y: pos.y.round() as i32,
+    }
+  }
 }
 
 impl ops::Add for Pos {
@@ -332,24 +339,21 @@ impl From<(i32, i32)> for Pos {
 impl From<(f32, f32)> for Pos {
   fn from((x, y): (f32, f32)) -> Self {
     Self {
-      x: x as i32,
-      y: y as i32,
+      x: x.floor() as i32,
+      y: y.floor() as i32,
     }
   }
 }
 
 impl From<Vector2i> for Pos {
   fn from(pos: Vector2i) -> Self {
-    Self { x: pos.x, y: pos.y }
+    (pos.x, pos.y).into()
   }
 }
 
 impl From<Vector2> for Pos {
   fn from(pos: Vector2) -> Self {
-    Self {
-      x: pos.x as i32,
-      y: pos.y as i32,
-    }
+    (pos.x, pos.y).into()
   }
 }
 
@@ -415,17 +419,6 @@ impl ops::Mul<f32> for Size {
   }
 }
 
-impl ops::Mul<f64> for Size {
-  type Output = Self;
-
-  fn mul(self, scale: f64) -> Self {
-    Self {
-      w: (self.w as f64 * scale).round() as u32,
-      h: (self.h as f64 * scale).round() as u32,
-    }
-  }
-}
-
 impl From<(u32, u32)> for Size {
   fn from((w, h): (u32, u32)) -> Self {
     Self { w, h }
@@ -453,8 +446,8 @@ impl From<Vector2i> for Size {
 impl From<Vector2> for Size {
   fn from(size: Vector2) -> Self {
     Self {
-      w: size.x.round() as u32,
-      h: size.y.round() as u32,
+      w: size.x.ceil() as u32,
+      h: size.y.ceil() as u32,
     }
   }
 }

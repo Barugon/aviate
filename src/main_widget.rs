@@ -124,7 +124,7 @@ impl MainWidget {
   }
 
   #[func]
-  fn item_selected(&mut self, index: u32) {
+  fn select_item_confirmed(&mut self, index: u32) {
     let index = index as usize;
     if let Some((path, files)) = self.chart_info.take() {
       self.open_chart(&path, files[index].to_str().unwrap());
@@ -138,12 +138,14 @@ impl MainWidget {
   }
 
   #[func]
-  fn info_selected(&mut self, index: u32) {
-    if let Some(infos) = self.airport_infos.take() {
-      let info = infos.into_iter().nth(index as usize).unwrap();
-      if let Some(airport_reader) = &self.airport_reader {
-        airport_reader.detail(info);
-      }
+  fn select_info_confirmed(&mut self, index: u32) {
+    let Some(infos) = self.airport_infos.take() else {
+      return;
+    };
+
+    let info = infos.into_iter().nth(index as usize).unwrap();
+    if let Some(airport_reader) = &self.airport_reader {
+      airport_reader.detail(info);
     }
   }
 
@@ -239,10 +241,12 @@ impl MainWidget {
   /// Returns true if a dialog window is visible.
   fn dialog_is_visible(&self) -> bool {
     for child in self.base().get_children().iter_shared() {
-      if let Ok(window) = child.try_cast::<Window>() {
-        if window.is_exclusive() && window.is_visible() {
-          return true;
-        }
+      let Ok(window) = child.try_cast::<Window>() else {
+        continue;
+      };
+
+      if window.is_exclusive() && window.is_visible() {
+        return true;
       }
     }
     false
@@ -379,11 +383,11 @@ impl IControl for MainWidget {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     dialog.set(&title_property, &title_size);
 
-    let callable = self.base().callable("item_selected");
-    dialog.connect("selected", &callable);
+    let callable = self.base().callable("select_item_confirmed");
+    dialog.connect("item_confirmed", &callable);
 
-    let callable = self.base().callable("info_selected");
-    dialog.connect("info", &callable);
+    let callable = self.base().callable("select_info_confirmed");
+    dialog.connect("info_confirmed", &callable);
 
     // Setup and connect the find dialog.
     let mut dialog = self.get_child::<find_dialog::FindDialog>("FindDialog");

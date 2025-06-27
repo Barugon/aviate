@@ -64,17 +64,19 @@ impl IWindow for FindDialog {
   }
 
   fn on_notification(&mut self, what: WindowNotification) {
-    if what == WindowNotification::VISIBILITY_CHANGED {
-      let callable = self.base().callable("changed");
-      let mut child = self.get_child::<LineEdit>("LineEdit");
-      if self.base().is_visible() {
-        child.clear();
-        child.grab_focus();
-        child.connect("text_changed", &callable);
-      } else {
-        child.disconnect("text_changed", &callable);
-        self.ok.set_disabled(true);
-      }
+    if what != WindowNotification::VISIBILITY_CHANGED {
+      return;
+    }
+
+    let callable = self.base().callable("changed");
+    let mut child = self.get_child::<LineEdit>("LineEdit");
+    if self.base().is_visible() {
+      child.clear();
+      child.grab_focus();
+      child.connect("text_changed", &callable);
+    } else {
+      child.disconnect("text_changed", &callable);
+      self.ok.set_disabled(true);
     }
   }
 
