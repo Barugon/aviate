@@ -88,7 +88,7 @@ impl ChartWidget {
   }
 
   fn set_pos(&mut self, pos: geom::Pos) {
-    let Some(pos) = self.correct_pos(pos) else {
+    let Some(pos) = self.correct_pos(pos, self.display_info.zoom) else {
       return;
     };
 
@@ -99,30 +99,20 @@ impl ChartWidget {
     }
   }
 
-  fn correct_pos(&self, mut pos: geom::Pos) -> Option<geom::Pos> {
-    let chart_size = self.get_raster_size()?;
-    let max_size = chart_size * self.display_info.zoom as f64;
-    let widget_size: geom::Size = self.base().get_size().into();
-
-    // Make sure its within the horizontal limits.
-    if pos.x < 0 {
-      pos.x = 0;
-    } else if pos.x + widget_size.w as i32 > max_size.w as i32 {
-      pos.x = max_size.w as i32 - widget_size.w as i32;
-    }
-
-    // Make sure its within the vertical limits.
-    if pos.y < 0 {
-      pos.y = 0;
-    } else if pos.y + widget_size.h as i32 > max_size.h as i32 {
-      pos.y = max_size.h as i32 - widget_size.h as i32;
-    }
-
-    Some(pos)
-  }
-
   fn set_zoom(&mut self, zoom: f32, offset: Vector2) {
-    let Some((zoom, pos)) = self.correct_zoom_offset(zoom, offset) else {
+    let Some(zoom) = self.correct_zoom(zoom) else {
+      return;
+    };
+
+    // Keep the position at the offset.
+    let pos = Vector2::from(self.display_info.origin) + offset;
+    let pos = pos * zoom / self.display_info.zoom - offset;
+    let pos = geom::Pos {
+      x: pos.x.round() as i32,
+      y: pos.y.round() as i32,
+    };
+
+    let Some(pos) = self.correct_pos(pos, zoom) else {
       return;
     };
 
@@ -132,6 +122,27 @@ impl ChartWidget {
       self.request_image();
       self.base_mut().queue_redraw();
     }
+  }
+
+  fn correct_pos(&self, mut pos: geom::Pos, zoom: f32) -> Option<geom::Pos> {
+    let max_chart_size = self.get_raster_size()? * zoom as f64;
+    let widget_size: geom::Size = self.base().get_size().into();
+
+    // Make sure its within the horizontal limits.
+    if pos.x < 0 {
+      pos.x = 0;
+    } else if pos.x + widget_size.w as i32 > max_chart_size.w as i32 {
+      pos.x = max_chart_size.w as i32 - widget_size.w as i32;
+    }
+
+    // Make sure its within the vertical limits.
+    if pos.y < 0 {
+      pos.y = 0;
+    } else if pos.y + widget_size.h as i32 > max_chart_size.h as i32 {
+      pos.y = max_chart_size.h as i32 - widget_size.h as i32;
+    }
+
+    Some(pos)
   }
 
   fn correct_zoom(&self, zoom: f32) -> Option<f32> {
@@ -155,38 +166,8 @@ impl ChartWidget {
     Some(zoom)
   }
 
-  fn correct_zoom_offset(&self, zoom: f32, offset: Vector2) -> Option<(f32, geom::Pos)> {
-    let zoom = self.correct_zoom(zoom)?;
-    let max_chart_size = self.get_raster_size()? * zoom as f64;
-    let widget_size: geom::Size = self.base().get_size().into();
-
-    // Keep the zoom position at the offset.
-    let pos = Vector2::from(self.display_info.origin) + offset;
-    let pos = pos * zoom / self.display_info.zoom - offset;
-    let mut pos = geom::Pos {
-      x: pos.x.round() as i32,
-      y: pos.y.round() as i32,
-    };
-
-    // Make sure its within the horizontal limits.
-    if pos.x < 0 {
-      pos.x = 0;
-    } else if pos.x + widget_size.w as i32 > max_chart_size.w as i32 {
-      pos.x = max_chart_size.w as i32 - widget_size.w as i32;
-    }
-
-    // Make sure its within the vertical limits.
-    if pos.y < 0 {
-      pos.y = 0;
-    } else if pos.y + widget_size.h as i32 > max_chart_size.h as i32 {
-      pos.y = max_chart_size.h as i32 - widget_size.h as i32;
-    }
-
-    Some((zoom, pos))
-  }
-
   fn get_raster_size(&self) -> Option<geom::Size> {
-    Some(self.transformation()?.px_size())
+    self.transformation().map(|t| t.px_size())
   }
 
   fn request_image(&self) {
@@ -295,8 +276,6 @@ impl IControl for ChartWidget {
     if self.chart_image.is_some() {
       // Correct the current zoom (may change based on widget size).
       if let Some(zoom) = self.correct_zoom(self.display_info.zoom) {
-        self.display_info.zoom = zoom;
-
         let pos = if rect.pos.x == self.display_info.ctl_rect.pos.x {
           // Recenter the chart.
           self.display_info.origin + self.display_info.ctl_rect.center() - rect.center()
@@ -306,8 +285,9 @@ impl IControl for ChartWidget {
         };
 
         // Correct the position.
-        if let Some(pos) = self.correct_pos(pos) {
+        if let Some(pos) = self.correct_pos(pos, zoom) {
           self.display_info.origin = pos;
+          self.display_info.zoom = zoom;
           self.request_image();
           self.base_mut().queue_redraw();
         }
