@@ -35,8 +35,7 @@ impl ChartWidget {
   }
 
   pub fn chart_name(&self) -> Option<&str> {
-    let raster_reader = self.raster_reader.as_ref()?;
-    Some(raster_reader.chart_name())
+    self.raster_reader.as_ref().map(|r| r.chart_name())
   }
 
   /// True if a heliport chart is currently open.
@@ -45,7 +44,7 @@ impl ChartWidget {
   }
 
   pub fn transformation(&self) -> Option<&chart::Transformation> {
-    Some(self.raster_reader.as_ref()?.transformation())
+    self.raster_reader.as_ref().map(|r| r.transformation())
   }
 
   pub fn set_scale(&mut self, scale: f32) {
