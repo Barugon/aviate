@@ -146,16 +146,15 @@ impl ChartWidget {
 
     // Clamp the zoom value.
     let mut zoom = zoom.clamp(*util::ZOOM_RANGE.start(), *util::ZOOM_RANGE.end());
-
-    let max_chart_size = chart_size * zoom;
     let widget_size: geom::Size = self.base().get_size().into();
 
-    // Adjust the zoom if the maximum chart size is smaller than the widget.
-    if max_chart_size.w < widget_size.w {
+    // Adjust the zoom if the maximum chart width is narrower than the widget.
+    if chart_size.w as f32 * zoom < widget_size.w as f32 {
       zoom = widget_size.w as f32 / chart_size.w as f32;
     }
 
-    if max_chart_size.h < widget_size.h {
+    // Adjust the zoom if the maximum chart height is shorter than the widget.
+    if chart_size.h as f32 * zoom < widget_size.h as f32 {
       zoom = widget_size.h as f32 / chart_size.h as f32;
     }
 
