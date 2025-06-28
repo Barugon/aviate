@@ -150,7 +150,7 @@ impl ChartWidget {
     let max_chart_size = chart_size * zoom;
     let widget_size: geom::Size = self.base().get_size().into();
 
-    // Make sure the maximum chart size is not smaller than the widget.
+    // Adjust the zoom if the maximum chart size is smaller than the widget.
     if max_chart_size.w < widget_size.w {
       zoom = widget_size.w as f32 / chart_size.w as f32;
     }
