@@ -192,7 +192,10 @@ impl ChartWidget {
     while let Some(reply) = raster_reader.get_reply() {
       match reply {
         chart::Reply::Image(part, texture) => {
-          image_info = Some((part, texture.into()));
+          image_info = Some(ChartImage {
+            texture: texture.into(),
+            part,
+          })
         }
         chart::Reply::Error(part, err) => {
           godot_error!("{err}\n{part:?}");
@@ -200,8 +203,7 @@ impl ChartWidget {
       }
     }
 
-    let (part, texture) = image_info?;
-    Some(ChartImage { texture, part })
+    image_info
   }
 
   fn get_draw_info(&self) -> Option<(Gd<Texture2D>, Rect2)> {
