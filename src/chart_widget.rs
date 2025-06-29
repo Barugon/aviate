@@ -74,9 +74,11 @@ impl ChartWidget {
       Ok(px) => {
         let chart_size = raster_reader.transformation().px_size();
         if chart_size.contains(px) {
-          let widget_size = self.base().get_size();
-          let x = px.x as f32 - 0.5 * widget_size.x;
-          let y = px.y as f32 - 0.5 * widget_size.y;
+          let widget_rect = self.base().get_rect();
+
+          // Ignore the left panel when centering horizontally.
+          let x = px.x as f32 - 0.5 * (widget_rect.size.x - widget_rect.position.x);
+          let y = px.y as f32 - 0.5 * widget_rect.size.y;
 
           self.display_info.zoom = 1.0;
           self.set_origin((x, y).into());
