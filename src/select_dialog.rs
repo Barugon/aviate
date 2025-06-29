@@ -52,7 +52,7 @@ impl SelectDialog {
     self.get_child::<Button>("InfoButton").set_disabled(false);
   }
 
-  pub fn show_choices<'a, I: Iterator<Item = borrow::Cow<'a, str>>>(
+  pub fn show_choices<'a, I: Iterator<Item = Option<borrow::Cow<'a, str>>>>(
     &mut self,
     choices: I,
     title: &str,
@@ -75,6 +75,10 @@ impl SelectDialog {
     let count = {
       let mut count = 0;
       for choice in choices {
+        let Some(choice) = choice else {
+          continue;
+        };
+
         let mut item = self.tree.create_item_ex().parent(&root).done().unwrap();
         item.set_expand_right(0, true);
         if let Some(pos) = choice.rfind('(') {

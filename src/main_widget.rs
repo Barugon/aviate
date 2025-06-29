@@ -114,15 +114,12 @@ impl MainWidget {
 
         if files.len() > 1 {
           self.select_chart(path, files);
-        } else {
-          self.open_chart(&path, files.first().and_then(|f| f.to_str()).unwrap());
+        } else if let Some(file) = files.first().and_then(|f| f.to_str()) {
+          self.open_chart(&path, file);
         }
       }
       util::ZipInfo::Aero { csv, shp } => {
         self.save_asset_folder(&path);
-
-        let csv = csv.to_str().unwrap();
-        let shp = shp.to_str().unwrap();
         self.open_nasr(&path, csv, shp);
       }
     }
@@ -132,11 +129,18 @@ impl MainWidget {
   fn select_item_confirmed(&mut self, index: u32) {
     let index = index as usize;
     if let Some((path, files)) = self.chart_info.take() {
-      self.open_chart(&path, files[index].to_str().unwrap());
+      let Some(file) = files.iter().nth(index).and_then(|f| f.to_str()) else {
+        return;
+      };
+
+      self.open_chart(&path, file);
     }
 
     if let Some(infos) = self.airport_infos.take() {
-      let info = infos.into_iter().nth(index).unwrap();
+      let Some(info) = infos.iter().nth(index) else {
+        return;
+      };
+
       let coord = info.coord;
       self.chart_widget.bind_mut().goto_coord(coord);
     }
@@ -148,7 +152,10 @@ impl MainWidget {
       return;
     };
 
-    let info = infos.into_iter().nth(index as usize).unwrap();
+    let Some(info) = infos.into_iter().nth(index as usize) else {
+      return;
+    };
+
     if let Some(airport_reader) = &self.airport_reader {
       airport_reader.detail(info);
     }
@@ -164,7 +171,7 @@ impl MainWidget {
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    let choices = files.iter().map(|f| util::stem_str(f).unwrap().into());
+    let choices = files.iter().map(|f| util::stem_str(f).map(|s| s.into()));
     dialog.bind_mut().show_choices(choices, "Select Chart", " OK ", false);
 
     self.chart_info = Some((path, files));
@@ -178,7 +185,7 @@ impl MainWidget {
     }
 
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    let choices = airports.iter().map(|a| a.get_desc().into());
+    let choices = airports.iter().map(|a| Some(a.get_desc().into()));
     dialog.bind_mut().show_choices(choices, "Select Airport", "Go To", true);
 
     self.airport_infos = Some(airports);
@@ -213,7 +220,7 @@ impl MainWidget {
     }
   }
 
-  fn open_nasr(&mut self, path: &str, csv: &str, _shp: &str) {
+  fn open_nasr(&mut self, path: &str, csv: path::PathBuf, _shp: path::PathBuf) {
     // Concatenate the VSI prefix and the airport zip path.
     let path = path::PathBuf::from(["/vsizip/", path].concat()).join(csv);
 
