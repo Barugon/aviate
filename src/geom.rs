@@ -118,6 +118,10 @@ impl Coord {
     let y = ok!(value.get(1)?.try_to())?;
     Some(Self { x, y })
   }
+
+  pub fn to_variant(self) -> Variant {
+    Variant::from([Variant::from(self.x), Variant::from(self.y)])
+  }
 }
 
 impl From<Pos> for Coord {
@@ -299,7 +303,7 @@ impl Pos {
   }
 
   pub fn to_variant(self) -> Variant {
-    Variant::from([self.x, self.y])
+    Variant::from([Variant::from(self.x), Variant::from(self.y)])
   }
 
   pub fn round(pos: Vector2) -> Self {
@@ -394,7 +398,7 @@ impl Size {
   }
 
   pub fn to_variant(self) -> Variant {
-    Variant::from([self.w, self.h])
+    Variant::from([Variant::from(self.w), Variant::from(self.h)])
   }
 
   pub fn is_valid(&self) -> bool {

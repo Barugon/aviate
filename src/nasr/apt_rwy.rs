@@ -99,13 +99,12 @@ impl Source {
 
 impl airport::Runway {
   fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
-    use common::{GetI64, GetString};
-    use util::ToU32;
+    use common::GetString;
 
     let feature = feature?;
     let rwy_id = feature.get_string(fields.rwy_id)?.into();
-    let length = feature.get_i64(fields.rwy_len)?.to_u32()?;
-    let width = feature.get_i64(fields.rwy_width)?.to_u32()?;
+    let length = feature.get_length(fields)?.into();
+    let width = feature.get_width(fields)?.into();
     let lighting = feature.get_lighting(fields)?.into();
     let surface = feature.get_surface(fields)?.into();
     let condition = feature.get_string(fields.cond)?.into();
@@ -148,6 +147,30 @@ impl Fields {
   }
 }
 
+trait GetLength {
+  fn get_length(&self, fields: &Fields) -> Option<String>;
+}
+
+impl GetLength for vector::Feature<'_> {
+  fn get_length(&self, fields: &Fields) -> Option<String> {
+    use common::GetI64;
+
+    Some(format!("{} FEET", self.get_i64(fields.rwy_len)?))
+  }
+}
+
+trait GetWidth {
+  fn get_width(&self, fields: &Fields) -> Option<String>;
+}
+
+impl GetWidth for vector::Feature<'_> {
+  fn get_width(&self, fields: &Fields) -> Option<String> {
+    use common::GetI64;
+
+    Some(format!("{} FEET", self.get_i64(fields.rwy_width)?))
+  }
+}
+
 trait GetLighting {
   fn get_lighting(&self, fields: &Fields) -> Option<String>;
 }
@@ -165,7 +188,7 @@ impl GetLighting for vector::Feature<'_> {
     Some(match lighting.as_str() {
       "MED" => String::from("MEDIUM"),
       "NSTD" => String::from("NON-STANDARD"),
-      "PERI" => String::from("PERIPHERAL"),
+      "PERI" => lighting, // Missing from layout doc.
       _ => lighting,
     })
   }
@@ -186,14 +209,15 @@ impl GetSurface for vector::Feature<'_> {
 
     // Expand abbreviations.
     Some(match surface.as_str() {
-      "CONC" => String::from("PORTLAND CEMENT CONCRETE"),
       "ASPH" => String::from("ASPHALT OR BITUMINOUS CONCRETE"),
-      "MATS" => String::from("PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES"),
-      "TREATED" => String::from("OILED; SOIL CEMENT OR LIME STABILIZED"),
-      "GRAVEL" => String::from("GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG"),
-      "TURF" => String::from("GRASS; SOD"),
+      "ASPH-CONC" => surface, // Missing from layout doc.
+      "CONC" => String::from("PORTLAND CEMENT CONCRETE"),
       "DIRT" => String::from("NATURAL SOIL"),
+      "GRAVEL" => String::from("GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG"),
+      "MATS" => String::from("PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES"),
       "PEM" => String::from("PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM"),
+      "TREATED" => String::from("OILED; SOIL CEMENT OR LIME STABILIZED"),
+      "TURF" => String::from("GRASS; SOD"),
       _ => surface,
     })
   }

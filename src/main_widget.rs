@@ -1,4 +1,9 @@
-use crate::{chart_widget, config, find_dialog, nasr::airport, select_dialog, util};
+use crate::{
+  chart_widget, config, find_dialog, geom,
+  info_dialog::{self, InfoDialog},
+  nasr::airport,
+  select_dialog, util,
+};
 use godot::{
   classes::{
     AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent,
@@ -149,6 +154,14 @@ impl MainWidget {
     }
   }
 
+  #[func]
+  fn goto_coord(&mut self, var: Variant) {
+    let Some(coord) = geom::Coord::from_variant(var) else {
+      return;
+    };
+    self.chart_widget.bind_mut().goto_coord(coord.into());
+  }
+
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
     let choices = files.iter().map(|f| util::stem_str(f).unwrap().into());
@@ -165,7 +178,7 @@ impl MainWidget {
     }
 
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    let choices = airports.iter().map(|a| a.desc().into());
+    let choices = airports.iter().map(|a| a.get_desc().into());
     dialog.bind_mut().show_choices(choices, "Select Airport", "Go To", true);
 
     self.airport_infos = Some(airports);
@@ -218,6 +231,16 @@ impl MainWidget {
     }
 
     self.airport_reader = Some(airport_reader);
+  }
+
+  fn show_info(&self, text: &str, coord: geom::DD) {
+    // It's possible to open a another dialog before the airport detail query is complete.
+    if self.dialog_is_visible() {
+      return;
+    }
+
+    let mut dialog = self.get_child::<InfoDialog>("InfoDialog");
+    dialog.bind_mut().show_info(text, coord);
   }
 
   fn show_alert(&self, text: &str) {
@@ -394,6 +417,11 @@ impl IControl for MainWidget {
     let callable = self.base().callable("find_confirmed");
     dialog.connect("confirmed", &callable);
     dialog.set(&title_property, &title_size);
+
+    // Setup and connect the airport info dialog.
+    let mut dialog = self.get_child::<info_dialog::InfoDialog>("InfoDialog");
+    let callable = self.base().callable("goto_coord");
+    dialog.connect("confirmed", &callable);
   }
 
   fn process(&mut self, _delta: f64) {
@@ -432,7 +460,7 @@ impl IControl for MainWidget {
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
         airport::Reply::Airport(info) => airport_infos = Some(vec![info]),
-        airport::Reply::Detail(detail) => godot_print!("{detail:?}\n"),
+        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.info.coord),
         airport::Reply::Nearby(_infos) => (),
         airport::Reply::Search(infos) => airport_infos = Some(infos),
         airport::Reply::Error(err) => self.show_alert(err.as_ref()),

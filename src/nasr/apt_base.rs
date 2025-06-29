@@ -398,8 +398,8 @@ impl GetElevation for vector::Feature<'_> {
     }
 
     let method = match method.as_str() {
-      "E" => "EST",
-      "S" => "SURV",
+      "E" => "ESTIMATED",
+      "S" => "SURVEYED",
       _ => return None,
     };
 

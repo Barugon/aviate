@@ -174,7 +174,7 @@ pub struct Info {
 }
 
 impl Info {
-  pub fn desc(&self) -> String {
+  pub fn get_desc(&self) -> String {
     format!(
       "{} ({}), {}, {}",
       self.name,
@@ -190,8 +190,8 @@ impl Info {
 #[allow(unused)]
 pub struct Runway {
   pub rwy_id: Box<str>,
-  pub length: u32,
-  pub width: u32,
+  pub length: Box<str>,
+  pub width: Box<str>,
   pub lighting: Box<str>,
   pub surface: Box<str>,
   pub condition: Box<str>,
@@ -208,6 +208,32 @@ pub struct Detail {
   pub pat_alt: Box<str>,
   pub mag_var: Box<str>,
   pub runways: Box<[Runway]>,
+}
+
+impl Detail {
+  pub fn get_text(&self) -> String {
+    let mut text = format!(
+      include_str!("../../res/apt_info.txt"),
+      self.info.id,
+      self.info.name,
+      self.info.apt_type.text(),
+      self.info.apt_use.text(),
+      self.location,
+      self.info.coord.get_latitude(),
+      self.info.coord.get_longitude(),
+      self.mag_var,
+      self.elevation,
+      self.pat_alt,
+      self.fuel_types
+    );
+    for runway in &self.runways {
+      text += &format!(
+        include_str!("../../res/rwy_info.txt"),
+        runway.rwy_id, runway.length, runway.width, runway.lighting, runway.surface, runway.condition
+      );
+    }
+    text
+  }
 }
 
 /// Airport type.

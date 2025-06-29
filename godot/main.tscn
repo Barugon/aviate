@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://b1gmyyw2nkaa6"]
+[gd_scene load_steps=12 format=3 uid="uid://b1gmyyw2nkaa6"]
 
 [ext_resource type="Texture2D" uid="uid://cgyovs1e1fkm8" path="res://find_icon.svg" id="1_lhk6r"]
 
@@ -46,6 +46,18 @@ content_margin_left = 2.0
 content_margin_top = 2.0
 content_margin_right = 2.0
 content_margin_bottom = 2.0
+bg_color = Color(0.25098, 0.25098, 0.25098, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ig7tw"]
+content_margin_left = 5.0
+content_margin_top = 5.0
+content_margin_right = 5.0
+content_margin_bottom = 5.0
+bg_color = Color(0.180392, 0.180392, 0.180392, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0xm2m"]
+content_margin_top = 11.0
+content_margin_bottom = 5.0
 bg_color = Color(0.25098, 0.25098, 0.25098, 1)
 
 [node name="MainWidget" type="MainWidget"]
@@ -158,7 +170,7 @@ size_flags_vertical = 3
 
 [node name="FileDialog" type="FileDialog" parent="."]
 initial_position = 2
-size = Vector2i(500, 400)
+size = Vector2i(513, 400)
 popup_window = true
 ok_button_text = "Open"
 dialog_hide_on_ok = true
@@ -252,7 +264,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 0
+theme_override_constants/separation = -1
 
 [node name="ItemsContainer" type="PanelContainer" parent="SelectDialog/VBoxContainer"]
 layout_mode = 2
@@ -269,46 +281,108 @@ hide_root = true
 select_mode = 1
 scroll_horizontal_enabled = false
 
-[node name="PanelContainer" type="PanelContainer" parent="SelectDialog/VBoxContainer"]
+[node name="ButtonsContainer" type="PanelContainer" parent="SelectDialog/VBoxContainer"]
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_2gqu5")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="SelectDialog/VBoxContainer/PanelContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="SelectDialog/VBoxContainer/ButtonsContainer"]
 layout_mode = 2
 
-[node name="FillerLeft" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="FillerLeft" type="Control" parent="SelectDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 custom_minimum_size = Vector2(25, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="CancelButton" type="Button" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="CancelButton" type="Button" parent="SelectDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 layout_mode = 2
 text = "Cancel"
 
-[node name="FillerCenterLeft" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="FillerCenterLeft" type="Control" parent="SelectDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 custom_minimum_size = Vector2(25, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 0.5
 
-[node name="InfoButton" type="Button" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="InfoButton" type="Button" parent="SelectDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 visible = false
 layout_mode = 2
 disabled = true
 text = "Info"
 
-[node name="FillerCenterRight" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="FillerCenterRight" type="Control" parent="SelectDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 custom_minimum_size = Vector2(25, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 0.5
 
-[node name="OkButton" type="Button" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="OkButton" type="Button" parent="SelectDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 layout_mode = 2
 disabled = true
 text = " OK "
 
-[node name="FillerRight" type="Control" parent="SelectDialog/VBoxContainer/PanelContainer/HBoxContainer"]
+[node name="FillerRight" type="Control" parent="SelectDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="InfoDialog" type="InfoDialog" parent="."]
+title = "Airport Information"
+initial_position = 2
+size = Vector2i(500, 500)
+visible = false
+wrap_controls = true
+transient = true
+exclusive = true
+unresizable = true
+popup_window = true
+max_size = Vector2i(500, 500)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="InfoDialog"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_vertical = 3
+theme_override_constants/separation = -1
+
+[node name="InfoContainer" type="PanelContainer" parent="InfoDialog/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_ig7tw")
+
+[node name="RichTextLabel" type="RichTextLabel" parent="InfoDialog/VBoxContainer/InfoContainer"]
+layout_mode = 2
+theme_override_colors/default_color = Color(0.745098, 0.745098, 0.745098, 1)
+bbcode_enabled = true
+
+[node name="ButtonsContainer" type="PanelContainer" parent="InfoDialog/VBoxContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_0xm2m")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="InfoDialog/VBoxContainer/ButtonsContainer"]
+layout_mode = 2
+
+[node name="FillerLeft" type="Control" parent="InfoDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CloseButton" type="Button" parent="InfoDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+layout_mode = 2
+text = "Close"
+
+[node name="FillerCenter" type="Control" parent="InfoDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.8
+
+[node name="GoToButton" type="Button" parent="InfoDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
+layout_mode = 2
+text = "Go To"
+
+[node name="FillerRight" type="Control" parent="InfoDialog/VBoxContainer/ButtonsContainer/HBoxContainer"]
 custom_minimum_size = Vector2(25, 0)
 layout_mode = 2
 size_flags_horizontal = 3
