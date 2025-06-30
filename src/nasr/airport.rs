@@ -226,12 +226,11 @@ impl Detail {
       self.pat_alt,
       self.fuel_types
     );
+
     for runway in &self.runways {
-      text += &format!(
-        include_str!("../../res/rwy_info.txt"),
-        runway.rwy_id, runway.length, runway.width, runway.lighting, runway.surface, runway.condition
-      );
+      text += &runway.get_text();
     }
+
     text
   }
 }

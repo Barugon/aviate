@@ -113,6 +113,13 @@ impl airport::Runway {
       condition,
     })
   }
+
+  pub fn get_text(&self) -> String {
+    format!(
+      include_str!("../../res/rwy_info.txt"),
+      self.rwy_id, self.length, self.width, self.lighting, self.surface, self.condition
+    )
+  }
 }
 
 /// Field indexes for `APT_BASE.csv`.
