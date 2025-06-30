@@ -288,22 +288,16 @@ impl IControl for ChartWidget {
       self.display_info.origin + (cur_rect.pos.x - prev_rect.pos.x, 0).into()
     };
 
-    // Correct the current zoom (may change based on widget size).
-    let Some(zoom) = self.correct_zoom(self.display_info.zoom) else {
-      return;
-    };
-
-    // Correct the origin.
-    let Some(origin) = self.correct_origin(origin, zoom) else {
-      return;
-    };
-
-    if zoom != self.display_info.zoom || origin != self.display_info.origin {
+    // Correct the current zoom (may change based on widget size) and origin.
+    if let Some(zoom) = self.correct_zoom(self.display_info.zoom)
+      && let Some(origin) = self.correct_origin(origin, zoom)
+      && (zoom != self.display_info.zoom || origin != self.display_info.origin || prev_rect != cur_rect)
+    {
       self.display_info.origin = origin;
       self.display_info.zoom = zoom;
       self.request_image();
       self.base_mut().queue_redraw();
-    }
+    };
   }
 
   fn draw(&mut self) {
