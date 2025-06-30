@@ -131,14 +131,14 @@ impl MainWidget {
   fn select_item_confirmed(&mut self, index: u32) {
     let index = index as usize;
     if let Some((path, files)) = self.chart_info.take()
-      && let Some(file) = files.iter().nth(index)
+      && let Some(file) = files.get(index)
       && let Some(file) = file.to_str()
     {
       self.open_chart(&path, file);
     }
 
     if let Some(infos) = self.airport_infos.take()
-      && let Some(info) = infos.iter().nth(index)
+      && let Some(info) = infos.get(index)
     {
       let coord = info.coord;
       self.chart_widget.bind_mut().goto_coord(coord);
