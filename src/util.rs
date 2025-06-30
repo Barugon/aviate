@@ -156,10 +156,10 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   let path = path::PathBuf::from(["/vsizip/", path].concat());
 
   // Look for aeronautical data.
-  if let Some(csv) = get_csv_path(&path) {
-    if let Some(shp) = get_shp_path(&path) {
-      return Ok(ZipInfo::Aero { csv, shp });
-    }
+  if let Some(csv) = get_csv_path(&path)
+    && let Some(shp) = get_shp_path(&path)
+  {
+    return Ok(ZipInfo::Aero { csv, shp });
   }
 
   // Search for chart raster files
@@ -219,7 +219,9 @@ impl WinInfo {
   }
 
   pub fn from_variant(value: Option<Variant>) -> Self {
-    if let Some(value) = value.and_then(|v| ok!(v.try_to::<Dictionary>())) {
+    if let Some(value) = value
+      && let Some(value) = ok!(value.try_to::<Dictionary>())
+    {
       let pos = value.get(WinInfo::POS_KEY).and_then(geom::Pos::from_variant);
       let size = value.get(WinInfo::SIZE_KEY).and_then(geom::Size::from_variant);
       let maxed = value

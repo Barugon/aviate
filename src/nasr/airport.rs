@@ -426,10 +426,10 @@ impl RequestProcessor {
     }
 
     let id = info.id.clone();
-    if let Some(runways) = self.rwy_source.runways(&id, cancel.clone()) {
-      if let Some(detail) = self.base_source.detail(info, runways, cancel) {
-        return Reply::Detail(detail);
-      }
+    if let Some(runways) = self.rwy_source.runways(&id, cancel.clone())
+      && let Some(detail) = self.base_source.detail(info, runways, cancel)
+    {
+      return Reply::Detail(detail);
     }
 
     Reply::Error(format!("Unable to get airport information for ID\n'{id}'").into())

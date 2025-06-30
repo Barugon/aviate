@@ -36,6 +36,13 @@ impl Source {
     let base_id_map = base_src.id_map();
     let mut layer = self.layer();
     let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::with_capacity(base_id_map.len());
+    let mut add_fid = |id: String, fid: u64| {
+      if let Some(id_vec) = id_map.get_mut(id.as_str()) {
+        id_vec.push(fid);
+      } else {
+        id_map.insert(id, vec![fid]);
+      }
+    };
 
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
@@ -43,23 +50,12 @@ impl Source {
         return false;
       }
 
-      let Some(id) = feature.get_string(self.fields.arpt_id) else {
-        continue;
+      if let Some(id) = feature.get_string(self.fields.arpt_id)
+        && base_id_map.contains_key(id.as_str())
+        && let Some(fid) = feature.fid()
+      {
+        add_fid(id, fid);
       };
-
-      if !base_id_map.contains_key(id.as_str()) {
-        continue;
-      }
-
-      let Some(fid) = feature.fid() else {
-        continue;
-      };
-
-      if let Some(id_vec) = id_map.get_mut(id.as_str()) {
-        id_vec.push(fid);
-      } else {
-        id_map.insert(id, vec![fid]);
-      }
     }
 
     self.id_map = collections::HashMap::with_capacity(id_map.len());

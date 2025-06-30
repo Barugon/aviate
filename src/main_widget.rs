@@ -114,7 +114,9 @@ impl MainWidget {
 
         if files.len() > 1 {
           self.select_chart(path, files);
-        } else if let Some(file) = files.first().and_then(|f| f.to_str()) {
+        } else if let Some(file) = files.first()
+          && let Some(file) = file.to_str()
+        {
           self.open_chart(&path, file);
         }
       }
@@ -128,19 +130,16 @@ impl MainWidget {
   #[func]
   fn select_item_confirmed(&mut self, index: u32) {
     let index = index as usize;
-    if let Some((path, files)) = self.chart_info.take() {
-      let Some(file) = files.iter().nth(index).and_then(|f| f.to_str()) else {
-        return;
-      };
-
+    if let Some((path, files)) = self.chart_info.take()
+      && let Some(file) = files.iter().nth(index)
+      && let Some(file) = file.to_str()
+    {
       self.open_chart(&path, file);
     }
 
-    if let Some(infos) = self.airport_infos.take() {
-      let Some(info) = infos.iter().nth(index) else {
-        return;
-      };
-
+    if let Some(infos) = self.airport_infos.take()
+      && let Some(info) = infos.iter().nth(index)
+    {
       let coord = info.coord;
       self.chart_widget.bind_mut().goto_coord(coord);
     }
@@ -148,25 +147,19 @@ impl MainWidget {
 
   #[func]
   fn select_info_confirmed(&mut self, index: u32) {
-    let Some(infos) = self.airport_infos.take() else {
-      return;
-    };
-
-    let Some(info) = infos.into_iter().nth(index as usize) else {
-      return;
-    };
-
-    if let Some(airport_reader) = &self.airport_reader {
+    if let Some(infos) = self.airport_infos.take()
+      && let Some(info) = infos.into_iter().nth(index as usize)
+      && let Some(airport_reader) = &self.airport_reader
+    {
       airport_reader.detail(info);
-    }
+    };
   }
 
   #[func]
   fn goto_coord(&mut self, var: Variant) {
-    let Some(coord) = geom::Coord::from_variant(var) else {
-      return;
+    if let Some(coord) = geom::Coord::from_variant(var) {
+      self.chart_widget.bind_mut().goto_coord(coord.into());
     };
-    self.chart_widget.bind_mut().goto_coord(coord.into());
   }
 
   fn select_chart(&mut self, path: String, files: Vec<path::PathBuf>) {
@@ -202,13 +195,13 @@ impl MainWidget {
       }
     }
 
-    if let Some(airport_reader) = &self.airport_reader {
-      if let Some(transformation) = self.chart_widget.bind().transformation() {
-        // Send the chart spatial reference to the airport reader.
-        let proj4 = transformation.get_proj4();
-        let bounds = transformation.get_chart_bounds();
-        airport_reader.set_chart_spatial_ref(proj4, bounds);
-      }
+    if let Some(airport_reader) = &self.airport_reader
+      && let Some(transformation) = self.chart_widget.bind().transformation()
+    {
+      // Send the chart spatial reference to the airport reader.
+      let proj4 = transformation.get_proj4();
+      let bounds = transformation.get_chart_bounds();
+      airport_reader.set_chart_spatial_ref(proj4, bounds);
     }
 
     if let Some(chart_name) = self.chart_widget.bind().chart_name() {
@@ -271,11 +264,10 @@ impl MainWidget {
   /// Returns true if a dialog window is visible.
   fn dialog_is_visible(&self) -> bool {
     for child in self.base().get_children().iter_shared() {
-      let Ok(window) = child.try_cast::<Window>() else {
-        continue;
-      };
-
-      if window.is_exclusive() && window.is_visible() {
+      if let Ok(window) = child.try_cast::<Window>()
+        && window.is_exclusive()
+        && window.is_visible()
+      {
         return true;
       }
     }
@@ -337,10 +329,10 @@ impl IControl for MainWidget {
     // Godot doesn't handle hi-dpi automatically.
     let dpi = DisplayServer::singleton().screen_get_dpi();
     let scale = get_scale(dpi);
-    if let Some(tree) = self.base().get_tree() {
-      if let Some(mut root) = tree.get_root() {
-        root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
-      }
+    if let Some(tree) = self.base().get_tree()
+      && let Some(mut root) = tree.get_root()
+    {
+      root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
     }
 
     // Set the main window's size and position.

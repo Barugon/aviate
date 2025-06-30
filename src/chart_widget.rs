@@ -360,11 +360,9 @@ impl IControl for ChartWidget {
       return;
     }
 
-    if let Ok(event) = event.try_cast::<InputEventMagnifyGesture>() {
-      let Some(pos) = self.display_info.touch.pos else {
-        return;
-      };
-
+    if let Ok(event) = event.try_cast::<InputEventMagnifyGesture>()
+      && let Some(pos) = self.display_info.touch.pos
+    {
       let factor = 1.0 - 2.0 * (1.0 - event.get_factor()) / self.display_info.ui_scale;
       let zoom = self.display_info.zoom * factor;
       self.set_zoom(zoom, pos);

@@ -51,33 +51,17 @@ impl Source {
         return false;
       }
 
-      let Some(coord) = feature.get_coord(&self.fields) else {
-        continue;
+      if let Some(coord) = feature.get_coord(&self.fields)
+        && let Some(coord) = ok!(to_chart.transform(coord))
+        && to_chart.bounds().contains(coord)
+        && let Some(fid) = feature.fid()
+        && let Some(id) = feature.get_string(self.fields.arpt_id)
+        && let Some(name) = feature.get_string(self.fields.arpt_name)
+      {
+        id_map.insert(id.into(), fid);
+        name_vec.push((name.into(), fid));
+        loc_vec.push(LocIdx { coord, fid })
       };
-
-      let Some(coord) = ok!(to_chart.transform(coord)) else {
-        continue;
-      };
-
-      if !to_chart.bounds().contains(coord) {
-        continue;
-      }
-
-      let Some(fid) = feature.fid() else {
-        continue;
-      };
-
-      let Some(id) = feature.get_string(self.fields.arpt_id) else {
-        continue;
-      };
-
-      let Some(name) = feature.get_string(self.fields.arpt_name) else {
-        continue;
-      };
-
-      id_map.insert(id.into(), fid);
-      name_vec.push((name.into(), fid));
-      loc_vec.push(LocIdx { coord, fid })
     }
 
     self.id_map = id_map;
@@ -155,11 +139,9 @@ impl Source {
         return Vec::new();
       }
 
-      let Some(info) = airport::Info::new(layer.feature(fid), &self.fields, nph) else {
-        continue;
+      if let Some(info) = airport::Info::new(layer.feature(fid), &self.fields, nph) {
+        airports.push(info);
       };
-
-      airports.push(info);
     }
 
     // Sort ascending by name.
@@ -182,15 +164,11 @@ impl Source {
         return Vec::new();
       }
 
-      if !name.contains(term) {
-        continue;
+      if name.contains(term)
+        && let Some(info) = airport::Info::new(layer.feature(*fid), &self.fields, nph)
+      {
+        airports.push(info);
       }
-
-      let Some(info) = airport::Info::new(layer.feature(*fid), &self.fields, nph) else {
-        continue;
-      };
-
-      airports.push(info);
     }
 
     // Sort ascending by name.
