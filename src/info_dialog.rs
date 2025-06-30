@@ -21,7 +21,6 @@ impl InfoDialog {
   #[func]
   fn confirm(&mut self) {
     let coord = self.coord.to_variant();
-    self.text.clear();
     self.base_mut().hide();
     self.base_mut().emit_signal("confirmed", &[coord]);
   }
