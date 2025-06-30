@@ -109,11 +109,9 @@ impl ChartWidget {
     let pos = Vector2::from(self.display_info.origin) + offset;
     let origin = geom::Pos::round(pos * zoom / self.display_info.zoom - offset);
 
-    let Some(origin) = self.correct_origin(origin, zoom) else {
-      return;
-    };
-
-    if zoom != self.display_info.zoom || origin != self.display_info.origin {
+    if let Some(origin) = self.correct_origin(origin, zoom)
+      && (zoom != self.display_info.zoom || origin != self.display_info.origin)
+    {
       self.display_info.origin = origin;
       self.display_info.zoom = zoom;
       self.request_image();
@@ -288,7 +286,7 @@ impl IControl for ChartWidget {
       self.display_info.origin + (cur_rect.pos.x - prev_rect.pos.x, 0).into()
     };
 
-    // Correct the current zoom (may change based on widget size) and origin.
+    // Correct the current zoom (may change based on widget size) and updated origin.
     if let Some(zoom) = self.correct_zoom(self.display_info.zoom)
       && let Some(origin) = self.correct_origin(origin, zoom)
       && (zoom != self.display_info.zoom || origin != self.display_info.origin || prev_rect != cur_rect)
