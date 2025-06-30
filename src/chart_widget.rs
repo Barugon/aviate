@@ -13,21 +13,21 @@ use std::path;
 #[class(base=Control)]
 pub struct ChartWidget {
   base: Base<Control>,
-  raster_reader: Option<chart::Reader>,
+  chart_reader: Option<chart::Reader>,
   chart_image: Option<ChartImage>,
   display_info: DisplayInfo,
   heliport: bool,
 }
 
 impl ChartWidget {
-  pub fn open_raster_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
+  pub fn open_chart_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
     // Concatenate the VSI prefix and the file path.
     let path = path::PathBuf::from(["/vsizip/", path].concat()).join(file);
 
-    // Create a new raster reader.
-    let raster_reader = chart::Reader::new(&path)?;
-    self.heliport = raster_reader.chart_name().ends_with(" HEL");
-    self.raster_reader = Some(raster_reader);
+    // Create a new chart reader.
+    let chart_reader = chart::Reader::new(&path)?;
+    self.heliport = chart_reader.chart_name().ends_with(" HEL");
+    self.chart_reader = Some(chart_reader);
     self.display_info.origin = geom::Pos::default();
     self.display_info.zoom = 1.0;
     self.request_image();
@@ -35,7 +35,7 @@ impl ChartWidget {
   }
 
   pub fn chart_name(&self) -> Option<&str> {
-    self.raster_reader.as_ref().map(|r| r.chart_name())
+    self.chart_reader.as_ref().map(|r| r.chart_name())
   }
 
   /// True if a heliport chart is currently open.
@@ -44,7 +44,7 @@ impl ChartWidget {
   }
 
   pub fn transformation(&self) -> Option<&chart::Transformation> {
-    self.raster_reader.as_ref().map(|r| r.transformation())
+    self.chart_reader.as_ref().map(|r| r.transformation())
   }
 
   pub fn set_scale(&mut self, scale: f32) {
@@ -66,13 +66,13 @@ impl ChartWidget {
   }
 
   pub fn goto_coord(&mut self, coord: geom::DD) {
-    let Some(raster_reader) = &self.raster_reader else {
+    let Some(chart_reader) = &self.chart_reader else {
       return;
     };
 
-    match raster_reader.transformation().dd_to_px(coord) {
+    match chart_reader.transformation().dd_to_px(coord) {
       Ok(px) => {
-        let chart_size = raster_reader.transformation().px_size();
+        let chart_size = chart_reader.transformation().px_size();
         if chart_size.contains(px) {
           let widget_rect = self.base().get_rect();
 
@@ -120,7 +120,7 @@ impl ChartWidget {
   }
 
   fn correct_origin(&self, mut origin: geom::Pos, zoom: f32) -> Option<geom::Pos> {
-    let max_chart_size = self.get_raster_size()? * zoom;
+    let max_chart_size = self.get_chart_size()? * zoom;
     let widget_size: geom::Size = self.base().get_size().into();
 
     // Make sure its within the horizontal limits.
@@ -141,7 +141,7 @@ impl ChartWidget {
   }
 
   fn correct_zoom(&self, zoom: f32) -> Option<f32> {
-    let chart_size = self.get_raster_size()?;
+    let chart_size = self.get_chart_size()?;
 
     // Clamp the zoom value.
     let mut zoom = zoom.clamp(*util::ZOOM_RANGE.start(), *util::ZOOM_RANGE.end());
@@ -160,12 +160,12 @@ impl ChartWidget {
     Some(zoom)
   }
 
-  fn get_raster_size(&self) -> Option<geom::Size> {
+  fn get_chart_size(&self) -> Option<geom::Size> {
     self.transformation().map(|t| t.px_size())
   }
 
   fn request_image(&self) {
-    let Some(raster_reader) = &self.raster_reader else {
+    let Some(chart_reader) = &self.chart_reader else {
       return;
     };
 
@@ -179,15 +179,15 @@ impl ChartWidget {
     let size = self.base().get_size().into();
     let rect = geom::Rect { pos, size };
     let part = chart::ImagePart::new(rect, self.display_info.zoom, pal_type);
-    raster_reader.read_image(part);
+    chart_reader.read_image(part);
   }
 
-  fn get_raster_reply(&self) -> Option<ChartImage> {
-    let raster_reader = self.raster_reader.as_ref()?;
+  fn get_chart_reply(&self) -> Option<ChartImage> {
+    let chart_reader = self.chart_reader.as_ref()?;
     let mut image_info = None;
 
     // Collect all chart replies to get to the most recent image.
-    while let Some(reply) = raster_reader.get_reply() {
+    while let Some(reply) = chart_reader.get_reply() {
       match reply {
         chart::Reply::Image(part, texture) => {
           image_info = Some(ChartImage {
@@ -219,12 +219,12 @@ impl ChartWidget {
       return;
     }
 
-    let Some(raster_reader) = &self.raster_reader else {
+    let Some(chart_reader) = &self.chart_reader else {
       return;
     };
 
     // Get the chart bounds polygon in pixels.
-    let source = raster_reader.transformation().pixel_bounds();
+    let source = chart_reader.transformation().pixel_bounds();
     if source.is_empty() {
       return;
     }
@@ -256,7 +256,7 @@ impl IControl for ChartWidget {
   fn init(base: Base<Control>) -> Self {
     Self {
       base,
-      raster_reader: None,
+      chart_reader: None,
       chart_image: None,
       display_info: DisplayInfo::new(),
       heliport: false,
@@ -307,7 +307,7 @@ impl IControl for ChartWidget {
   }
 
   fn process(&mut self, _delta: f64) {
-    let chart_image = self.get_raster_reply();
+    let chart_image = self.get_chart_reply();
     if chart_image.is_some() {
       self.chart_image = chart_image;
       self.base_mut().queue_redraw();
