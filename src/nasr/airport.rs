@@ -197,6 +197,15 @@ pub struct Runway {
   pub condition: Box<str>,
 }
 
+impl Runway {
+  fn get_text(&self) -> String {
+    format!(
+      include_str!("../../res/rwy_info.txt"),
+      self.rwy_id, self.length, self.width, self.lighting, self.surface, self.condition
+    )
+  }
+}
+
 /// Airport detail information.
 #[derive(Clone, Debug)]
 #[allow(unused)]
