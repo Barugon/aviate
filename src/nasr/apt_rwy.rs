@@ -175,12 +175,8 @@ impl GetLighting for vector::Feature<'_> {
   fn get_lighting(&self, fields: &Fields) -> Option<String> {
     use common::GetString;
 
-    let lighting = self.get_string(fields.rwy_lgt_code)?;
-    if lighting.is_empty() {
-      return Some(lighting);
-    }
-
     // Expand abbreviations.
+    let lighting = self.get_string(fields.rwy_lgt_code)?;
     Some(match lighting.as_str() {
       "MED" => String::from("MEDIUM"),
       "NSTD" => String::from("NON-STANDARD"),

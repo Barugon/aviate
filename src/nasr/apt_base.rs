@@ -224,6 +224,7 @@ impl airport::Detail {
     let elevation = feature.get_elevation(fields)?.into();
     let pat_alt = feature.get_pattern_altitude(fields)?.into();
     let mag_var = feature.get_magnetic_variation(fields)?.into();
+    let lndg_fee = feature.get_landing_fee(fields)?.into();
     Some(Self {
       info,
       fuel_types,
@@ -231,6 +232,7 @@ impl airport::Detail {
       elevation,
       pat_alt,
       mag_var,
+      lndg_fee,
       runways,
     })
   }
@@ -242,6 +244,7 @@ struct Fields {
   arpt_name: usize,
   site_type_code: usize,
   facility_use_code: usize,
+  lndg_fee_flag: usize,
   long_decimal: usize,
   lat_decimal: usize,
   fuel_types: usize,
@@ -263,6 +266,7 @@ impl Fields {
       arpt_name: defn.field_index("ARPT_NAME")?,
       site_type_code: defn.field_index("SITE_TYPE_CODE")?,
       facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
+      lndg_fee_flag: defn.field_index("LNDG_FEE_FLAG")?,
       long_decimal: defn.field_index("LONG_DECIMAL")?,
       lat_decimal: defn.field_index("LAT_DECIMAL")?,
       fuel_types: defn.field_index("FUEL_TYPES")?,
@@ -310,6 +314,23 @@ impl GetAirportUse for vector::Feature<'_> {
       "PU" => Some(airport::Use::Public),
       _ => None,
     }
+  }
+}
+
+trait GetLandingFee {
+  fn get_landing_fee(&self, fields: &Fields) -> Option<String>;
+}
+
+impl GetLandingFee for vector::Feature<'_> {
+  fn get_landing_fee(&self, fields: &Fields) -> Option<String> {
+    use common::GetString;
+
+    let landing_fee = self.get_string(fields.lndg_fee_flag)?;
+    Some(match landing_fee.as_str() {
+      "Y" => String::from("YES"),
+      "N" => String::from("NO"),
+      _ => landing_fee,
+    })
   }
 }
 

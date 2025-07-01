@@ -216,6 +216,7 @@ pub struct Detail {
   pub elevation: Box<str>,
   pub pat_alt: Box<str>,
   pub mag_var: Box<str>,
+  pub lndg_fee: Box<str>,
   pub runways: Box<[Runway]>,
 }
 
@@ -233,7 +234,8 @@ impl Detail {
       self.mag_var,
       self.elevation,
       self.pat_alt,
-      self.fuel_types
+      self.fuel_types,
+      self.lndg_fee,
     );
 
     for runway in &self.runways {
