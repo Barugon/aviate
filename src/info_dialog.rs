@@ -28,6 +28,7 @@ impl InfoDialog {
   pub fn show_info(&mut self, text: &str, coord: geom::DD) {
     self.coord = coord;
     self.text.set_text(text);
+    self.text.scroll_to_line(0);
     self.base_mut().call_deferred("show", &[]);
   }
 
