@@ -70,9 +70,9 @@ impl Reader {
     })
   }
 
-  /// Returns true if the airport source is indexed.
-  pub fn is_indexed(&self) -> bool {
-    self.index_status.is_indexed()
+  /// Returns true if the airport source has a chart transformation.
+  pub fn has_chart_transformation(&self) -> bool {
+    self.index_status.has_chart_transformation()
   }
 
   /// Set the chart spatial reference using a PROJ4 string.
@@ -395,7 +395,7 @@ impl RequestProcessor {
 
   fn setup_indexes(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
     // Clear existing airport indexes.
-    self.index_status.set_is_indexed(false);
+    self.index_status.reset();
     self.base_source.clear_indexes();
     self.rwy_source.clear_index();
 
@@ -405,10 +405,22 @@ impl RequestProcessor {
 
     match common::ToChart::new(&proj4, &self.dd_sr, bounds) {
       Ok(trans) => {
+        self.index_status.set_has_chart_transformation();
+
         // Create new airport indexes.
-        let indexed = self.base_source.create_indexes(&trans, cancel.clone())
-          && self.rwy_source.create_index(&self.base_source, cancel);
-        self.index_status.set_is_indexed(indexed);
+        if !self.base_source.create_indexes(&trans, cancel.clone()) {
+          let reply = Reply::Error("Failed to create airport base-level indexing".into());
+          self.send(reply, false, cancel);
+          return;
+        }
+        self.index_status.set_has_base_index();
+
+        if !self.rwy_source.create_index(&self.base_source, cancel.clone()) {
+          let reply = Reply::Error("Failed to create airport detail-level indexing".into());
+          self.send(reply, false, cancel);
+          return;
+        }
+        self.index_status.set_has_detail_index();
       }
       Err(err) => {
         let reply = Reply::Error(format!("Unable to create transformation:\n{err}").into());
@@ -418,8 +430,8 @@ impl RequestProcessor {
   }
 
   fn airport(&self, id: &str, cancel: util::Cancel) -> Reply {
-    if !self.index_status.is_indexed() {
-      return Reply::Error("Chart transformation is required for airport ID search".into());
+    if !self.index_status.has_base_index() {
+      return Reply::Error("Airport base-level indexing is required for airport ID search".into());
     }
 
     let id = id.trim().to_uppercase();
@@ -431,8 +443,8 @@ impl RequestProcessor {
   }
 
   fn detail(&self, info: Info, cancel: util::Cancel) -> Reply {
-    if !self.index_status.is_indexed() {
-      return Reply::Error("Chart transformation is required for airport information".into());
+    if !self.index_status.has_detail_index() {
+      return Reply::Error("Airport detail-level indexing is required for airport information".into());
     }
 
     let id = info.id.clone();
@@ -446,16 +458,16 @@ impl RequestProcessor {
   }
 
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
-    if !self.index_status.is_indexed() {
-      return Reply::Error("Chart transformation is required to find nearby airports".into());
+    if !self.index_status.has_base_index() {
+      return Reply::Error("Airport base-level indexing is required to find nearby airports".into());
     }
 
     Reply::Nearby(self.base_source.nearby(coord, dist, nph, cancel))
   }
 
   fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Reply {
-    if !self.index_status.is_indexed() {
-      return Reply::Error("Chart transformation is required for airport search".into());
+    if !self.index_status.has_base_index() {
+      return Reply::Error("Airport base-level indexing is required for airport search".into());
     }
 
     // Search for an airport ID first.
@@ -484,21 +496,46 @@ enum Request {
 
 #[derive(Clone)]
 struct IndexStatus {
-  indexed: sync::Arc<atomic::AtomicBool>,
+  index_type: sync::Arc<atomic::AtomicU8>,
 }
 
 impl IndexStatus {
+  const NONE: u8 = 0;
+  const TRANS: u8 = 1;
+  const BASE: u8 = 2;
+  const DETAIL: u8 = 3;
+
   fn new() -> Self {
     Self {
-      indexed: sync::Arc::new(atomic::AtomicBool::new(false)),
+      index_type: sync::Arc::new(atomic::AtomicU8::new(IndexStatus::NONE)),
     }
   }
 
-  fn set_is_indexed(&mut self, indexed: bool) {
-    self.indexed.store(indexed, atomic::Ordering::Relaxed);
+  fn reset(&mut self) {
+    self.index_type.store(IndexStatus::NONE, atomic::Ordering::Relaxed);
   }
 
-  fn is_indexed(&self) -> bool {
-    self.indexed.load(atomic::Ordering::Relaxed)
+  fn set_has_chart_transformation(&mut self) {
+    self.index_type.store(IndexStatus::TRANS, atomic::Ordering::Relaxed);
+  }
+
+  fn set_has_base_index(&mut self) {
+    self.index_type.store(IndexStatus::BASE, atomic::Ordering::Relaxed);
+  }
+
+  fn set_has_detail_index(&mut self) {
+    self.index_type.store(IndexStatus::DETAIL, atomic::Ordering::Relaxed);
+  }
+
+  fn has_chart_transformation(&self) -> bool {
+    self.index_type.load(atomic::Ordering::Relaxed) >= IndexStatus::TRANS
+  }
+
+  fn has_base_index(&self) -> bool {
+    self.index_type.load(atomic::Ordering::Relaxed) >= IndexStatus::BASE
+  }
+
+  fn has_detail_index(&self) -> bool {
+    self.index_type.load(atomic::Ordering::Relaxed) >= IndexStatus::DETAIL
   }
 }

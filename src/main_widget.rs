@@ -244,6 +244,10 @@ impl MainWidget {
   }
 
   fn show_alert(&self, text: &str) {
+    if self.dialog_is_visible() {
+      return;
+    }
+
     let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
     dialog.set_text(text);
     dialog.reset_size();
@@ -434,7 +438,7 @@ impl IControl for MainWidget {
     }
 
     // Check if the indexing has changed.
-    let indexed = airport_reader.is_indexed();
+    let indexed = airport_reader.has_chart_transformation();
     if self.airport_status.indexed != indexed {
       self.find_button.set_visible(indexed);
       self.airport_status.indexed = indexed;
