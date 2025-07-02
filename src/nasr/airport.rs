@@ -15,7 +15,8 @@ pub struct Reader {
   index_status: IndexStatus,
   sender: mpsc::Sender<Request>,
   receiver: mpsc::Receiver<Reply>,
-  cancel: cell::Cell<Option<util::Cancel>>,
+  request_cancel: cell::Cell<Option<util::Cancel>>,
+  index_cancel: cell::Cell<Option<util::Cancel>>,
 }
 
 impl Reader {
@@ -80,7 +81,8 @@ impl Reader {
       index_status,
       sender,
       receiver,
-      cancel: cell::Cell::new(None),
+      request_cancel: cell::Cell::new(None),
+      index_cancel: cell::Cell::new(None),
     })
   }
 
@@ -95,15 +97,8 @@ impl Reader {
   /// - `bounds`: chart bounds.
   pub fn set_chart_spatial_ref(&self, proj4: String, bounds: geom::Bounds) {
     assert!(!proj4.is_empty());
-    let cancel = self.cancel_request();
+    let cancel = self.cancel_indexing();
     self.send(Request::SpatialRef(Some((proj4, bounds)), cancel), false);
-  }
-
-  /// Clear the chart spatial reference.
-  #[allow(unused)]
-  pub fn clear_spatial_ref(&self) {
-    let cancel = self.cancel_request();
-    self.send(Request::SpatialRef(None, cancel), false);
   }
 
   /// Lookup airport summary information using it's identifier.
@@ -162,7 +157,15 @@ impl Reader {
 
   fn cancel_request(&self) -> util::Cancel {
     let cancel = util::Cancel::default();
-    if let Some(mut cancel) = self.cancel.replace(Some(cancel.clone())) {
+    if let Some(mut cancel) = self.request_cancel.replace(Some(cancel.clone())) {
+      cancel.cancel();
+    }
+    cancel
+  }
+
+  fn cancel_indexing(&self) -> util::Cancel {
+    let cancel = util::Cancel::default();
+    if let Some(mut cancel) = self.index_cancel.replace(Some(cancel.clone())) {
       cancel.cancel();
     }
     cancel
@@ -171,7 +174,11 @@ impl Reader {
 
 impl Drop for Reader {
   fn drop(&mut self) {
-    if let Some(mut cancel) = self.cancel.take() {
+    if let Some(mut cancel) = self.request_cancel.take() {
+      cancel.cancel();
+    }
+
+    if let Some(mut cancel) = self.index_cancel.take() {
       cancel.cancel();
     }
   }
@@ -408,14 +415,11 @@ impl RequestProcessor {
     }
   }
 
-  fn send(&self, reply: Reply, dec: bool, cancel: util::Cancel) {
+  fn send(&self, reply: Reply, cancel: util::Cancel) {
     if !cancel.canceled() {
       self.sender.send(reply).unwrap();
     }
-
-    if dec {
-      assert!(self.request_count.fetch_sub(1, atomic::Ordering::Relaxed) > 0);
-    }
+    assert!(self.request_count.fetch_sub(1, atomic::Ordering::Relaxed) > 0);
   }
 
   fn process_request(&mut self, request: Request) {
@@ -425,19 +429,19 @@ impl RequestProcessor {
       }
       Request::Airport(id, cancel) => {
         let reply = self.airport(&id, cancel.clone());
-        self.send(reply, true, cancel);
+        self.send(reply, cancel);
       }
       Request::Detail(summary, cancel) => {
         let reply = self.detail(summary, cancel.clone());
-        self.send(reply, true, cancel);
+        self.send(reply, cancel);
       }
       Request::Nearby(coord, dist, nph, cancel) => {
         let reply = self.nearby(coord, dist, nph, cancel.clone());
-        self.send(reply, true, cancel);
+        self.send(reply, cancel);
       }
       Request::Search(term, nph, cancel) => {
         let reply = self.search(&term, nph, cancel.clone());
-        self.send(reply, true, cancel);
+        self.send(reply, cancel);
       }
     }
   }
@@ -459,18 +463,18 @@ impl RequestProcessor {
 
         // Create new airport indexes.
         if !self.base_source.create_indexes(&trans, cancel.clone()) {
-          let reply = Reply::Error("Failed to create airport base-level indexing".into());
-          self.send(reply, false, cancel);
+          let reply = Reply::Error("Failed to create airport summary-level indexing".into());
+          self.sender.send(reply).unwrap();
           return;
         }
 
-        self.index_status.set_has_base_index();
+        self.index_status.set_has_summary_index();
 
         if !self.rwy_source.create_index(&self.base_source, cancel.clone())
-          || !self.rmk_source.create_index(&self.base_source, cancel.clone())
+          || !self.rmk_source.create_index(&self.base_source, cancel)
         {
           let reply = Reply::Error("Failed to create airport detail-level indexing".into());
-          self.send(reply, false, cancel);
+          self.sender.send(reply).unwrap();
           return;
         }
 
@@ -478,14 +482,14 @@ impl RequestProcessor {
       }
       Err(err) => {
         let reply = Reply::Error(format!("Unable to create transformation:\n{err}").into());
-        self.send(reply, false, cancel);
+        self.sender.send(reply).unwrap();
       }
     }
   }
 
   fn airport(&self, id: &str, cancel: util::Cancel) -> Reply {
-    if !self.index_status.has_base_index() {
-      return Reply::Error("Airport base-level indexing is required for airport ID search".into());
+    if !self.index_status.has_summary_index() {
+      return Reply::Error("Airport summary-level indexing is required for airport ID search".into());
     }
 
     let id = id.trim().to_uppercase();
@@ -513,16 +517,16 @@ impl RequestProcessor {
   }
 
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
-    if !self.index_status.has_base_index() {
-      return Reply::Error("Airport base-level indexing is required to find nearby airports".into());
+    if !self.index_status.has_summary_index() {
+      return Reply::Error("Airport summary-level indexing is required to find nearby airports".into());
     }
 
     Reply::Nearby(self.base_source.nearby(coord, dist, nph, cancel))
   }
 
   fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Reply {
-    if !self.index_status.has_base_index() {
-      return Reply::Error("Airport base-level indexing is required for airport search".into());
+    if !self.index_status.has_summary_index() {
+      return Reply::Error("Airport summary-level indexing is required for airport search".into());
     }
 
     // Search for an airport ID first.
@@ -556,8 +560,8 @@ struct IndexStatus {
 
 impl IndexStatus {
   const NONE: u8 = 0;
-  const TRANS: u8 = 1;
-  const BASE: u8 = 2;
+  const TRANSFORM: u8 = 1;
+  const SUMMARY: u8 = 2;
   const DETAIL: u8 = 3;
 
   fn new() -> Self {
@@ -571,11 +575,11 @@ impl IndexStatus {
   }
 
   fn set_has_chart_transformation(&mut self) {
-    self.index_type.store(IndexStatus::TRANS, atomic::Ordering::Relaxed);
+    self.index_type.store(IndexStatus::TRANSFORM, atomic::Ordering::Relaxed);
   }
 
-  fn set_has_base_index(&mut self) {
-    self.index_type.store(IndexStatus::BASE, atomic::Ordering::Relaxed);
+  fn set_has_summary_index(&mut self) {
+    self.index_type.store(IndexStatus::SUMMARY, atomic::Ordering::Relaxed);
   }
 
   fn set_has_detail_index(&mut self) {
@@ -583,11 +587,11 @@ impl IndexStatus {
   }
 
   fn has_chart_transformation(&self) -> bool {
-    self.index_type.load(atomic::Ordering::Relaxed) >= IndexStatus::TRANS
+    self.index_type.load(atomic::Ordering::Relaxed) >= IndexStatus::TRANSFORM
   }
 
-  fn has_base_index(&self) -> bool {
-    self.index_type.load(atomic::Ordering::Relaxed) >= IndexStatus::BASE
+  fn has_summary_index(&self) -> bool {
+    self.index_type.load(atomic::Ordering::Relaxed) >= IndexStatus::SUMMARY
   }
 
   fn has_detail_index(&self) -> bool {
