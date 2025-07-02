@@ -240,10 +240,10 @@ impl Remark {
       // General remark.
       format!("[ul] [color=white]{}[/color][/ul]\n", self.text.as_ref())
     } else if self.element.is_empty() {
-      format!("[ul] {} - [color=white]{}[/color][/ul]\n", self.reference, self.text)
+      format!("[ul] {}: [color=white]{}[/color][/ul]\n", self.reference, self.text)
     } else {
       format!(
-        "[ul] {} ({}) - [color=white]{}[/color][/ul]\n",
+        "[ul] {} ({}): [color=white]{}[/color][/ul]\n",
         self.reference, self.element, self.text
       )
     }
