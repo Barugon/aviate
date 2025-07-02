@@ -30,7 +30,6 @@ impl Source {
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
   pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: util::Cancel) -> bool {
-    use common::GetString;
     use vector::LayerAccess;
 
     let base_id_map = base_src.id_map();
@@ -50,7 +49,7 @@ impl Source {
         return false;
       }
 
-      if let Some(id) = feature.get_string(self.fields.arpt_id)
+      if let Some(id) = common::get_string(&feature, self.fields.arpt_id)
         && base_id_map.contains_key(id.as_str())
         && let Some(fid) = feature.fid()
       {
@@ -95,15 +94,13 @@ impl Source {
 
 impl airport::Runway {
   fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
-    use common::GetString;
-
     let feature = feature?;
-    let rwy_id = feature.get_string(fields.rwy_id)?.into();
-    let length = feature.get_length(fields)?.into();
-    let width = feature.get_width(fields)?.into();
-    let lighting = feature.get_lighting(fields)?.into();
-    let surface = feature.get_surface(fields)?.into();
-    let condition = feature.get_string(fields.cond)?.into();
+    let rwy_id = common::get_string(&feature, fields.rwy_id)?.into();
+    let length = get_length(&feature, fields)?.into();
+    let width = get_width(&feature, fields)?.into();
+    let lighting = get_lighting(&feature, fields)?.into();
+    let surface = get_surface(&feature, fields)?.into();
+    let condition = common::get_string(&feature, fields.cond)?.into();
     Some(Self {
       rwy_id,
       length,
@@ -143,74 +140,42 @@ impl Fields {
   }
 }
 
-trait GetLength {
-  fn get_length(&self, fields: &Fields) -> Option<String>;
+fn get_length(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  Some(format!("{} FEET", common::get_i64(feature, fields.rwy_len)?))
 }
 
-impl GetLength for vector::Feature<'_> {
-  fn get_length(&self, fields: &Fields) -> Option<String> {
-    use common::GetI64;
+fn get_width(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  Some(format!("{} FEET", common::get_i64(feature, fields.rwy_width)?))
+}
 
-    Some(format!("{} FEET", self.get_i64(fields.rwy_len)?))
+fn get_lighting(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  // Expand abbreviations.
+  let lighting = common::get_string(feature, fields.rwy_lgt_code)?;
+  Some(match lighting.as_str() {
+    "MED" => String::from("MEDIUM"),
+    "NSTD" => String::from("NON-STANDARD"),
+    "PERI" => lighting, // Missing from layout doc.
+    _ => lighting,
+  })
+}
+
+fn get_surface(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let surface = common::get_string(feature, fields.surface_type_code)?;
+  if surface.is_empty() {
+    return Some(surface);
   }
-}
 
-trait GetWidth {
-  fn get_width(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetWidth for vector::Feature<'_> {
-  fn get_width(&self, fields: &Fields) -> Option<String> {
-    use common::GetI64;
-
-    Some(format!("{} FEET", self.get_i64(fields.rwy_width)?))
-  }
-}
-
-trait GetLighting {
-  fn get_lighting(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetLighting for vector::Feature<'_> {
-  fn get_lighting(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    // Expand abbreviations.
-    let lighting = self.get_string(fields.rwy_lgt_code)?;
-    Some(match lighting.as_str() {
-      "MED" => String::from("MEDIUM"),
-      "NSTD" => String::from("NON-STANDARD"),
-      "PERI" => lighting, // Missing from layout doc.
-      _ => lighting,
-    })
-  }
-}
-
-trait GetSurface {
-  fn get_surface(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetSurface for vector::Feature<'_> {
-  fn get_surface(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    let surface = self.get_string(fields.surface_type_code)?;
-    if surface.is_empty() {
-      return Some(surface);
-    }
-
-    // Expand abbreviations.
-    Some(match surface.as_str() {
-      "ASPH" => String::from("ASPHALT OR BITUMINOUS CONCRETE"),
-      "ASPH-CONC" => surface, // Missing from layout doc.
-      "CONC" => String::from("PORTLAND CEMENT CONCRETE"),
-      "DIRT" => String::from("NATURAL SOIL"),
-      "GRAVEL" => String::from("GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG"),
-      "MATS" => String::from("PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES"),
-      "PEM" => String::from("PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM"),
-      "TREATED" => String::from("OILED; SOIL CEMENT OR LIME STABILIZED"),
-      "TURF" => String::from("GRASS; SOD"),
-      _ => surface,
-    })
-  }
+  // Expand abbreviations.
+  Some(match surface.as_str() {
+    "ASPH" => String::from("ASPHALT OR BITUMINOUS CONCRETE"),
+    "ASPH-CONC" => surface, // Missing from layout doc.
+    "CONC" => String::from("PORTLAND CEMENT CONCRETE"),
+    "DIRT" => String::from("NATURAL SOIL"),
+    "GRAVEL" => String::from("GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG"),
+    "MATS" => String::from("PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES"),
+    "PEM" => String::from("PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM"),
+    "TREATED" => String::from("OILED; SOIL CEMENT OR LIME STABILIZED"),
+    "TURF" => String::from("GRASS; SOD"),
+    _ => surface,
+  })
 }

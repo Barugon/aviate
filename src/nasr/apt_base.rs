@@ -35,7 +35,6 @@ impl Source {
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `cancel`: cancellation object
   pub fn create_indexes(&mut self, to_chart: &common::ToChart, cancel: util::Cancel) -> bool {
-    use common::GetString;
     use vector::LayerAccess;
 
     let mut layer = self.layer();
@@ -51,12 +50,12 @@ impl Source {
         return false;
       }
 
-      if let Some(coord) = feature.get_coord(&self.fields)
+      if let Some(coord) = get_coord(&feature, &self.fields)
         && let Some(coord) = ok!(to_chart.transform(coord))
         && to_chart.bounds().contains(coord)
         && let Some(fid) = feature.fid()
-        && let Some(id) = feature.get_string(self.fields.arpt_id)
-        && let Some(name) = feature.get_string(self.fields.arpt_name)
+        && let Some(id) = common::get_string(&feature, self.fields.arpt_id)
+        && let Some(name) = common::get_string(&feature, self.fields.arpt_name)
       {
         id_map.insert(id.into(), fid);
         name_vec.push((name.into(), fid));
@@ -188,18 +187,16 @@ impl Source {
 
 impl airport::Summary {
   fn new(feature: Option<vector::Feature>, fields: &Fields, nph: bool) -> Option<Self> {
-    use common::GetString;
-
     let feature = feature?;
-    let airport_type = feature.get_airport_type(fields)?;
-    let airport_use = feature.get_airport_use(fields)?;
+    let airport_type = get_airport_type(&feature, fields)?;
+    let airport_use = get_airport_use(&feature, fields)?;
     if !nph && airport_type == airport::Type::Heliport && airport_use != airport::Use::Public {
       return None;
     }
 
-    let id = feature.get_string(fields.arpt_id)?.into();
-    let name = feature.get_string(fields.arpt_name)?.into();
-    let coord = feature.get_coord(fields)?;
+    let id = common::get_string(&feature, fields.arpt_id)?.into();
+    let name = common::get_string(&feature, fields.arpt_name)?.into();
+    let coord = get_coord(&feature, fields)?;
 
     Some(Self {
       id,
@@ -222,12 +219,12 @@ impl airport::Detail {
     let feature = feature?;
     let runways = runways.into();
     let remarks = remarks.into();
-    let fuel_types = feature.get_fuel_types(fields)?.into();
-    let location = feature.get_location(fields)?.into();
-    let elevation = feature.get_elevation(fields)?.into();
-    let pat_alt = feature.get_pattern_altitude(fields)?.into();
-    let mag_var = feature.get_magnetic_variation(fields)?.into();
-    let lndg_fee = feature.get_landing_fee(fields)?.into();
+    let fuel_types = get_fuel_types(&feature, fields)?.into();
+    let location = get_location(&feature, fields)?.into();
+    let elevation = get_elevation(&feature, fields)?.into();
+    let pat_alt = get_pattern_altitude(&feature, fields)?.into();
+    let mag_var = get_magnetic_variation(&feature, fields)?.into();
+    let lndg_fee = get_landing_fee(&feature, fields)?.into();
     Some(Self {
       summary,
       fuel_types,
@@ -285,168 +282,96 @@ impl Fields {
   }
 }
 
-trait GetAirportType {
-  fn get_airport_type(&self, fields: &Fields) -> Option<airport::Type>;
-}
-
-impl GetAirportType for vector::Feature<'_> {
-  fn get_airport_type(&self, fields: &Fields) -> Option<airport::Type> {
-    use common::GetString;
-
-    match self.get_string(fields.site_type_code)?.as_str() {
-      "A" => Some(airport::Type::Airport),
-      "B" => Some(airport::Type::Balloon),
-      "C" => Some(airport::Type::Seaplane),
-      "G" => Some(airport::Type::Glider),
-      "H" => Some(airport::Type::Heliport),
-      "U" => Some(airport::Type::Ultralight),
-      _ => None,
-    }
+fn get_airport_type(feature: &vector::Feature, fields: &Fields) -> Option<airport::Type> {
+  match common::get_string(feature, fields.site_type_code)?.as_str() {
+    "A" => Some(airport::Type::Airport),
+    "B" => Some(airport::Type::Balloon),
+    "C" => Some(airport::Type::Seaplane),
+    "G" => Some(airport::Type::Glider),
+    "H" => Some(airport::Type::Heliport),
+    "U" => Some(airport::Type::Ultralight),
+    _ => None,
   }
 }
 
-trait GetAirportUse {
-  fn get_airport_use(&self, fields: &Fields) -> Option<airport::Use>;
-}
-
-impl GetAirportUse for vector::Feature<'_> {
-  fn get_airport_use(&self, fields: &Fields) -> Option<airport::Use> {
-    use common::GetString;
-
-    match self.get_string(fields.facility_use_code)?.as_str() {
-      "PR" => Some(airport::Use::Private),
-      "PU" => Some(airport::Use::Public),
-      _ => None,
-    }
+fn get_airport_use(feature: &vector::Feature, fields: &Fields) -> Option<airport::Use> {
+  match common::get_string(feature, fields.facility_use_code)?.as_str() {
+    "PR" => Some(airport::Use::Private),
+    "PU" => Some(airport::Use::Public),
+    _ => None,
   }
 }
 
-trait GetLandingFee {
-  fn get_landing_fee(&self, fields: &Fields) -> Option<String>;
+fn get_landing_fee(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let landing_fee = common::get_string(feature, fields.lndg_fee_flag)?;
+  Some(match landing_fee.as_str() {
+    "Y" => String::from("YES"),
+    "N" => String::from("NO"),
+    _ => landing_fee,
+  })
 }
 
-impl GetLandingFee for vector::Feature<'_> {
-  fn get_landing_fee(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
+fn get_coord(feature: &vector::Feature, fields: &Fields) -> Option<geom::DD> {
+  Some(geom::DD::new(
+    common::get_f64(feature, fields.long_decimal)?,
+    common::get_f64(feature, fields.lat_decimal)?,
+  ))
+}
 
-    let landing_fee = self.get_string(fields.lndg_fee_flag)?;
-    Some(match landing_fee.as_str() {
-      "Y" => String::from("YES"),
-      "N" => String::from("NO"),
-      _ => landing_fee,
-    })
+fn get_fuel_types(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let fuel_types = common::get_string(feature, fields.fuel_types)?;
+
+  // Make sure there's a comma and space between each fuel type.
+  Some(fuel_types.split(',').map(|s| s.trim()).collect::<Vec<_>>().join(", "))
+}
+
+fn get_location(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let city = common::get_string(feature, fields.city)?;
+  let state = common::get_string(feature, fields.state_code)?;
+  if state.is_empty() {
+    return Some(city);
   }
+
+  Some(format!("{city}, {state}"))
 }
 
-trait GetCoord {
-  fn get_coord(&self, fields: &Fields) -> Option<geom::DD>;
-}
-
-impl GetCoord for vector::Feature<'_> {
-  fn get_coord(&self, fields: &Fields) -> Option<geom::DD> {
-    use common::GetF64;
-
-    Some(geom::DD::new(
-      self.get_f64(fields.long_decimal)?,
-      self.get_f64(fields.lat_decimal)?,
-    ))
+fn get_elevation(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let elevation = common::get_string(feature, fields.elev)?;
+  let method = common::get_string(feature, fields.elev_method_code)?;
+  if method.is_empty() {
+    return Some(elevation);
   }
+
+  let method = match method.as_str() {
+    "E" => "ESTIMATED",
+    "S" => "SURVEYED",
+    _ => return None,
+  };
+
+  Some(format!("{elevation} FEET ASL ({method})"))
 }
 
-trait GetFuelTypes {
-  fn get_fuel_types(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetFuelTypes for vector::Feature<'_> {
-  fn get_fuel_types(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    let fuel_types = self.get_string(fields.fuel_types)?;
-
-    // Make sure there's a comma and space between each fuel type.
-    Some(fuel_types.split(',').map(|s| s.trim()).collect::<Vec<_>>().join(", "))
+fn get_pattern_altitude(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let pattern_altitude = common::get_string(feature, fields.tpa)?;
+  if pattern_altitude.is_empty() {
+    return Some(pattern_altitude);
   }
+
+  Some(format!("{pattern_altitude} FEET AGL"))
 }
 
-trait GetLocation {
-  fn get_location(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetLocation for vector::Feature<'_> {
-  fn get_location(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    let city = self.get_string(fields.city)?;
-    let state = self.get_string(fields.state_code)?;
-    if state.is_empty() {
-      return Some(city);
-    }
-
-    Some(format!("{city}, {state}"))
+fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let var = common::get_string(feature, fields.mag_varn)?;
+  if var.is_empty() {
+    return Some(String::new());
   }
-}
 
-trait GetElevation {
-  fn get_elevation(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetElevation for vector::Feature<'_> {
-  fn get_elevation(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    let elevation = self.get_string(fields.elev)?;
-    let method = self.get_string(fields.elev_method_code)?;
-    if method.is_empty() {
-      return Some(elevation);
-    }
-
-    let method = match method.as_str() {
-      "E" => "ESTIMATED",
-      "S" => "SURVEYED",
-      _ => return None,
-    };
-
-    Some(format!("{elevation} FEET ASL ({method})"))
+  let hem = common::get_string(feature, fields.mag_hemis)?;
+  if hem.is_empty() {
+    return Some(String::new());
   }
-}
 
-trait GetPatternAltitude {
-  fn get_pattern_altitude(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetPatternAltitude for vector::Feature<'_> {
-  fn get_pattern_altitude(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    let pattern_altitude = self.get_string(fields.tpa)?;
-    if pattern_altitude.is_empty() {
-      return Some(pattern_altitude);
-    }
-
-    Some(format!("{pattern_altitude} FEET AGL"))
-  }
-}
-
-trait GetMagneticVariation {
-  fn get_magnetic_variation(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetMagneticVariation for vector::Feature<'_> {
-  fn get_magnetic_variation(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    let var = self.get_string(fields.mag_varn)?;
-    if var.is_empty() {
-      return Some(String::new());
-    }
-
-    let hem = self.get_string(fields.mag_hemis)?;
-    if hem.is_empty() {
-      return Some(String::new());
-    }
-
-    Some(format!("{var}°{hem}"))
-  }
+  Some(format!("{var}°{hem}"))
 }
 
 /// Location spatial index item.

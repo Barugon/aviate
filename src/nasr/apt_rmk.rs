@@ -30,7 +30,6 @@ impl Source {
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
   pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: util::Cancel) -> bool {
-    use common::GetString;
     use vector::LayerAccess;
 
     let base_id_map = base_src.id_map();
@@ -50,7 +49,7 @@ impl Source {
         return false;
       }
 
-      if let Some(id) = feature.get_string(self.fields.arpt_id)
+      if let Some(id) = common::get_string(&feature, self.fields.arpt_id)
         && base_id_map.contains_key(id.as_str())
         && let Some(fid) = feature.fid()
       {
@@ -101,12 +100,10 @@ impl Source {
 
 impl airport::Remark {
   fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
-    use common::GetString;
-
     let feature = feature?;
-    let reference = feature.get_reference(fields)?.into();
-    let element = feature.get_string(fields.element)?.into();
-    let text = feature.get_string(fields.remark)?.into();
+    let reference = get_reference(&feature, fields)?.into();
+    let element = common::get_string(&feature, fields.element)?.into();
+    let text = common::get_string(&feature, fields.remark)?.into();
 
     Some(Self {
       reference,
@@ -138,26 +135,18 @@ impl Fields {
   }
 }
 
-trait GetReference {
-  fn get_reference(&self, fields: &Fields) -> Option<String>;
-}
-
-impl GetReference for vector::Feature<'_> {
-  fn get_reference(&self, fields: &Fields) -> Option<String> {
-    use common::GetString;
-
-    // Expand abbreviations.
-    Some(match self.get_string(fields.ref_col_name)?.as_str() {
-      "ARPT_ID" => String::from("Airport"),
-      "ARPT_NAME" => String::from("name"),
-      "ELEV" => String::from("Elevation"),
-      "FACILITY_USE_CODE" => String::from("Facility Use"),
-      "FUEL_TYPE" => String::from("Fuel Type"),
-      "GENERAL_REMARK" => String::new(),
-      "LNDG_FEE_FLAG" => String::from("Landing Fee"),
-      "SITE_TYPE_CODE" => String::from("Site Type"),
-      "TPA" => String::from("Pattern Altitude"),
-      _ => return None,
-    })
-  }
+fn get_reference(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  // Expand abbreviations.
+  Some(match common::get_string(feature, fields.ref_col_name)?.as_str() {
+    "ARPT_ID" => String::from("Airport"),
+    "ARPT_NAME" => String::from("name"),
+    "ELEV" => String::from("Elevation"),
+    "FACILITY_USE_CODE" => String::from("Facility Use"),
+    "FUEL_TYPE" => String::from("Fuel Type"),
+    "GENERAL_REMARK" => String::new(),
+    "LNDG_FEE_FLAG" => String::from("Landing Fee"),
+    "SITE_TYPE_CODE" => String::from("Site Type"),
+    "TPA" => String::from("Pattern Altitude"),
+    _ => return None,
+  })
 }

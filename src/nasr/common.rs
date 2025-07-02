@@ -1,6 +1,5 @@
-use crate::geom;
+use crate::{geom, ok};
 use gdal::{errors, spatial_ref, vector};
-use godot::global::godot_error;
 
 pub fn open_options<'a>() -> gdal::DatasetOptions<'a> {
   gdal::DatasetOptions {
@@ -29,7 +28,7 @@ impl ToChart {
 
   pub fn transform(&self, coord: geom::DD) -> errors::Result<geom::Cht> {
     use geom::Transform;
-    Ok(self.trans.transform(*coord)?.into())
+    self.trans.transform(*coord).map(|c| c.into())
   }
 
   pub fn bounds(&self) -> &geom::Bounds {
@@ -37,50 +36,14 @@ impl ToChart {
   }
 }
 
-pub trait GetI64 {
-  fn get_i64(&self, index: usize) -> Option<i64>;
+pub fn get_i64(feature: &vector::Feature, index: usize) -> Option<i64> {
+  ok!(feature.field_as_integer64(index)).and_then(|v| v)
 }
 
-impl GetI64 for vector::Feature<'_> {
-  fn get_i64(&self, index: usize) -> Option<i64> {
-    match self.field_as_integer64(index) {
-      Ok(val) => val,
-      Err(err) => {
-        godot_error!("{err}");
-        None
-      }
-    }
-  }
+pub fn get_f64(feature: &vector::Feature, index: usize) -> Option<f64> {
+  ok!(feature.field_as_double(index)).and_then(|v| v)
 }
 
-pub trait GetF64 {
-  fn get_f64(&self, index: usize) -> Option<f64>;
-}
-
-impl GetF64 for vector::Feature<'_> {
-  fn get_f64(&self, index: usize) -> Option<f64> {
-    match self.field_as_double(index) {
-      Ok(val) => val,
-      Err(err) => {
-        godot_error!("{err}");
-        None
-      }
-    }
-  }
-}
-
-pub trait GetString {
-  fn get_string(&self, index: usize) -> Option<String>;
-}
-
-impl GetString for vector::Feature<'_> {
-  fn get_string(&self, index: usize) -> Option<String> {
-    match self.field_as_string(index) {
-      Ok(val) => val,
-      Err(err) => {
-        godot_error!("{err}");
-        None
-      }
-    }
-  }
+pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
+  ok!(feature.field_as_string(index)).and_then(|v| v)
 }
