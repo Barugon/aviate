@@ -513,7 +513,7 @@ impl RequestProcessor {
       return Reply::Detail(detail);
     }
 
-    Reply::Error(format!("Unable to get airport information for ID\n'{id}'").into())
+    Reply::Error(format!("Unable to get airport detail information for ID\n'{id}'").into())
   }
 
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
