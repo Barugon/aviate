@@ -79,7 +79,7 @@ impl Source {
   /// Get airport summary information for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn airport(&self, id: &str, cancel: util::Cancel) -> Option<airport::Info> {
+  pub fn airport(&self, id: &str, cancel: util::Cancel) -> Option<airport::Summary> {
     use vector::LayerAccess;
 
     let &fid = self.id_map.get(id)?;
@@ -88,29 +88,29 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    airport::Info::new(layer.feature(fid), &self.fields, true)
+    airport::Summary::new(layer.feature(fid), &self.fields, true)
   }
 
   /// Get airport detail information.
-  /// - `info`: airport summary information
+  /// - `summary`: airport summary information
   /// - `runways`: vector of runway information
   /// - `cancel`: cancellation object
   pub fn detail(
     &self,
-    info: airport::Info,
+    summary: airport::Summary,
     runways: Vec<airport::Runway>,
     remarks: Vec<airport::Remark>,
     cancel: util::Cancel,
   ) -> Option<airport::Detail> {
     use vector::LayerAccess;
 
-    let &fid = self.id_map.get(&info.id)?;
+    let &fid = self.id_map.get(&summary.id)?;
     if cancel.canceled() {
       return None;
     }
 
     let layer = util::Layer::new(self.layer());
-    airport::Detail::new(layer.feature(fid), &self.fields, info, runways, remarks)
+    airport::Detail::new(layer.feature(fid), &self.fields, summary, runways, remarks)
   }
 
   /// Find airports within a search radius.
@@ -118,7 +118,7 @@ impl Source {
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
   /// - `cancel`: cancellation object
-  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<airport::Info> {
+  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<airport::Summary> {
     use vector::LayerAccess;
 
     let coord = [coord.x, coord.y];
@@ -140,8 +140,8 @@ impl Source {
         return Vec::new();
       }
 
-      if let Some(info) = airport::Info::new(layer.feature(fid), &self.fields, nph) {
-        airports.push(info);
+      if let Some(summary) = airport::Summary::new(layer.feature(fid), &self.fields, nph) {
+        airports.push(summary);
       };
     }
 
@@ -155,7 +155,7 @@ impl Source {
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `nph`: include non-public heliports
   /// - `cancel`: cancellation object
-  pub fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<airport::Info> {
+  pub fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<airport::Summary> {
     use vector::LayerAccess;
 
     let layer = util::Layer::new(self.layer());
@@ -166,9 +166,9 @@ impl Source {
       }
 
       if name.contains(term)
-        && let Some(info) = airport::Info::new(layer.feature(*fid), &self.fields, nph)
+        && let Some(summary) = airport::Summary::new(layer.feature(*fid), &self.fields, nph)
       {
-        airports.push(info);
+        airports.push(summary);
       }
     }
 
@@ -186,7 +186,7 @@ impl Source {
   }
 }
 
-impl airport::Info {
+impl airport::Summary {
   fn new(feature: Option<vector::Feature>, fields: &Fields, nph: bool) -> Option<Self> {
     use common::GetString;
 
@@ -215,7 +215,7 @@ impl airport::Detail {
   fn new(
     feature: Option<vector::Feature>,
     fields: &Fields,
-    info: airport::Info,
+    summary: airport::Summary,
     runways: Vec<airport::Runway>,
     remarks: Vec<airport::Remark>,
   ) -> Option<Self> {
@@ -229,7 +229,7 @@ impl airport::Detail {
     let mag_var = feature.get_magnetic_variation(fields)?.into();
     let lndg_fee = feature.get_landing_fee(fields)?.into();
     Some(Self {
-      info,
+      summary,
       fuel_types,
       location,
       elevation,

@@ -25,7 +25,7 @@ struct MainWidget {
   find_button: OnReady<Gd<Button>>,
   airport_label: OnReady<Gd<Label>>,
   airport_reader: Option<airport::Reader>,
-  airport_infos: Option<Vec<airport::Info>>,
+  airport_summaries: Option<Vec<airport::Summary>>,
   airport_status: AirportStatus,
 }
 
@@ -137,21 +137,21 @@ impl MainWidget {
       self.open_chart(&path, file);
     }
 
-    if let Some(infos) = self.airport_infos.take()
-      && let Some(info) = infos.get(index)
+    if let Some(summaries) = self.airport_summaries.take()
+      && let Some(summary) = summaries.get(index)
     {
-      let coord = info.coord;
+      let coord = summary.coord;
       self.chart_widget.bind_mut().goto_coord(coord);
     }
   }
 
   #[func]
   fn select_info_confirmed(&mut self, index: u32) {
-    if let Some(infos) = self.airport_infos.take()
-      && let Some(info) = infos.into_iter().nth(index as usize)
+    if let Some(summaries) = self.airport_summaries.take()
+      && let Some(summary) = summaries.into_iter().nth(index as usize)
       && let Some(airport_reader) = &self.airport_reader
     {
-      airport_reader.detail(info);
+      airport_reader.detail(summary);
     };
   }
 
@@ -168,20 +168,20 @@ impl MainWidget {
     dialog.bind_mut().show_choices(choices, "Select Chart", " OK ", false);
 
     self.chart_info = Some((path, files));
-    self.airport_infos = None;
+    self.airport_summaries = None;
   }
 
-  fn select_airport(&mut self, airports: Vec<airport::Info>) {
+  fn select_airport(&mut self, airports: Vec<airport::Summary>) {
     // It's possible to open a another dialog before the airport query is complete.
     if self.dialog_is_visible() {
       return;
     }
 
     let mut dialog = self.get_child::<select_dialog::SelectDialog>("SelectDialog");
-    let choices = airports.iter().map(|a| Some(a.get_desc().into()));
+    let choices = airports.iter().map(|a| Some(a.get_text().into()));
     dialog.bind_mut().show_choices(choices, "Select Airport", "Go To", true);
 
-    self.airport_infos = Some(airports);
+    self.airport_summaries = Some(airports);
     self.chart_info = None;
   }
 
@@ -317,7 +317,7 @@ impl IControl for MainWidget {
       find_button: OnReady::manual(),
       airport_label: OnReady::manual(),
       airport_reader: None,
-      airport_infos: None,
+      airport_summaries: None,
       airport_status: AirportStatus::default(),
     }
   }
@@ -459,19 +459,19 @@ impl IControl for MainWidget {
     }
 
     // Collect airport replies.
-    let mut airport_infos = None;
+    let mut airport_summaries = None;
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
-        airport::Reply::Airport(info) => airport_infos = Some(vec![info]),
-        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.info.coord),
-        airport::Reply::Nearby(_infos) => (),
-        airport::Reply::Search(infos) => airport_infos = Some(infos),
+        airport::Reply::Airport(summary) => airport_summaries = Some(vec![summary]),
+        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.summary.coord),
+        airport::Reply::Nearby(_summaries) => (),
+        airport::Reply::Search(summaries) => airport_summaries = Some(summaries),
         airport::Reply::Error(err) => self.show_alert(err.as_ref()),
       }
     }
 
-    if let Some(airport_infos) = airport_infos {
-      self.select_airport(airport_infos);
+    if let Some(airport_summaries) = airport_summaries {
+      self.select_airport(airport_summaries);
     }
   }
 

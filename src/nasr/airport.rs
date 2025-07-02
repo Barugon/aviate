@@ -116,11 +116,11 @@ impl Reader {
   }
 
   /// Lookup airport detail information.
-  /// - `info`: airport summary information
-  pub fn detail(&self, info: Info) {
-    assert!(!info.id.is_empty());
+  /// - `summary`: airport summary information
+  pub fn detail(&self, summary: Summary) {
+    assert!(!summary.id.is_empty());
     let cancel = self.cancel_request();
-    self.send(Request::Detail(info, cancel), true);
+    self.send(Request::Detail(summary, cancel), true);
   }
 
   /// Request nearby airports.
@@ -179,7 +179,7 @@ impl Drop for Reader {
 
 /// Airport summary information.
 #[derive(Clone, Debug)]
-pub struct Info {
+pub struct Summary {
   pub id: Box<str>,
   pub name: Box<str>,
   pub coord: geom::DD,
@@ -187,8 +187,8 @@ pub struct Info {
   pub apt_use: Use,
 }
 
-impl Info {
-  pub fn get_desc(&self) -> String {
+impl Summary {
+  pub fn get_text(&self) -> String {
     format!(
       "{} ({}), {}, {}",
       self.name,
@@ -246,7 +246,7 @@ impl Remark {
 /// Airport detail information.
 #[derive(Clone, Debug)]
 pub struct Detail {
-  pub info: Info,
+  pub summary: Summary,
   pub fuel_types: Box<str>,
   pub location: Box<str>,
   pub elevation: Box<str>,
@@ -263,13 +263,13 @@ impl Detail {
 
     let mut text = format!(
       include_str!("../../res/apt_info.txt"),
-      self.info.id,
-      self.info.name,
-      self.info.apt_type.text(),
-      self.info.apt_use.text(),
+      self.summary.id,
+      self.summary.name,
+      self.summary.apt_type.text(),
+      self.summary.apt_use.text(),
       self.location,
-      self.info.coord.get_latitude(),
-      self.info.coord.get_longitude(),
+      self.summary.coord.get_latitude(),
+      self.summary.coord.get_longitude(),
       self.mag_var,
       self.elevation,
       self.pat_alt,
@@ -358,16 +358,16 @@ impl Use {
 
 pub enum Reply {
   /// Airport summary information from ID search.
-  Airport(Info),
+  Airport(Summary),
 
   /// Airport detail information from `Info`.
   Detail(Detail),
 
   /// Airport summaries from a nearby search.
-  Nearby(Vec<Info>),
+  Nearby(Vec<Summary>),
 
   /// Airport summaries matching a name/ID search.
-  Search(Vec<Info>),
+  Search(Vec<Summary>),
 
   /// Request resulted in an error.
   Error(util::Error),
@@ -427,8 +427,8 @@ impl RequestProcessor {
         let reply = self.airport(&id, cancel.clone());
         self.send(reply, true, cancel);
       }
-      Request::Detail(info, cancel) => {
-        let reply = self.detail(info, cancel.clone());
+      Request::Detail(summary, cancel) => {
+        let reply = self.detail(summary, cancel.clone());
         self.send(reply, true, cancel);
       }
       Request::Nearby(coord, dist, nph, cancel) => {
@@ -489,22 +489,22 @@ impl RequestProcessor {
     }
 
     let id = id.trim().to_uppercase();
-    if let Some(info) = self.base_source.airport(&id, cancel) {
-      return Reply::Airport(info);
+    if let Some(summary) = self.base_source.airport(&id, cancel) {
+      return Reply::Airport(summary);
     }
 
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
-  fn detail(&self, info: Info, cancel: util::Cancel) -> Reply {
+  fn detail(&self, summary: Summary, cancel: util::Cancel) -> Reply {
     if !self.index_status.has_detail_index() {
       return Reply::Error("Airport detail-level indexing is required for airport information".into());
     }
 
-    let id = info.id.clone();
+    let id = summary.id.clone();
     if let Some(runways) = self.rwy_source.runways(&id, cancel.clone())
       && let Some(remarks) = self.rmk_source.remarks(&id, cancel.clone())
-      && let Some(detail) = self.base_source.detail(info, runways, remarks, cancel)
+      && let Some(detail) = self.base_source.detail(summary, runways, remarks, cancel)
     {
       return Reply::Detail(detail);
     }
@@ -527,24 +527,24 @@ impl RequestProcessor {
 
     // Search for an airport ID first.
     let term = term.trim().to_uppercase();
-    if let Some(info) = self.base_source.airport(&term, cancel.clone()) {
-      return Reply::Airport(info);
+    if let Some(summary) = self.base_source.airport(&term, cancel.clone()) {
+      return Reply::Airport(summary);
     }
 
     // Airport ID not found, search the airport names.
-    let infos = self.base_source.search(&term, nph, cancel);
-    if infos.is_empty() {
+    let summaries = self.base_source.search(&term, nph, cancel);
+    if summaries.is_empty() {
       return Reply::Error(format!("Nothing on this chart matches\n'{term}'").into());
     }
 
-    Reply::Search(infos)
+    Reply::Search(summaries)
   }
 }
 
 enum Request {
   SpatialRef(Option<(String, geom::Bounds)>, util::Cancel),
   Airport(String, util::Cancel),
-  Detail(Info, util::Cancel),
+  Detail(Summary, util::Cancel),
   Nearby(geom::Cht, f64, bool, util::Cancel),
   Search(String, bool, util::Cancel),
 }
