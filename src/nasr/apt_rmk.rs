@@ -1,0 +1,163 @@
+use crate::{
+  nasr::{airport, apt_base, common},
+  util,
+};
+use gdal::{errors, vector};
+use std::{collections, path};
+
+/// Dataset source for for `APT_RMK.csv`.
+pub struct Source {
+  dataset: gdal::Dataset,
+  fields: Fields,
+  id_map: collections::HashMap<Box<str>, Box<[u64]>>,
+}
+
+impl Source {
+  /// Open an airport remark data source.
+  /// - `path`: CSV zip file path
+  pub fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
+    let path = path::PathBuf::from(["/vsizip/", path.to_str().unwrap()].concat()).join("APT_RMK.csv");
+    let dataset = gdal::Dataset::open_ex(path, common::open_options())?;
+    let fields = Fields::new(dataset.layer(0)?)?;
+    Ok(Self {
+      dataset,
+      fields,
+      id_map: collections::HashMap::new(),
+    })
+  }
+
+  /// Create the index.
+  /// - `base_src`: airport base data source
+  /// - `cancel`: cancellation object
+  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: util::Cancel) -> bool {
+    use common::GetString;
+    use vector::LayerAccess;
+
+    let base_id_map = base_src.id_map();
+    let mut layer = self.layer();
+    let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::with_capacity(base_id_map.len());
+    let mut add_fid = |id: String, fid: u64| {
+      if let Some(id_vec) = id_map.get_mut(id.as_str()) {
+        id_vec.push(fid);
+      } else {
+        id_map.insert(id, vec![fid]);
+      }
+    };
+
+    // Iterator resets feature reading when dropped.
+    for feature in layer.features() {
+      if cancel.canceled() {
+        return false;
+      }
+
+      if let Some(id) = feature.get_string(self.fields.arpt_id)
+        && base_id_map.contains_key(id.as_str())
+        && let Some(fid) = feature.fid()
+      {
+        add_fid(id, fid);
+      };
+    }
+
+    self.id_map = collections::HashMap::with_capacity(id_map.len());
+    for (id, vec) in id_map {
+      self.id_map.insert(id.into(), vec.into());
+    }
+
+    !self.id_map.is_empty()
+  }
+
+  /// Get remarks for the specified airport ID.
+  /// - `id`: airport ID
+  /// - `cancel`: cancellation object
+  pub fn remarks(&self, id: &str, cancel: util::Cancel) -> Option<Vec<airport::Remark>> {
+    use vector::LayerAccess;
+
+    let Some(fids) = self.id_map.get(id) else {
+      return Some(Vec::new());
+    };
+
+    let layer = util::Layer::new(self.layer());
+    let mut remarks = Vec::with_capacity(fids.len());
+    for &fid in fids {
+      if cancel.canceled() {
+        return None;
+      }
+
+      if let Some(remark) = airport::Remark::new(layer.feature(fid), &self.fields) {
+        remarks.push(remark);
+      }
+    }
+    Some(remarks)
+  }
+
+  pub fn clear_index(&mut self) {
+    self.id_map = collections::HashMap::new();
+  }
+
+  fn layer(&self) -> vector::Layer {
+    self.dataset.layer(0).unwrap()
+  }
+}
+
+impl airport::Remark {
+  fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
+    use common::GetString;
+
+    let feature = feature?;
+    let reference = feature.get_reference(fields)?.into();
+    let element = feature.get_string(fields.element)?.into();
+    let text = feature.get_string(fields.remark)?.into();
+
+    Some(Self {
+      reference,
+      element,
+      text,
+    })
+  }
+}
+
+/// Field indexes for `APT_RMK.csv`.
+struct Fields {
+  arpt_id: usize,
+  ref_col_name: usize,
+  element: usize,
+  remark: usize,
+}
+
+impl Fields {
+  fn new(layer: vector::Layer) -> Result<Self, errors::GdalError> {
+    use vector::LayerAccess;
+
+    let defn = layer.defn();
+    Ok(Self {
+      arpt_id: defn.field_index("ARPT_ID")?,
+      ref_col_name: defn.field_index("REF_COL_NAME")?,
+      element: defn.field_index("ELEMENT")?,
+      remark: defn.field_index("REMARK")?,
+    })
+  }
+}
+
+trait GetReference {
+  fn get_reference(&self, fields: &Fields) -> Option<String>;
+}
+
+impl GetReference for vector::Feature<'_> {
+  fn get_reference(&self, fields: &Fields) -> Option<String> {
+    use common::GetString;
+
+    // Expand abbreviations.
+    Some(match self.get_string(fields.ref_col_name)?.as_str() {
+      "ARPT_ID" => String::from("Airport"),
+      "ARPT_NAME" => String::from("name"),
+      "ELEV" => String::from("Elevation"),
+      "FACILITY_USE_CODE" => String::from("Facility Use"),
+      "FUEL_TYPE" => String::from("Fuel Type"),
+      "GENERAL_REMARK" => String::new(),
+      "LNDG_FEE_FLAG" => String::from("Landing Fee"),
+      "SITE_TYPE_CODE" => String::from("Site Type"),
+      "TPA" => String::from("Pattern Altitude"),
+      _ => return None,
+    })
+  }
+}

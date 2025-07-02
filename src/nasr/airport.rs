@@ -1,6 +1,6 @@
 use crate::{
   geom,
-  nasr::{apt_base, apt_rwy, common},
+  nasr::{apt_base, apt_rmk, apt_rwy, common},
   util,
 };
 use gdal::spatial_ref;
@@ -38,6 +38,14 @@ impl Reader {
       }
     };
 
+    let rmk_source = match apt_rmk::Source::open(path) {
+      Ok(source) => source,
+      Err(err) => {
+        let err = format!("Unable to open airport remarks data source:\n{err}");
+        return Err(err.into());
+      }
+    };
+
     let index_status = IndexStatus::new();
     let request_count = sync::Arc::new(atomic::AtomicI32::new(0));
     let (sender, thread_receiver) = mpsc::channel();
@@ -50,8 +58,14 @@ impl Reader {
         let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
-          let mut request_processor =
-            RequestProcessor::new(base_source, rwy_source, index_status, request_count, thread_sender);
+          let mut request_processor = RequestProcessor::new(
+            base_source,
+            rwy_source,
+            rmk_source,
+            index_status,
+            request_count,
+            thread_sender,
+          );
 
           // Wait for a message. Exit when the connection is closed.
           while let Ok(request) = thread_receiver.recv() {
@@ -187,7 +201,6 @@ impl Info {
 
 /// Airport runway information.
 #[derive(Clone, Debug)]
-#[allow(unused)]
 pub struct Runway {
   pub rwy_id: Box<str>,
   pub length: Box<str>,
@@ -206,9 +219,32 @@ impl Runway {
   }
 }
 
+/// Airport remark information.
+#[derive(Clone, Debug)]
+pub struct Remark {
+  pub reference: Box<str>,
+  pub element: Box<str>,
+  pub text: Box<str>,
+}
+
+impl Remark {
+  fn get_text(&self) -> String {
+    if self.reference.is_empty() {
+      // General remark.
+      format!("[ul] [color=white]{}[/color][/ul]\n", self.text.as_ref())
+    } else if self.element.is_empty() {
+      format!("[ul] {} - [color=white]{}[/color][/ul]\n", self.reference, self.text)
+    } else {
+      format!(
+        "[ul] {} ({}) - [color=white]{}[/color][/ul]\n",
+        self.reference, self.element, self.text
+      )
+    }
+  }
+}
+
 /// Airport detail information.
 #[derive(Clone, Debug)]
-#[allow(unused)]
 pub struct Detail {
   pub info: Info,
   pub fuel_types: Box<str>,
@@ -218,10 +254,13 @@ pub struct Detail {
   pub mag_var: Box<str>,
   pub lndg_fee: Box<str>,
   pub runways: Box<[Runway]>,
+  pub remarks: Box<[Remark]>,
 }
 
 impl Detail {
   pub fn get_text(&self) -> String {
+    // TODO: ATC and lighting.
+
     let mut text = format!(
       include_str!("../../res/apt_info.txt"),
       self.info.id,
@@ -240,6 +279,13 @@ impl Detail {
 
     for runway in &self.runways {
       text += &runway.get_text();
+    }
+
+    if !self.remarks.is_empty() {
+      text += "\nRemarks\n";
+      for remark in &self.remarks {
+        text += &remark.get_text();
+      }
     }
 
     text
@@ -330,6 +376,7 @@ pub enum Reply {
 struct RequestProcessor {
   base_source: apt_base::Source,
   rwy_source: apt_rwy::Source,
+  rmk_source: apt_rmk::Source,
   index_status: IndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<Reply>,
@@ -340,6 +387,7 @@ impl RequestProcessor {
   fn new(
     base_source: apt_base::Source,
     rwy_source: apt_rwy::Source,
+    rmk_source: apt_rmk::Source,
     index_status: IndexStatus,
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
@@ -352,6 +400,7 @@ impl RequestProcessor {
     Self {
       base_source,
       rwy_source,
+      rmk_source,
       index_status,
       request_count,
       sender,
@@ -398,6 +447,7 @@ impl RequestProcessor {
     self.index_status.reset();
     self.base_source.clear_indexes();
     self.rwy_source.clear_index();
+    self.rmk_source.clear_index();
 
     let Some((proj4, bounds)) = spatial_info else {
       return;
@@ -413,13 +463,17 @@ impl RequestProcessor {
           self.send(reply, false, cancel);
           return;
         }
+
         self.index_status.set_has_base_index();
 
-        if !self.rwy_source.create_index(&self.base_source, cancel.clone()) {
+        if !self.rwy_source.create_index(&self.base_source, cancel.clone())
+          || !self.rmk_source.create_index(&self.base_source, cancel.clone())
+        {
           let reply = Reply::Error("Failed to create airport detail-level indexing".into());
           self.send(reply, false, cancel);
           return;
         }
+
         self.index_status.set_has_detail_index();
       }
       Err(err) => {
@@ -449,7 +503,8 @@ impl RequestProcessor {
 
     let id = info.id.clone();
     if let Some(runways) = self.rwy_source.runways(&id, cancel.clone())
-      && let Some(detail) = self.base_source.detail(info, runways, cancel)
+      && let Some(remarks) = self.rmk_source.remarks(&id, cancel.clone())
+      && let Some(detail) = self.base_source.detail(info, runways, remarks, cancel)
     {
       return Reply::Detail(detail);
     }

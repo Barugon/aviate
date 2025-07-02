@@ -99,6 +99,7 @@ impl Source {
     &self,
     info: airport::Info,
     runways: Vec<airport::Runway>,
+    remarks: Vec<airport::Remark>,
     cancel: util::Cancel,
   ) -> Option<airport::Detail> {
     use vector::LayerAccess;
@@ -109,7 +110,7 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    airport::Detail::new(layer.feature(fid), &self.fields, info, runways)
+    airport::Detail::new(layer.feature(fid), &self.fields, info, runways, remarks)
   }
 
   /// Find airports within a search radius.
@@ -216,9 +217,11 @@ impl airport::Detail {
     fields: &Fields,
     info: airport::Info,
     runways: Vec<airport::Runway>,
+    remarks: Vec<airport::Remark>,
   ) -> Option<Self> {
     let feature = feature?;
     let runways = runways.into();
+    let remarks = remarks.into();
     let fuel_types = feature.get_fuel_types(fields)?.into();
     let location = feature.get_location(fields)?.into();
     let elevation = feature.get_elevation(fields)?.into();
@@ -234,6 +237,7 @@ impl airport::Detail {
       mag_var,
       lndg_fee,
       runways,
+      remarks,
     })
   }
 }

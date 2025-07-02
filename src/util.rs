@@ -104,7 +104,7 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
 
   /// Get the CSV path.
   fn get_csv_path(path: &path::Path) -> Option<path::PathBuf> {
-    const REQ_FILES: [&str; 2] = ["APT_BASE.csv", "APT_RWY.csv"];
+    const REQ_FILES: [&str; 3] = ["APT_BASE.csv", "APT_RMK.csv", "APT_RWY.csv"];
 
     let folder = path::Path::new("CSV_Data");
     let path = path.join(folder);
