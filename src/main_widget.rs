@@ -1,9 +1,4 @@
-use crate::{
-  chart_widget, config, find_dialog, geom,
-  info_dialog::{self, InfoDialog},
-  nasr::airport,
-  select_dialog, util,
-};
+use crate::{chart_widget, config, find_dialog, geom, info_dialog, nasr::airport, select_dialog, util};
 use godot::{
   classes::{
     AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent,
@@ -239,7 +234,7 @@ impl MainWidget {
       return;
     }
 
-    let mut dialog = self.get_child::<InfoDialog>("InfoDialog");
+    let mut dialog = self.get_child::<info_dialog::InfoDialog>("InfoDialog");
     dialog.bind_mut().show_info(text, coord);
   }
 
