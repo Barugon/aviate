@@ -54,7 +54,8 @@
     "unresizable",
     "varn",
     "vcpkg",
-    "vsizip"
+    "vsizip",
+    "vslice"
   ],
   "editor.rulers": [
     120

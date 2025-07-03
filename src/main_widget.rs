@@ -331,7 +331,7 @@ impl IControl for MainWidget {
     if let Some(tree) = self.base().get_tree()
       && let Some(mut root) = tree.get_root()
     {
-      root.call_deferred("set_content_scale_factor", &[Variant::from(scale)]);
+      root.call_deferred("set_content_scale_factor", vslice![scale]);
     }
 
     // Set the main window's size and position.

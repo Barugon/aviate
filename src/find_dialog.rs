@@ -29,10 +29,9 @@ impl FindDialog {
       return;
     }
 
-    let text = Variant::from(text);
     let mut this = self.base_mut();
     this.hide();
-    this.emit_signal("confirmed", &[text]);
+    this.emit_signal("confirmed", vslice![text]);
   }
 
   #[func]
@@ -43,10 +42,9 @@ impl FindDialog {
       return;
     }
 
-    let text = Variant::from(text);
     let mut this = self.base_mut();
     this.hide();
-    this.emit_signal("confirmed", &[text]);
+    this.emit_signal("confirmed", vslice![text]);
   }
 
   fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {

@@ -31,7 +31,7 @@ impl SelectDialog {
     let idx = item.get_index();
     let mut this = self.base_mut();
     this.hide();
-    this.emit_signal("item_confirmed", &[Variant::from(idx as u32)]);
+    this.emit_signal("item_confirmed", vslice![idx as u32]);
   }
 
   #[func]
@@ -43,7 +43,7 @@ impl SelectDialog {
     let idx = item.get_index();
     let mut this = self.base_mut();
     this.hide();
-    this.emit_signal("info_confirmed", &[Variant::from(idx as u32)]);
+    this.emit_signal("info_confirmed", vslice![idx as u32]);
   }
 
   #[func]

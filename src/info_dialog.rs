@@ -20,9 +20,9 @@ impl InfoDialog {
 
   #[func]
   fn confirm(&mut self) {
-    let coord = self.coord.to_variant();
+    let coord = self.coord;
     self.base_mut().hide();
-    self.base_mut().emit_signal("confirmed", &[coord]);
+    self.base_mut().emit_signal("confirmed", vslice![coord]);
   }
 
   pub fn show_info(&mut self, text: &str, coord: geom::DD) {
