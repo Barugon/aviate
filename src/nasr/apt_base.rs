@@ -1,6 +1,6 @@
 use crate::{
   geom,
-  nasr::{airport, common},
+  nasr::{apt_rmk, apt_rwy, common},
   ok, util,
 };
 use gdal::{errors, vector};
@@ -78,7 +78,7 @@ impl Source {
   /// Get airport summary information for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn airport(&self, id: &str, cancel: util::Cancel) -> Option<airport::Summary> {
+  pub fn airport(&self, id: &str, cancel: util::Cancel) -> Option<Summary> {
     use vector::LayerAccess;
 
     let &fid = self.id_map.get(id)?;
@@ -87,7 +87,7 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    airport::Summary::new(layer.feature(fid), &self.fields, true)
+    Summary::new(layer.feature(fid), &self.fields, true)
   }
 
   /// Get airport detail information.
@@ -96,11 +96,11 @@ impl Source {
   /// - `cancel`: cancellation object
   pub fn detail(
     &self,
-    summary: airport::Summary,
-    runways: Vec<airport::Runway>,
-    remarks: Vec<airport::Remark>,
+    summary: Summary,
+    runways: Vec<apt_rwy::Runway>,
+    remarks: Vec<apt_rmk::Remark>,
     cancel: util::Cancel,
-  ) -> Option<airport::Detail> {
+  ) -> Option<Detail> {
     use vector::LayerAccess;
 
     let &fid = self.id_map.get(&summary.id)?;
@@ -109,7 +109,7 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    airport::Detail::new(layer.feature(fid), &self.fields, summary, runways, remarks)
+    Detail::new(layer.feature(fid), &self.fields, summary, runways, remarks)
   }
 
   /// Find airports within a search radius.
@@ -117,7 +117,7 @@ impl Source {
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
   /// - `cancel`: cancellation object
-  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<airport::Summary> {
+  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<Summary> {
     use vector::LayerAccess;
 
     let coord = [coord.x, coord.y];
@@ -139,7 +139,7 @@ impl Source {
         return Vec::new();
       }
 
-      if let Some(summary) = airport::Summary::new(layer.feature(fid), &self.fields, nph) {
+      if let Some(summary) = Summary::new(layer.feature(fid), &self.fields, nph) {
         airports.push(summary);
       };
     }
@@ -154,7 +154,7 @@ impl Source {
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `nph`: include non-public heliports
   /// - `cancel`: cancellation object
-  pub fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<airport::Summary> {
+  pub fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<Summary> {
     use vector::LayerAccess;
 
     let layer = util::Layer::new(self.layer());
@@ -165,7 +165,7 @@ impl Source {
       }
 
       if name.contains(term)
-        && let Some(summary) = airport::Summary::new(layer.feature(*fid), &self.fields, nph)
+        && let Some(summary) = Summary::new(layer.feature(*fid), &self.fields, nph)
       {
         airports.push(summary);
       }
@@ -185,12 +185,22 @@ impl Source {
   }
 }
 
-impl airport::Summary {
+/// Airport summary information.
+#[derive(Clone, Debug)]
+pub struct Summary {
+  id: Box<str>,
+  name: Box<str>,
+  coord: geom::DD,
+  apt_type: Type,
+  apt_use: Use,
+}
+
+impl Summary {
   fn new(feature: Option<vector::Feature>, fields: &Fields, nph: bool) -> Option<Self> {
     let feature = feature?;
     let airport_type = get_airport_type(&feature, fields)?;
     let airport_use = get_airport_use(&feature, fields)?;
-    if !nph && airport_type == airport::Type::Heliport && airport_use != airport::Use::Public {
+    if !nph && airport_type == Type::Heliport && airport_use != Use::Public {
       return None;
     }
 
@@ -206,15 +216,114 @@ impl airport::Summary {
       apt_use: airport_use,
     })
   }
+
+  pub fn id(&self) -> &str {
+    &self.id
+  }
+
+  pub fn coord(&self) -> geom::DD {
+    self.coord
+  }
+
+  pub fn get_text(&self) -> String {
+    format!(
+      "{} ({}), {}, {}",
+      self.name,
+      self.id,
+      self.apt_type.abv(),
+      self.apt_use.abv()
+    )
+  }
 }
 
-impl airport::Detail {
+/// Airport type.
+#[derive(Clone, Eq, Debug, PartialEq)]
+enum Type {
+  Airport,
+  Balloon,
+  Glider,
+  Heliport,
+  Seaplane,
+  Ultralight,
+}
+
+impl Type {
+  /// Airport type abbreviation.
+  fn abv(&self) -> &str {
+    match *self {
+      Self::Airport => "A",
+      Self::Balloon => "B",
+      Self::Glider => "G",
+      Self::Heliport => "H",
+      Self::Seaplane => "S",
+      Self::Ultralight => "U",
+    }
+  }
+
+  /// Airport type text.
+  #[allow(unused)]
+  fn text(&self) -> &str {
+    match *self {
+      Self::Airport => "AIRPORT",
+      Self::Balloon => "BALLOONPORT",
+      Self::Glider => "GLIDERPORT",
+      Self::Heliport => "HELIPORT",
+      Self::Seaplane => "SEAPLANE BASE",
+      Self::Ultralight => "ULTRALIGHT",
+    }
+  }
+}
+
+/// Airport use.
+#[derive(Clone, Eq, Debug, PartialEq)]
+enum Use {
+  Private,
+  Public,
+}
+
+impl Use {
+  /// Airport use abbreviation.
+  fn abv(&self) -> &str {
+    match *self {
+      Self::Private => "PVT",
+      Self::Public => "PUB",
+    }
+  }
+
+  /// Airport use text.
+  #[allow(unused)]
+  fn text(&self) -> &str {
+    match *self {
+      Self::Private => "PRIVATE",
+      Self::Public => "PUBLIC",
+    }
+  }
+}
+
+/// Airport detail information.
+#[derive(Clone, Debug)]
+pub struct Detail {
+  summary: Summary,
+  fuel_types: Box<str>,
+  location: Box<str>,
+  elevation: Box<str>,
+  pat_alt: Box<str>,
+  mag_var: Box<str>,
+  lndg_fee: Box<str>,
+  bcn_sked: Box<str>,
+  bcn_color: Box<str>,
+  lgt_sked: Box<str>,
+  runways: Box<[apt_rwy::Runway]>,
+  remarks: Box<[apt_rmk::Remark]>,
+}
+
+impl Detail {
   fn new(
     feature: Option<vector::Feature>,
     fields: &Fields,
-    summary: airport::Summary,
-    runways: Vec<airport::Runway>,
-    remarks: Vec<airport::Remark>,
+    summary: Summary,
+    runways: Vec<apt_rwy::Runway>,
+    remarks: Vec<apt_rmk::Remark>,
   ) -> Option<Self> {
     let feature = feature?;
     let runways = runways.into();
@@ -242,6 +351,46 @@ impl airport::Detail {
       runways,
       remarks,
     })
+  }
+
+  pub fn summary(&self) -> &Summary {
+    &self.summary
+  }
+
+  pub fn get_text(&self) -> String {
+    // TODO: ATC.
+
+    let mut text = format!(
+      include_str!("../../res/apt_info.txt"),
+      self.summary.id,
+      self.summary.name,
+      self.summary.apt_type.text(),
+      self.summary.apt_use.text(),
+      self.location,
+      self.summary.coord.get_latitude(),
+      self.summary.coord.get_longitude(),
+      self.mag_var,
+      self.elevation,
+      self.pat_alt,
+      self.fuel_types,
+      self.lndg_fee,
+      self.bcn_sked,
+      self.bcn_color,
+      self.lgt_sked,
+    );
+
+    for runway in &self.runways {
+      text += &runway.get_text();
+    }
+
+    if !self.remarks.is_empty() {
+      text += "\nRemarks\n";
+      for remark in &self.remarks {
+        text += &remark.get_text();
+      }
+    }
+
+    text
   }
 }
 
@@ -294,22 +443,22 @@ impl Fields {
   }
 }
 
-fn get_airport_type(feature: &vector::Feature, fields: &Fields) -> Option<airport::Type> {
+fn get_airport_type(feature: &vector::Feature, fields: &Fields) -> Option<Type> {
   match common::get_string(feature, fields.site_type_code)?.as_str() {
-    "A" => Some(airport::Type::Airport),
-    "B" => Some(airport::Type::Balloon),
-    "C" => Some(airport::Type::Seaplane),
-    "G" => Some(airport::Type::Glider),
-    "H" => Some(airport::Type::Heliport),
-    "U" => Some(airport::Type::Ultralight),
+    "A" => Some(Type::Airport),
+    "B" => Some(Type::Balloon),
+    "C" => Some(Type::Seaplane),
+    "G" => Some(Type::Glider),
+    "H" => Some(Type::Heliport),
+    "U" => Some(Type::Ultralight),
     _ => None,
   }
 }
 
-fn get_airport_use(feature: &vector::Feature, fields: &Fields) -> Option<airport::Use> {
+fn get_airport_use(feature: &vector::Feature, fields: &Fields) -> Option<Use> {
   match common::get_string(feature, fields.facility_use_code)?.as_str() {
-    "PR" => Some(airport::Use::Private),
-    "PU" => Some(airport::Use::Public),
+    "PR" => Some(Use::Private),
+    "PU" => Some(Use::Public),
     _ => None,
   }
 }

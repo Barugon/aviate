@@ -7,6 +7,9 @@ use gdal::spatial_ref;
 use std::{any, cell, path, sync, thread};
 use sync::{atomic, mpsc};
 
+pub use apt_base::Detail;
+pub use apt_base::Summary;
+
 /// Reader is used for opening and reading
 /// [NASR 28 day subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/) airport
 /// data.
@@ -113,7 +116,7 @@ impl Reader {
   /// Lookup airport detail information.
   /// - `summary`: airport summary information
   pub fn detail(&self, summary: Summary) {
-    assert!(!summary.id.is_empty());
+    assert!(!summary.id().is_empty());
     let cancel = self.cancel_request();
     self.send(Request::Detail(summary, cancel), true);
   }
@@ -180,191 +183,6 @@ impl Drop for Reader {
 
     if let Some(mut cancel) = self.index_cancel.take() {
       cancel.cancel();
-    }
-  }
-}
-
-/// Airport summary information.
-#[derive(Clone, Debug)]
-pub struct Summary {
-  pub id: Box<str>,
-  pub name: Box<str>,
-  pub coord: geom::DD,
-  pub apt_type: Type,
-  pub apt_use: Use,
-}
-
-impl Summary {
-  pub fn get_text(&self) -> String {
-    format!(
-      "{} ({}), {}, {}",
-      self.name,
-      self.id,
-      self.apt_type.abv(),
-      self.apt_use.abv()
-    )
-  }
-}
-
-/// Airport runway information.
-#[derive(Clone, Debug)]
-pub struct Runway {
-  pub rwy_id: Box<str>,
-  pub length: Box<str>,
-  pub width: Box<str>,
-  pub lighting: Box<str>,
-  pub surface: Box<str>,
-  pub condition: Box<str>,
-}
-
-impl Runway {
-  fn get_text(&self) -> String {
-    format!(
-      include_str!("../../res/rwy_info.txt"),
-      self.rwy_id, self.length, self.width, self.lighting, self.surface, self.condition
-    )
-  }
-}
-
-/// Airport remark information.
-#[derive(Clone, Debug)]
-pub struct Remark {
-  pub reference: Box<str>,
-  pub element: Box<str>,
-  pub text: Box<str>,
-}
-
-impl Remark {
-  fn get_text(&self) -> String {
-    if self.reference.is_empty() {
-      // General remark.
-      format!("[ul] [color=white]{}[/color][/ul]\n", self.text)
-    } else if self.element.is_empty() {
-      format!("[ul] {}: [color=white]{}[/color][/ul]\n", self.reference, self.text)
-    } else {
-      format!(
-        "[ul] {} ({}): [color=white]{}[/color][/ul]\n",
-        self.reference, self.element, self.text
-      )
-    }
-  }
-}
-
-/// Airport detail information.
-#[derive(Clone, Debug)]
-pub struct Detail {
-  pub summary: Summary,
-  pub fuel_types: Box<str>,
-  pub location: Box<str>,
-  pub elevation: Box<str>,
-  pub pat_alt: Box<str>,
-  pub mag_var: Box<str>,
-  pub lndg_fee: Box<str>,
-  pub bcn_sked: Box<str>,
-  pub bcn_color: Box<str>,
-  pub lgt_sked: Box<str>,
-  pub runways: Box<[Runway]>,
-  pub remarks: Box<[Remark]>,
-}
-
-impl Detail {
-  pub fn get_text(&self) -> String {
-    // TODO: ATC.
-
-    let mut text = format!(
-      include_str!("../../res/apt_info.txt"),
-      self.summary.id,
-      self.summary.name,
-      self.summary.apt_type.text(),
-      self.summary.apt_use.text(),
-      self.location,
-      self.summary.coord.get_latitude(),
-      self.summary.coord.get_longitude(),
-      self.mag_var,
-      self.elevation,
-      self.pat_alt,
-      self.fuel_types,
-      self.lndg_fee,
-      self.bcn_sked,
-      self.bcn_color,
-      self.lgt_sked,
-    );
-
-    for runway in &self.runways {
-      text += &runway.get_text();
-    }
-
-    if !self.remarks.is_empty() {
-      text += "\nRemarks\n";
-      for remark in &self.remarks {
-        text += &remark.get_text();
-      }
-    }
-
-    text
-  }
-}
-
-/// Airport type.
-#[derive(Clone, Eq, Debug, PartialEq)]
-pub enum Type {
-  Airport,
-  Balloon,
-  Glider,
-  Heliport,
-  Seaplane,
-  Ultralight,
-}
-
-impl Type {
-  /// Airport type abbreviation.
-  pub fn abv(&self) -> &str {
-    match *self {
-      Self::Airport => "A",
-      Self::Balloon => "B",
-      Self::Glider => "G",
-      Self::Heliport => "H",
-      Self::Seaplane => "S",
-      Self::Ultralight => "U",
-    }
-  }
-
-  /// Airport type text.
-  #[allow(unused)]
-  pub fn text(&self) -> &str {
-    match *self {
-      Self::Airport => "AIRPORT",
-      Self::Balloon => "BALLOONPORT",
-      Self::Glider => "GLIDERPORT",
-      Self::Heliport => "HELIPORT",
-      Self::Seaplane => "SEAPLANE BASE",
-      Self::Ultralight => "ULTRALIGHT",
-    }
-  }
-}
-
-/// Airport use.
-#[derive(Clone, Eq, Debug, PartialEq)]
-pub enum Use {
-  Private,
-  Public,
-}
-
-impl Use {
-  /// Airport use abbreviation.
-  pub fn abv(&self) -> &str {
-    match *self {
-      Self::Private => "PVT",
-      Self::Public => "PUB",
-    }
-  }
-
-  /// Airport use text.
-  #[allow(unused)]
-  pub fn text(&self) -> &str {
-    match *self {
-      Self::Private => "PRIVATE",
-      Self::Public => "PUBLIC",
     }
   }
 }
@@ -511,7 +329,7 @@ impl RequestProcessor {
       return Reply::Error("Airport detail-level indexing is required for airport information".into());
     }
 
-    let id = summary.id.clone();
+    let id = summary.id().to_owned();
     if let Some(runways) = self.rwy_source.runways(&id, cancel.clone())
       && let Some(remarks) = self.rmk_source.remarks(&id, cancel.clone())
       && let Some(detail) = self.base_source.detail(summary, runways, remarks, cancel)

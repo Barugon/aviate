@@ -140,7 +140,7 @@ impl MainWidget {
     if let Some(summaries) = self.airport_summaries.take()
       && let Some(summary) = summaries.get(index)
     {
-      let coord = summary.coord;
+      let coord = summary.coord();
       self.chart_widget.bind_mut().goto_coord(coord);
     }
   }
@@ -463,7 +463,7 @@ impl IControl for MainWidget {
     while let Some(reply) = airport_reader.get_reply() {
       match reply {
         airport::Reply::Airport(summary) => airport_summaries = Some(vec![summary]),
-        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.summary.coord),
+        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.summary().coord()),
         airport::Reply::Nearby(_summaries) => (),
         airport::Reply::Search(summaries) => airport_summaries = Some(summaries),
         airport::Reply::Error(err) => self.show_alert(err.as_ref()),

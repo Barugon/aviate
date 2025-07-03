@@ -1,5 +1,5 @@
 use crate::{
-  nasr::{airport, apt_base, common},
+  nasr::{apt_base, common},
   util,
 };
 use gdal::{errors, vector};
@@ -68,7 +68,7 @@ impl Source {
   /// Get remarks for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn remarks(&self, id: &str, cancel: util::Cancel) -> Option<Vec<airport::Remark>> {
+  pub fn remarks(&self, id: &str, cancel: util::Cancel) -> Option<Vec<Remark>> {
     use vector::LayerAccess;
 
     let Some(fids) = self.id_map.get(id) else {
@@ -82,7 +82,7 @@ impl Source {
         return None;
       }
 
-      if let Some(remark) = airport::Remark::new(layer.feature(fid), &self.fields) {
+      if let Some(remark) = Remark::new(layer.feature(fid), &self.fields) {
         remarks.push(remark);
       }
     }
@@ -98,7 +98,15 @@ impl Source {
   }
 }
 
-impl airport::Remark {
+/// Airport remark information.
+#[derive(Clone, Debug)]
+pub struct Remark {
+  reference: Box<str>,
+  element: Box<str>,
+  text: Box<str>,
+}
+
+impl Remark {
   fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
     let feature = feature?;
     let reference = get_reference(&feature, fields)?.into();
@@ -110,6 +118,20 @@ impl airport::Remark {
       element,
       text,
     })
+  }
+
+  pub fn get_text(&self) -> String {
+    if self.reference.is_empty() {
+      // General remark.
+      format!("[ul] [color=white]{}[/color][/ul]\n", self.text)
+    } else if self.element.is_empty() {
+      format!("[ul] {}: [color=white]{}[/color][/ul]\n", self.reference, self.text)
+    } else {
+      format!(
+        "[ul] {} ({}): [color=white]{}[/color][/ul]\n",
+        self.reference, self.element, self.text
+      )
+    }
   }
 }
 

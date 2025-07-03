@@ -1,5 +1,5 @@
 use crate::{
-  nasr::{airport, apt_base, common},
+  nasr::{apt_base, common},
   util,
 };
 use gdal::{errors, vector};
@@ -72,7 +72,7 @@ impl Source {
   /// Get runways for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn runways(&self, id: &str, cancel: util::Cancel) -> Option<Vec<airport::Runway>> {
+  pub fn runways(&self, id: &str, cancel: util::Cancel) -> Option<Vec<Runway>> {
     use vector::LayerAccess;
 
     let fids = self.id_map.get(id)?;
@@ -82,7 +82,7 @@ impl Source {
       if cancel.canceled() {
         return None;
       }
-      runways.push(airport::Runway::new(layer.feature(fid), &self.fields)?);
+      runways.push(Runway::new(layer.feature(fid), &self.fields)?);
     }
     Some(runways)
   }
@@ -92,7 +92,18 @@ impl Source {
   }
 }
 
-impl airport::Runway {
+/// Airport runway information.
+#[derive(Clone, Debug)]
+pub struct Runway {
+  rwy_id: Box<str>,
+  length: Box<str>,
+  width: Box<str>,
+  lighting: Box<str>,
+  surface: Box<str>,
+  condition: Box<str>,
+}
+
+impl Runway {
   fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
     let feature = feature?;
     let rwy_id = common::get_string(&feature, fields.rwy_id)?.into();
@@ -109,6 +120,13 @@ impl airport::Runway {
       surface,
       condition,
     })
+  }
+
+  pub fn get_text(&self) -> String {
+    format!(
+      include_str!("../../res/rwy_info.txt"),
+      self.rwy_id, self.length, self.width, self.lighting, self.surface, self.condition
+    )
   }
 }
 
