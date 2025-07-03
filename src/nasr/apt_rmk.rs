@@ -116,8 +116,8 @@ impl airport::Remark {
 /// Field indexes for `APT_RMK.csv`.
 struct Fields {
   arpt_id: usize,
-  ref_col_name: usize,
   element: usize,
+  ref_col_name: usize,
   remark: usize,
 }
 
@@ -128,22 +128,24 @@ impl Fields {
     let defn = layer.defn();
     Ok(Self {
       arpt_id: defn.field_index("ARPT_ID")?,
-      ref_col_name: defn.field_index("REF_COL_NAME")?,
       element: defn.field_index("ELEMENT")?,
+      ref_col_name: defn.field_index("REF_COL_NAME")?,
       remark: defn.field_index("REMARK")?,
     })
   }
 }
 
 fn get_reference(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  // Expand abbreviations.
   Some(match common::get_string(feature, fields.ref_col_name)?.as_str() {
-    "ARPT_ID" => String::from("Airport"),
-    "ARPT_NAME" => String::from("name"),
+    "ARPT_ID" => String::from("Airport ID"),
+    "ARPT_NAME" => String::from("Airport Name"),
+    "BCN_LENS_COLOR" => String::from("Beacon Color"),
+    "BCN_LGT_SKED" => String::from("Beacon Schedule"),
     "ELEV" => String::from("Elevation"),
     "FACILITY_USE_CODE" => String::from("Facility Use"),
     "FUEL_TYPE" => String::from("Fuel Type"),
     "GENERAL_REMARK" => String::new(),
+    "LGT_SKED" => String::from("Lighting Schedule"),
     "LNDG_FEE_FLAG" => String::from("Landing Fee"),
     "SITE_TYPE_CODE" => String::from("Site Type"),
     "TPA" => String::from("Pattern Altitude"),

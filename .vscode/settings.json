@@ -44,6 +44,7 @@
     "rwkb",
     "serde",
     "signum",
+    "sked",
     "stdc",
     "svgs",
     "tfws",

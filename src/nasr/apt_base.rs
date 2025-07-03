@@ -225,6 +225,9 @@ impl airport::Detail {
     let pat_alt = get_pattern_altitude(&feature, fields)?.into();
     let mag_var = get_magnetic_variation(&feature, fields)?.into();
     let lndg_fee = get_landing_fee(&feature, fields)?.into();
+    let bcn_sked = get_beacon_schedule(&feature, fields)?.into();
+    let bcn_color = get_beacon_color(&feature, fields)?.into();
+    let lgt_sked = get_lighting_schedule(&feature, fields)?.into();
     Some(Self {
       summary,
       fuel_types,
@@ -233,6 +236,9 @@ impl airport::Detail {
       pat_alt,
       mag_var,
       lndg_fee,
+      bcn_sked,
+      bcn_color,
+      lgt_sked,
       runways,
       remarks,
     })
@@ -243,18 +249,21 @@ impl airport::Detail {
 struct Fields {
   arpt_id: usize,
   arpt_name: usize,
-  site_type_code: usize,
+  bcn_lens_color: usize,
+  bcn_lgt_sked: usize,
+  city: usize,
+  elev_method_code: usize,
+  elev: usize,
   facility_use_code: usize,
+  fuel_types: usize,
+  lat_decimal: usize,
+  lgt_sked: usize,
   lndg_fee_flag: usize,
   long_decimal: usize,
-  lat_decimal: usize,
-  fuel_types: usize,
-  city: usize,
-  state_code: usize,
-  elev: usize,
-  elev_method_code: usize,
-  mag_varn: usize,
   mag_hemis: usize,
+  mag_varn: usize,
+  site_type_code: usize,
+  state_code: usize,
   tpa: usize,
 }
 
@@ -265,18 +274,21 @@ impl Fields {
     Ok(Self {
       arpt_id: defn.field_index("ARPT_ID")?,
       arpt_name: defn.field_index("ARPT_NAME")?,
-      site_type_code: defn.field_index("SITE_TYPE_CODE")?,
+      bcn_lens_color: defn.field_index("BCN_LENS_COLOR")?,
+      bcn_lgt_sked: defn.field_index("BCN_LGT_SKED")?,
+      city: defn.field_index("CITY")?,
+      elev_method_code: defn.field_index("ELEV_METHOD_CODE")?,
+      elev: defn.field_index("ELEV")?,
       facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
+      fuel_types: defn.field_index("FUEL_TYPES")?,
+      lat_decimal: defn.field_index("LAT_DECIMAL")?,
+      lgt_sked: defn.field_index("LGT_SKED")?,
       lndg_fee_flag: defn.field_index("LNDG_FEE_FLAG")?,
       long_decimal: defn.field_index("LONG_DECIMAL")?,
-      lat_decimal: defn.field_index("LAT_DECIMAL")?,
-      fuel_types: defn.field_index("FUEL_TYPES")?,
-      city: defn.field_index("CITY")?,
-      state_code: defn.field_index("STATE_CODE")?,
-      elev: defn.field_index("ELEV")?,
-      elev_method_code: defn.field_index("ELEV_METHOD_CODE")?,
-      mag_varn: defn.field_index("MAG_VARN")?,
       mag_hemis: defn.field_index("MAG_HEMIS")?,
+      mag_varn: defn.field_index("MAG_VARN")?,
+      site_type_code: defn.field_index("SITE_TYPE_CODE")?,
+      state_code: defn.field_index("STATE_CODE")?,
       tpa: defn.field_index("TPA")?,
     })
   }
@@ -372,6 +384,39 @@ fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<
   }
 
   Some(format!("{var}°{hem}"))
+}
+
+fn get_lighting_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let lighting_schedule = common::get_string(feature, fields.lgt_sked)?;
+  Some(match lighting_schedule.as_str() {
+    "SS-SR" => String::from("SUNSET-SUNRISE"),
+    "SEE RMK" => String::from("SEE REMARK"),
+    _ => lighting_schedule,
+  })
+}
+
+fn get_beacon_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let beacon_schedule = common::get_string(feature, fields.bcn_lgt_sked)?;
+  Some(match beacon_schedule.as_str() {
+    "SS-SR" => String::from("SUNSET-SUNRISE"),
+    "SEE RMK" => String::from("SEE REMARK"),
+    _ => beacon_schedule,
+  })
+}
+
+fn get_beacon_color(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let beacon_color = common::get_string(feature, fields.bcn_lens_color)?;
+  Some(match beacon_color.as_str() {
+    "WG" => String::from("WHITE-GREEN (LIGHTED LAND AIRPORT)"),
+    "WY" => String::from("WHITE-YELLOW (LIGHTED SEAPLANE BASE)"),
+    "WGY" => String::from("WHITE-GREEN-YELLOW (HELIPORT)"),
+    "SWG" => String::from("SPLIT-WHITE-GREEN (LIGHTED MILITARY AIRPORT)"),
+    "W" => String::from("WHITE (UNLIGHTED LAND AIRPORT)"),
+    "Y" => String::from("YELLOW (UNLIGHTED SEAPLANE BASE)"),
+    "G" => String::from("GREEN (LIGHTED LAND AIRPORT)"),
+    "N" => String::from("NONE"),
+    _ => beacon_color,
+  })
 }
 
 /// Location spatial index item.

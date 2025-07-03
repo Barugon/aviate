@@ -238,7 +238,7 @@ impl Remark {
   fn get_text(&self) -> String {
     if self.reference.is_empty() {
       // General remark.
-      format!("[ul] [color=white]{}[/color][/ul]\n", self.text.as_ref())
+      format!("[ul] [color=white]{}[/color][/ul]\n", self.text)
     } else if self.element.is_empty() {
       format!("[ul] {}: [color=white]{}[/color][/ul]\n", self.reference, self.text)
     } else {
@@ -260,13 +260,16 @@ pub struct Detail {
   pub pat_alt: Box<str>,
   pub mag_var: Box<str>,
   pub lndg_fee: Box<str>,
+  pub bcn_sked: Box<str>,
+  pub bcn_color: Box<str>,
+  pub lgt_sked: Box<str>,
   pub runways: Box<[Runway]>,
   pub remarks: Box<[Remark]>,
 }
 
 impl Detail {
   pub fn get_text(&self) -> String {
-    // TODO: ATC and lighting.
+    // TODO: ATC.
 
     let mut text = format!(
       include_str!("../../res/apt_info.txt"),
@@ -282,6 +285,9 @@ impl Detail {
       self.pat_alt,
       self.fuel_types,
       self.lndg_fee,
+      self.bcn_sked,
+      self.bcn_color,
+      self.lgt_sked,
     );
 
     for runway in &self.runways {
