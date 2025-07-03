@@ -186,7 +186,7 @@ impl ChartWidget {
     let chart_reader = self.chart_reader.as_ref()?;
     let mut image_info = None;
 
-    // Collect all chart replies to get to the most recent image.
+    // Collect all chart replies in order to get to the most recent image.
     while let Some(reply) = chart_reader.get_reply() {
       match reply {
         chart::Reply::Image(part, texture) => {

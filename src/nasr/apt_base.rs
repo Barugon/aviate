@@ -358,7 +358,7 @@ impl Detail {
   }
 
   pub fn get_text(&self) -> String {
-    // TODO: ATC.
+    // TODO: Frequency information.
 
     let mut text = format!(
       include_str!("../../res/apt_info.txt"),
