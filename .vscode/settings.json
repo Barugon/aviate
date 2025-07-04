@@ -42,6 +42,7 @@
     "rustc",
     "rustup",
     "rwkb",
+    "sectorization",
     "serde",
     "signum",
     "sked",

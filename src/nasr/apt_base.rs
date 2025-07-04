@@ -1,6 +1,6 @@
 use crate::{
   geom,
-  nasr::{apt_rmk, apt_rwy, common},
+  nasr::{apt_rmk, apt_rwy, common, frq},
   ok, util,
 };
 use gdal::{errors, vector};
@@ -97,6 +97,7 @@ impl Source {
   pub fn detail(
     &self,
     summary: Summary,
+    frequencies: Vec<frq::Frequency>,
     runways: Vec<apt_rwy::Runway>,
     remarks: Vec<apt_rmk::Remark>,
     cancel: util::Cancel,
@@ -109,7 +110,7 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    Detail::new(layer.feature(fid), &self.fields, summary, runways, remarks)
+    Detail::new(layer.feature(fid), &self.fields, summary, frequencies, runways, remarks)
   }
 
   /// Find airports within a search radius.
@@ -337,6 +338,7 @@ pub struct Detail {
   bcn_sked: Box<str>,
   bcn_color: Box<str>,
   lgt_sked: Box<str>,
+  frequencies: Box<[frq::Frequency]>,
   runways: Box<[apt_rwy::Runway]>,
   remarks: Box<[apt_rmk::Remark]>,
 }
@@ -346,10 +348,12 @@ impl Detail {
     feature: Option<vector::Feature>,
     fields: &Fields,
     summary: Summary,
+    frequencies: Vec<frq::Frequency>,
     runways: Vec<apt_rwy::Runway>,
     remarks: Vec<apt_rmk::Remark>,
   ) -> Option<Self> {
     let feature = feature?;
+    let frequencies = frequencies.into();
     let runways = runways.into();
     let remarks = remarks.into();
     let fuel_types = get_fuel_types(&feature, fields)?.into();
@@ -372,6 +376,7 @@ impl Detail {
       bcn_sked,
       bcn_color,
       lgt_sked,
+      frequencies,
       runways,
       remarks,
     })
@@ -382,8 +387,6 @@ impl Detail {
   }
 
   pub fn get_text(&self) -> String {
-    // TODO: Frequency information.
-
     let mut text = self.summary.get_id_text()
       + &self.summary.get_name_text()
       + &self.summary.get_apt_type_text()
@@ -398,6 +401,10 @@ impl Detail {
       + &self.get_beacon_schedule_text()
       + &self.get_beacon_color_text()
       + &self.get_lighting_schedule_text();
+
+    for frequency in &self.frequencies {
+      text += &frequency.get_text();
+    }
 
     for runway in &self.runways {
       text += &runway.get_text();

@@ -132,7 +132,7 @@ impl Runway {
   }
 
   fn get_id_text(&self) -> String {
-    format!("Runway: [color=white]{}[/color]\n", self.rwy_id)
+    format!("\nRunway: [color=white]{}[/color]\n", self.rwy_id)
   }
 
   fn get_length_text(&self) -> String {
