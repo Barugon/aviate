@@ -178,7 +178,8 @@ impl Frequency {
     if self.remark.is_empty() {
       return String::new();
     }
-    format!("[ul] [color=white]{}[/color][/ul]\n", self.remark)
+    let text = common::tag_phone_numbers(&self.remark);
+    format!("[ul] [color=white]{}[/color][/ul]\n", text)
   }
 }
 

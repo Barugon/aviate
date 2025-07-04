@@ -121,16 +121,16 @@ impl Remark {
   }
 
   pub fn get_text(&self) -> String {
-    if self.reference.is_empty() {
+    let text = common::tag_phone_numbers(&self.text);
+    let element = &self.element;
+    let reference = &self.reference;
+    if reference.is_empty() {
       // General remark.
-      format!("[ul] [color=white]{}[/color][/ul]\n", self.text)
-    } else if self.element.is_empty() {
-      format!("[ul] {}: [color=white]{}[/color][/ul]\n", self.reference, self.text)
+      format!("[ul] [color=white]{text}[/color][/ul]\n")
+    } else if element.is_empty() {
+      format!("[ul] {reference}: [color=white]{text}[/color][/ul]\n")
     } else {
-      format!(
-        "[ul] {} ({}): [color=white]{}[/color][/ul]\n",
-        self.reference, self.element, self.text
-      )
+      format!("[ul] {reference} ({element}): [color=white]{text}[/color][/ul]\n")
     }
   }
 }
