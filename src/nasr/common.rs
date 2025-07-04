@@ -51,27 +51,29 @@ pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
 }
 
 pub fn tag_phone_numbers<'a>(text: &'a str) -> borrow::Cow<'a, str> {
-  // TODO: Enable only for phones.
-  let mut ranges = Vec::new();
   if let Some(regex) = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b") {
+    let mut ranges = Vec::new();
     for result in regex.search_all(text).iter_shared() {
       ranges.push((result.get_start() as usize, result.get_end() as usize));
     }
-  }
 
-  if !ranges.is_empty() {
-    let mut tagged = String::new();
-    let mut pos = 0;
-    for (start, end) in ranges {
-      tagged += &format!(
-        "{}[url][color=#A0C0FF]{}[/color][/url]",
-        &text[pos..start],
-        &text[start..end],
-      );
-      pos = end;
+    if !ranges.is_empty() {
+      let mut tagged = String::new();
+      let mut pos = 0;
+      for (start, end) in ranges {
+        let link = &text[start..end];
+        let text = &text[pos..start];
+        let text = if cfg!(target_os = "android") {
+          format!("{text}[url=\"{link}\"][color=#A0C0FF]{link}[/color][/url]")
+        } else {
+          format!("{text}[color=#A0C0FF]{link}[/color]")
+        };
+        tagged += &text;
+        pos = end;
+      }
+      tagged += &text[pos..];
+      return tagged.into();
     }
-    tagged += &text[pos..];
-    return tagged.into();
   }
 
   text.into()
