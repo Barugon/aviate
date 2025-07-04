@@ -4,6 +4,7 @@ use crate::{
   ok, util,
 };
 use gdal::{errors, vector};
+use godot::classes::RegEx;
 use std::{collections, path};
 
 /// Dataset source for for `APT_BASE.csv`.
@@ -402,8 +403,11 @@ impl Detail {
       + &self.get_beacon_color_text()
       + &self.get_lighting_schedule_text();
 
+    // Create regex to search text for phone numbers.
+    let regex = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b");
+
     for frequency in &self.frequencies {
-      text += &frequency.get_text();
+      text += &frequency.get_text(regex.as_ref());
     }
 
     for runway in &self.runways {
@@ -413,7 +417,7 @@ impl Detail {
     if !self.remarks.is_empty() {
       text += "\nRemarks\n";
       for remark in &self.remarks {
-        text += &remark.get_text();
+        text += &remark.get_text(regex.as_ref());
       }
     }
 

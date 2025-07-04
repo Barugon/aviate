@@ -1,6 +1,6 @@
 use crate::{geom, ok};
 use gdal::{errors, spatial_ref, vector};
-use godot::classes::RegEx;
+use godot::{classes::RegEx, obj::Gd};
 use std::borrow;
 
 pub fn open_options<'a>() -> gdal::DatasetOptions<'a> {
@@ -50,8 +50,8 @@ pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
   ok!(feature.field_as_string(index)).and_then(|v| v)
 }
 
-pub fn tag_phone_numbers<'a>(text: &'a str) -> borrow::Cow<'a, str> {
-  if let Some(regex) = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b") {
+pub fn tag_text_matches<'a>(regex: Option<&Gd<RegEx>>, text: &'a str) -> borrow::Cow<'a, str> {
+  if let Some(regex) = regex {
     let mut ranges = Vec::new();
     for result in regex.search_all(text).iter_shared() {
       ranges.push((result.get_start() as usize, result.get_end() as usize));

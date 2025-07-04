@@ -3,6 +3,7 @@ use crate::{
   util,
 };
 use gdal::{errors, vector};
+use godot::{classes::RegEx, obj::Gd};
 use std::{collections, path};
 
 /// Dataset source for for `APT_RMK.csv`.
@@ -120,8 +121,8 @@ impl Remark {
     })
   }
 
-  pub fn get_text(&self) -> String {
-    let text = common::tag_phone_numbers(&self.text);
+  pub fn get_text(&self, regex: Option<&Gd<RegEx>>) -> String {
+    let text = common::tag_text_matches(regex, &self.text);
     let element = &self.element;
     let reference = &self.reference;
     if reference.is_empty() {

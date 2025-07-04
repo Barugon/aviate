@@ -3,6 +3,7 @@ use crate::{
   util,
 };
 use gdal::{errors, vector};
+use godot::{classes::RegEx, obj::Gd};
 use std::{collections, path};
 
 /// Dataset source for for `FRQ.csv`.
@@ -125,14 +126,14 @@ impl Frequency {
     })
   }
 
-  pub fn get_text(&self) -> String {
+  pub fn get_text(&self, regex: Option<&Gd<RegEx>>) -> String {
     self.get_frequency_text()
       + &self.get_frequency_use_text()
       + &self.get_facility_type_text()
       + &self.get_sectorization_text()
       + &self.get_tower_call_text()
       + &self.get_approach_call_text()
-      + &self.get_remark_text()
+      + &self.get_remark_text(regex)
   }
 
   fn get_frequency_text(&self) -> String {
@@ -174,11 +175,11 @@ impl Frequency {
     format!("[ul] Approach Call: [color=white]{}[/color][/ul]\n", self.approach_call)
   }
 
-  fn get_remark_text(&self) -> String {
+  fn get_remark_text(&self, regex: Option<&Gd<RegEx>>) -> String {
     if self.remark.is_empty() {
       return String::new();
     }
-    let text = common::tag_phone_numbers(&self.remark);
+    let text = common::tag_text_matches(regex, &self.remark);
     format!("[ul] [color=white]{}[/color][/ul]\n", text)
   }
 }

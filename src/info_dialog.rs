@@ -56,7 +56,7 @@ impl IWindow for InfoDialog {
     // Initialize the rich text label.
     self.text.init(self.get_child("RichTextLabel"));
 
-    // Connect the link clicked event.
+    // Connect the meta-clicked event.
     let callable = self.base().callable("launch_dialer");
     self.text.connect("meta_clicked", &callable);
 
