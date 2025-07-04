@@ -4,7 +4,7 @@ use crate::{
   ok, util,
 };
 use gdal::{errors, vector};
-use godot::classes::RegEx;
+use godot::{classes::RegEx, obj::Gd};
 use std::{collections, path};
 
 /// Dataset source for for `APT_BASE.csv`.
@@ -336,6 +336,7 @@ pub struct Detail {
   pat_alt: Box<str>,
   mag_var: Box<str>,
   lndg_fee: Box<str>,
+  fss_phone: Box<str>,
   bcn_sked: Box<str>,
   bcn_color: Box<str>,
   lgt_sked: Box<str>,
@@ -363,6 +364,7 @@ impl Detail {
     let pat_alt = get_pattern_altitude(&feature, fields)?.into();
     let mag_var = get_magnetic_variation(&feature, fields)?.into();
     let lndg_fee = get_landing_fee(&feature, fields)?.into();
+    let fss_phone = get_fss_phone(&feature, fields)?.into();
     let bcn_sked = get_beacon_schedule(&feature, fields)?.into();
     let bcn_color = get_beacon_color(&feature, fields)?.into();
     let lgt_sked = get_lighting_schedule(&feature, fields)?.into();
@@ -374,6 +376,7 @@ impl Detail {
       pat_alt,
       mag_var,
       lndg_fee,
+      fss_phone,
       bcn_sked,
       bcn_color,
       lgt_sked,
@@ -388,6 +391,9 @@ impl Detail {
   }
 
   pub fn get_text(&self) -> String {
+    // Create regex to search text for phone numbers.
+    let regex = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b|\b1-800-WX-BRIEF\b");
+
     let mut text = self.summary.get_id_text()
       + &self.summary.get_name_text()
       + &self.summary.get_apt_type_text()
@@ -399,12 +405,10 @@ impl Detail {
       + &self.get_pattern_altitude_text()
       + &self.get_fuel_types_text()
       + &self.get_landing_fee_text()
+      + &self.get_fss_phone_text(regex.as_ref())
       + &self.get_beacon_schedule_text()
       + &self.get_beacon_color_text()
       + &self.get_lighting_schedule_text();
-
-    // Create regex to search text for phone numbers.
-    let regex = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b");
 
     for frequency in &self.frequencies {
       text += &frequency.get_text(regex.as_ref());
@@ -460,6 +464,14 @@ impl Detail {
     format!("Landing Fee: [color=white]{}[/color]\n", self.lndg_fee)
   }
 
+  fn get_fss_phone_text(&self, regex: Option<&Gd<RegEx>>) -> String {
+    if self.fss_phone.is_empty() {
+      return String::new();
+    }
+    let text = common::tag_text_matches(regex, &self.fss_phone);
+    format!("Flight Service Station: [color=white]{text}[/color]\n")
+  }
+
   fn get_beacon_schedule_text(&self) -> String {
     if self.bcn_sked.is_empty() {
       return String::new();
@@ -484,6 +496,7 @@ impl Detail {
 
 /// Field indexes for `APT_BASE.csv`.
 struct Fields {
+  alt_toll_free_no: usize,
   arpt_id: usize,
   arpt_name: usize,
   bcn_lens_color: usize,
@@ -501,6 +514,7 @@ struct Fields {
   mag_varn: usize,
   site_type_code: usize,
   state_code: usize,
+  toll_free_no: usize,
   tpa: usize,
 }
 
@@ -509,6 +523,7 @@ impl Fields {
     use vector::LayerAccess;
     let defn = layer.defn();
     Ok(Self {
+      alt_toll_free_no: defn.field_index("ALT_TOLL_FREE_NO")?,
       arpt_id: defn.field_index("ARPT_ID")?,
       arpt_name: defn.field_index("ARPT_NAME")?,
       bcn_lens_color: defn.field_index("BCN_LENS_COLOR")?,
@@ -526,6 +541,7 @@ impl Fields {
       mag_varn: defn.field_index("MAG_VARN")?,
       site_type_code: defn.field_index("SITE_TYPE_CODE")?,
       state_code: defn.field_index("STATE_CODE")?,
+      toll_free_no: defn.field_index("TOLL_FREE_NO")?,
       tpa: defn.field_index("TPA")?,
     })
   }
@@ -549,15 +565,6 @@ fn get_airport_use(feature: &vector::Feature, fields: &Fields) -> Option<Use> {
     "PU" => Some(Use::Public),
     _ => None,
   }
-}
-
-fn get_landing_fee(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let landing_fee = common::get_string(feature, fields.lndg_fee_flag)?;
-  Some(match landing_fee.as_str() {
-    "Y" => String::from("YES"),
-    "N" => String::from("NO"),
-    _ => landing_fee,
-  })
 }
 
 fn get_coord(feature: &vector::Feature, fields: &Fields) -> Option<geom::DD> {
@@ -621,6 +628,24 @@ fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<
   }
 
   Some(format!("{var}°{hem}"))
+}
+
+fn get_landing_fee(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let landing_fee = common::get_string(feature, fields.lndg_fee_flag)?;
+  Some(match landing_fee.as_str() {
+    "Y" => String::from("YES"),
+    "N" => String::from("NO"),
+    _ => landing_fee,
+  })
+}
+
+fn get_fss_phone(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let fss_phone = common::get_string(feature, fields.toll_free_no)?;
+  let alt_phone = common::get_string(feature, fields.alt_toll_free_no)?;
+  if !fss_phone.is_empty() && !alt_phone.is_empty() {
+    return Some(format!("{fss_phone} (ALT {alt_phone})"));
+  }
+  Some(fss_phone)
 }
 
 fn get_lighting_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
