@@ -234,6 +234,30 @@ impl Summary {
       self.apt_use.abv()
     )
   }
+
+  fn get_id_text(&self) -> String {
+    format!("ID: [color=white]{}[/color]\n", self.id)
+  }
+
+  fn get_name_text(&self) -> String {
+    format!("Name: [color=white]{}[/color]\n", self.name)
+  }
+
+  fn get_coordinates_text(&self) -> String {
+    format!(
+      "Coordinates: [color=white]{}, {}[/color]\n",
+      self.coord.get_latitude(),
+      self.coord.get_longitude()
+    )
+  }
+
+  fn get_apt_type_text(&self) -> String {
+    format!("Site Type: [color=white]{}[/color]\n", self.apt_type.text())
+  }
+
+  fn get_apt_use_text(&self) -> String {
+    format!("Facility Use: [color=white]{}[/color]\n", self.apt_use.text())
+  }
 }
 
 /// Airport type.
@@ -360,24 +384,20 @@ impl Detail {
   pub fn get_text(&self) -> String {
     // TODO: Frequency information.
 
-    let mut text = format!(
-      include_str!("../../res/apt_info.txt"),
-      self.summary.id,
-      self.summary.name,
-      self.summary.apt_type.text(),
-      self.summary.apt_use.text(),
-      self.location,
-      self.summary.coord.get_latitude(),
-      self.summary.coord.get_longitude(),
-      self.mag_var,
-      self.elevation,
-      self.pat_alt,
-      self.fuel_types,
-      self.lndg_fee,
-      self.bcn_sked,
-      self.bcn_color,
-      self.lgt_sked,
-    );
+    let mut text = self.summary.get_id_text()
+      + &self.summary.get_name_text()
+      + &self.summary.get_apt_type_text()
+      + &self.summary.get_apt_use_text()
+      + &self.get_location_text()
+      + &self.summary.get_coordinates_text()
+      + &self.get_mag_var_text()
+      + &self.get_elevation_text()
+      + &self.get_pattern_altitude_text()
+      + &self.get_fuel_types_text()
+      + &self.get_landing_fee_text()
+      + &self.get_beacon_schedule_text()
+      + &self.get_beacon_color_text()
+      + &self.get_lighting_schedule_text();
 
     for runway in &self.runways {
       text += &runway.get_text();
@@ -391,6 +411,63 @@ impl Detail {
     }
 
     text
+  }
+
+  fn get_fuel_types_text(&self) -> String {
+    if self.fuel_types.is_empty() {
+      return String::new();
+    }
+    format!("Fuel Types: [color=white]{}[/color]\n", self.fuel_types)
+  }
+
+  fn get_location_text(&self) -> String {
+    format!("Location: [color=white]{}[/color]\n", self.location)
+  }
+
+  fn get_elevation_text(&self) -> String {
+    format!("Field Elevation: [color=white]{}[/color]\n", self.elevation)
+  }
+
+  fn get_pattern_altitude_text(&self) -> String {
+    if self.pat_alt.is_empty() {
+      return String::new();
+    }
+    format!("Pattern Altitude: [color=white]{}[/color]\n", self.pat_alt)
+  }
+
+  fn get_mag_var_text(&self) -> String {
+    if self.mag_var.is_empty() {
+      return String::new();
+    }
+    format!("Magnetic Variation: [color=white]{}[/color]\n", self.mag_var)
+  }
+
+  fn get_landing_fee_text(&self) -> String {
+    if self.lndg_fee.is_empty() {
+      return String::new();
+    }
+    format!("Landing Fee: [color=white]{}[/color]\n", self.lndg_fee)
+  }
+
+  fn get_beacon_schedule_text(&self) -> String {
+    if self.bcn_sked.is_empty() {
+      return String::new();
+    }
+    format!("Beacon Schedule: [color=white]{}[/color]\n", self.bcn_sked)
+  }
+
+  fn get_beacon_color_text(&self) -> String {
+    if self.bcn_color.is_empty() {
+      return String::new();
+    }
+    format!("Beacon Color: [color=white]{}[/color]\n", self.bcn_color)
+  }
+
+  fn get_lighting_schedule_text(&self) -> String {
+    if self.lgt_sked.is_empty() {
+      return String::new();
+    }
+    format!("Lighting Schedule: [color=white]{}[/color]\n", self.lgt_sked)
   }
 }
 

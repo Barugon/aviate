@@ -123,10 +123,45 @@ impl Runway {
   }
 
   pub fn get_text(&self) -> String {
-    format!(
-      include_str!("../../res/rwy_info.txt"),
-      self.rwy_id, self.length, self.width, self.lighting, self.surface, self.condition
-    )
+    self.get_id_text()
+      + &self.get_length_text()
+      + &self.get_width_text()
+      + &self.get_lighting_text()
+      + &self.get_surface_text()
+      + &self.get_condition_text()
+  }
+
+  fn get_id_text(&self) -> String {
+    format!("Runway: [color=white]{}[/color]\n", self.rwy_id)
+  }
+
+  fn get_length_text(&self) -> String {
+    format!("[ul] Length: [color=white]{}[/color][/ul]\n", self.length)
+  }
+
+  fn get_width_text(&self) -> String {
+    format!("[ul] Width: [color=white]{}[/color][/ul]\n", self.width)
+  }
+
+  fn get_lighting_text(&self) -> String {
+    if self.lighting.is_empty() {
+      return String::new();
+    }
+    format!("[ul] Lighting: [color=white]{}[/color][/ul]\n", self.lighting)
+  }
+
+  fn get_surface_text(&self) -> String {
+    if self.surface.is_empty() {
+      return String::new();
+    }
+    format!("[ul] Surface: [color=white]{}[/color][/ul]\n", self.surface)
+  }
+
+  fn get_condition_text(&self) -> String {
+    if self.condition.is_empty() {
+      return String::new();
+    }
+    format!("[ul] Condition: [color=white]{}[/color][/ul]\n", self.condition)
   }
 }
 
