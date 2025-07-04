@@ -51,7 +51,7 @@ impl MainWidget {
 
   #[func]
   fn find_clicked(&self) {
-    if !self.find_button.is_visible() || self.dialog_is_visible() {
+    if !self.find_button.is_visible() || self.get_visible_dialog().is_some() {
       return;
     }
 
@@ -74,7 +74,7 @@ impl MainWidget {
 
   #[func]
   fn open_zip_file_clicked(&self) {
-    if self.dialog_is_visible() {
+    if self.get_visible_dialog().is_some() {
       return;
     }
 
@@ -168,7 +168,7 @@ impl MainWidget {
 
   fn select_airport(&mut self, airports: Vec<airport::Summary>) {
     // It's possible to open a another dialog before the airport query is complete.
-    if self.dialog_is_visible() {
+    if self.get_visible_dialog().is_some() {
       return;
     }
 
@@ -230,7 +230,7 @@ impl MainWidget {
 
   fn show_info(&self, text: &str, coord: geom::DD) {
     // It's possible to open a another dialog before the airport detail query is complete.
-    if self.dialog_is_visible() {
+    if self.get_visible_dialog().is_some() {
       return;
     }
 
@@ -239,8 +239,8 @@ impl MainWidget {
   }
 
   fn show_alert(&self, text: &str) {
-    if self.dialog_is_visible() {
-      return;
+    if let Some(mut dialog) = self.get_visible_dialog() {
+      dialog.call_deferred("hide", &[]);
     }
 
     let mut dialog = self.get_child::<AcceptDialog>("AlertDialog");
@@ -260,17 +260,17 @@ impl MainWidget {
     }
   }
 
-  /// Returns true if a dialog window is visible.
-  fn dialog_is_visible(&self) -> bool {
+  /// Returns a dialog window if one is visible.
+  fn get_visible_dialog(&self) -> Option<Gd<Window>> {
     for child in self.base().get_children().iter_shared() {
       if let Ok(window) = child.try_cast::<Window>()
         && window.is_exclusive()
         && window.is_visible()
       {
-        return true;
+        return Some(window);
       }
     }
-    false
+    None
   }
 
   /// Set the main window's size and position.
@@ -453,20 +453,24 @@ impl IControl for MainWidget {
       self.airport_status.pending = pending;
     }
 
-    // Collect airport replies.
-    let mut airport_summaries = None;
-    while let Some(reply) = airport_reader.get_reply() {
-      match reply {
-        airport::Reply::Airport(summary) => airport_summaries = Some(vec![summary]),
-        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.summary().coord()),
-        airport::Reply::Nearby(_summaries) => (),
-        airport::Reply::Search(summaries) => airport_summaries = Some(summaries),
-        airport::Reply::Error(err) => self.show_alert(err.as_ref()),
+    // Get the most recent airport reply.
+    let mut last_reply = None;
+    loop {
+      let reply = airport_reader.get_reply();
+      if reply.is_none() {
+        break;
       }
+      last_reply = reply;
     }
 
-    if let Some(airport_summaries) = airport_summaries {
-      self.select_airport(airport_summaries);
+    if let Some(reply) = last_reply {
+      match reply {
+        airport::Reply::Airport(summary) => self.select_airport(vec![summary]),
+        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.summary().coord()),
+        airport::Reply::Nearby(_summaries) => (),
+        airport::Reply::Search(summaries) => self.select_airport(summaries),
+        airport::Reply::Error(err) => self.show_alert(err.as_ref()),
+      }
     }
   }
 
