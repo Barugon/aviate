@@ -3,6 +3,7 @@ use crate::{
   util,
 };
 use gdal::{errors, vector};
+use godot::global::godot_warn;
 use std::{collections, path};
 
 /// Dataset source for for `FRQ.csv`.
@@ -72,19 +73,28 @@ impl Source {
   /// Get frequencies for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn frequencies(&self, id: &str, cancel: util::Cancel) -> Option<Vec<Frequency>> {
+  pub fn frequencies(&self, id: &str, cancel: util::Cancel) -> Vec<Frequency> {
     use vector::LayerAccess;
 
-    let fids = self.id_map.get(id)?;
+    let Some(fids) = self.id_map.get(id) else {
+      return Vec::new();
+    };
+
     let layer = util::Layer::new(self.layer());
     let mut frequencies = Vec::with_capacity(fids.len());
     for &fid in fids {
       if cancel.canceled() {
-        return None;
+        return Vec::new();
       }
-      frequencies.push(Frequency::new(layer.feature(fid), &self.fields)?);
+
+      if let Some(frequency) = Frequency::new(layer.feature(fid), &self.fields) {
+        frequencies.push(frequency);
+        continue;
+      }
+
+      godot_warn!("Unable to read frequency record #{fid}");
     }
-    Some(frequencies)
+    frequencies
   }
 
   fn layer(&self) -> vector::Layer {

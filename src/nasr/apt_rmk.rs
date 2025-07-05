@@ -3,6 +3,7 @@ use crate::{
   util,
 };
 use gdal::{errors, vector};
+use godot::global::godot_warn;
 use std::{collections, path};
 
 /// Dataset source for for `APT_RMK.csv`.
@@ -68,25 +69,28 @@ impl Source {
   /// Get remarks for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn remarks(&self, id: &str, cancel: util::Cancel) -> Option<Vec<Remark>> {
+  pub fn remarks(&self, id: &str, cancel: util::Cancel) -> Vec<Remark> {
     use vector::LayerAccess;
 
     let Some(fids) = self.id_map.get(id) else {
-      return Some(Vec::new());
+      return Vec::new();
     };
 
     let layer = util::Layer::new(self.layer());
     let mut remarks = Vec::with_capacity(fids.len());
     for &fid in fids {
       if cancel.canceled() {
-        return None;
+        return Vec::new();
       }
 
       if let Some(remark) = Remark::new(layer.feature(fid), &self.fields) {
         remarks.push(remark);
+        continue;
       }
+
+      godot_warn!("Unable to read remark record #{fid}");
     }
-    Some(remarks)
+    remarks
   }
 
   pub fn clear_index(&mut self) {

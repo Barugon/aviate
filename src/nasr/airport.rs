@@ -359,11 +359,10 @@ impl RequestProcessor {
     let id = summary.id().to_owned();
     let name = summary.name().to_owned();
     let arsp = self.arsp_source.class_airspace(&id, cancel.clone());
-    if let Some(freqs) = self.frq_source.frequencies(&id, cancel.clone())
-      && let Some(rwys) = self.rwy_source.runways(&id, cancel.clone())
-      && let Some(rmks) = self.rmk_source.remarks(&id, cancel.clone())
-      && let Some(detail) = self.base_source.detail(summary, freqs, rwys, rmks, arsp, cancel)
-    {
+    let freqs = self.frq_source.frequencies(&id, cancel.clone());
+    let rwys = self.rwy_source.runways(&id, cancel.clone());
+    let rmks = self.rmk_source.remarks(&id, cancel.clone());
+    if let Some(detail) = self.base_source.detail(summary, freqs, rwys, rmks, arsp, cancel) {
       return Reply::Detail(Box::new(detail));
     }
 

@@ -3,6 +3,7 @@ use crate::{
   util,
 };
 use gdal::{errors, vector};
+use godot::global::godot_warn;
 use std::{collections, path};
 
 /// Dataset source for for `APT_RWY.csv`.
@@ -72,19 +73,28 @@ impl Source {
   /// Get runways for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn runways(&self, id: &str, cancel: util::Cancel) -> Option<Vec<Runway>> {
+  pub fn runways(&self, id: &str, cancel: util::Cancel) -> Vec<Runway> {
     use vector::LayerAccess;
 
-    let fids = self.id_map.get(id)?;
+    let Some(fids) = self.id_map.get(id) else {
+      return Vec::new();
+    };
+
     let layer = util::Layer::new(self.layer());
     let mut runways = Vec::with_capacity(fids.len());
     for &fid in fids {
       if cancel.canceled() {
-        return None;
+        return Vec::new();
       }
-      runways.push(Runway::new(layer.feature(fid), &self.fields)?);
+
+      if let Some(runway) = Runway::new(layer.feature(fid), &self.fields) {
+        runways.push(runway);
+        continue;
+      }
+
+      godot_warn!("Unable to read runway record #{fid}");
     }
-    Some(runways)
+    runways
   }
 
   fn layer(&self) -> vector::Layer {
