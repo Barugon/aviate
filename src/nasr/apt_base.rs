@@ -4,7 +4,6 @@ use crate::{
   ok, util,
 };
 use gdal::{errors, vector};
-use godot::{classes::RegEx, obj::Gd};
 use std::{collections, path};
 
 /// Dataset source for for `APT_BASE.csv`.
@@ -101,7 +100,7 @@ impl Source {
     frequencies: Vec<frq::Frequency>,
     runways: Vec<apt_rwy::Runway>,
     remarks: Vec<apt_rmk::Remark>,
-    class_airspace: Option<cls_arsp::ClassAirspace>,
+    airspace: Option<cls_arsp::ClassAirspace>,
     cancel: util::Cancel,
   ) -> Option<Detail> {
     use vector::LayerAccess;
@@ -119,7 +118,7 @@ impl Source {
       frequencies,
       runways,
       remarks,
-      class_airspace,
+      airspace,
     )
   }
 
@@ -399,9 +398,7 @@ impl Detail {
   }
 
   pub fn get_text(&self) -> String {
-    // Create regex to search text for phone numbers.
-    let regex = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b|\b1-800-WX-BRIEF\b");
-
+    let phone_tagger = common::PhoneTagger::new();
     let mut text = self.summary.get_apt_type_text()
       + &self.summary.get_apt_use_text()
       + &self.get_location_text()
@@ -411,7 +408,7 @@ impl Detail {
       + &self.get_pattern_altitude_text()
       + &self.get_fuel_types_text()
       + &self.get_landing_fee_text()
-      + &self.get_fss_phone_text(regex.as_ref())
+      + &self.get_fss_phone_text(&phone_tagger)
       + &self.get_beacon_schedule_text()
       + &self.get_beacon_color_text()
       + &self.get_lighting_schedule_text();
@@ -421,7 +418,7 @@ impl Detail {
     }
 
     for frequency in &self.frequencies {
-      text += &frequency.get_text(regex.as_ref());
+      text += &frequency.get_text(&phone_tagger);
     }
 
     for runway in &self.runways {
@@ -431,7 +428,7 @@ impl Detail {
     if !self.remarks.is_empty() {
       text += "\nRemarks\n";
       for remark in &self.remarks {
-        text += &remark.get_text(regex.as_ref());
+        text += &remark.get_text(&phone_tagger);
       }
     }
 
@@ -474,11 +471,11 @@ impl Detail {
     format!("Landing Fee: [color=white]{}[/color]\n", self.lndg_fee)
   }
 
-  fn get_fss_phone_text(&self, regex: Option<&Gd<RegEx>>) -> String {
+  fn get_fss_phone_text(&self, phone_tagger: &common::PhoneTagger) -> String {
     if self.fss_phone.is_empty() {
       return String::new();
     }
-    let text = common::tag_regex_matches(regex, &self.fss_phone);
+    let text = phone_tagger.process_text(&self.fss_phone);
     format!("Flight Service Station: [color=white]{text}[/color]\n")
   }
 

@@ -104,7 +104,7 @@ impl ClassAirspace {
   }
 
   fn get_class_airspace_text(&self) -> String {
-    format!("Airspace Class: [color=white]{}[/color]\n", self.airspace)
+    format!("Airspace, Class: [color=white]{}[/color]\n", self.airspace)
   }
 
   fn get_hours_text(&self) -> String {

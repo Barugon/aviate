@@ -50,31 +50,45 @@ pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
   ok!(feature.field_as_string(index)).and_then(|v| v)
 }
 
-pub fn tag_regex_matches<'a>(regex: Option<&Gd<RegEx>>, text: &'a str) -> borrow::Cow<'a, str> {
-  if let Some(regex) = regex {
+pub struct PhoneTagger {
+  regex: Option<Gd<RegEx>>,
+}
+
+impl PhoneTagger {
+  pub fn new() -> Self {
+    let regex = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b|\b1-800-WX-BRIEF\b");
+    Self { regex }
+  }
+
+  pub fn process_text<'a>(&self, text: &'a str) -> borrow::Cow<'a, str> {
+    let Some(regex) = &self.regex else {
+      return text.into();
+    };
+
     let mut ranges = Vec::new();
     for result in regex.search_all(text).iter_shared() {
       ranges.push((result.get_start() as usize, result.get_end() as usize));
     }
 
-    if !ranges.is_empty() {
-      let mut tagged = String::new();
-      let mut pos = 0;
-      for (start, end) in ranges {
-        let result = &text[start..end];
-        let text = &text[pos..start];
-        let text = if cfg!(target_os = "android") {
-          format!("{text}[url=\"tel:{result}\"][color=#A0C0FF]{result}[/color][/url]")
-        } else {
-          format!("{text}[color=#A0C0FF]{result}[/color]")
-        };
-        tagged += &text;
-        pos = end;
-      }
-      tagged += &text[pos..];
-      return tagged.into();
+    if ranges.is_empty() {
+      return text.into();
     }
-  }
 
-  text.into()
+    let mut tagged = String::new();
+    let mut pos = 0;
+    for (start, end) in ranges {
+      let result = &text[start..end];
+      let text = &text[pos..start];
+      let text = if cfg!(target_os = "android") {
+        format!("{text}[url=\"tel:{result}\"][color=#A0C0FF]{result}[/color][/url]")
+      } else {
+        format!("{text}[color=#A0C0FF]{result}[/color]")
+      };
+      tagged += &text;
+      pos = end;
+    }
+    tagged += &text[pos..];
+
+    return tagged.into();
+  }
 }

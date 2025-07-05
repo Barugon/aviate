@@ -358,18 +358,17 @@ impl RequestProcessor {
     }
 
     let id = summary.id().to_owned();
-    let airspace = self.arsp_source.class_airspace(&id, cancel.clone());
-    if let Some(frequencies) = self.frq_source.frequencies(&id, cancel.clone())
-      && let Some(runways) = self.rwy_source.runways(&id, cancel.clone())
-      && let Some(remarks) = self.rmk_source.remarks(&id, cancel.clone())
-      && let Some(detail) = self
-        .base_source
-        .detail(summary, frequencies, runways, remarks, airspace, cancel)
+    let name = summary.name().to_owned();
+    let arsp = self.arsp_source.class_airspace(&id, cancel.clone());
+    if let Some(freqs) = self.frq_source.frequencies(&id, cancel.clone())
+      && let Some(rwys) = self.rwy_source.runways(&id, cancel.clone())
+      && let Some(rmks) = self.rmk_source.remarks(&id, cancel.clone())
+      && let Some(detail) = self.base_source.detail(summary, freqs, rwys, rmks, arsp, cancel)
     {
       return Reply::Detail(detail);
     }
 
-    Reply::Error(format!("Unable to get airport detail information for ID\n'{id}'").into())
+    Reply::Error(format!("Unable to get information for\n{name} ({id})").into())
   }
 
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
