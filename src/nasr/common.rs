@@ -50,7 +50,7 @@ pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
   ok!(feature.field_as_string(index)).and_then(|v| v)
 }
 
-pub fn tag_text_matches<'a>(regex: Option<&Gd<RegEx>>, text: &'a str) -> borrow::Cow<'a, str> {
+pub fn tag_regex_matches<'a>(regex: Option<&Gd<RegEx>>, text: &'a str) -> borrow::Cow<'a, str> {
   if let Some(regex) = regex {
     let mut ranges = Vec::new();
     for result in regex.search_all(text).iter_shared() {
@@ -61,14 +61,9 @@ pub fn tag_text_matches<'a>(regex: Option<&Gd<RegEx>>, text: &'a str) -> borrow:
       let mut tagged = String::new();
       let mut pos = 0;
       for (start, end) in ranges {
-        let link = &text[start..end];
+        let result = &text[start..end];
         let text = &text[pos..start];
-        let text = if cfg!(target_os = "android") {
-          format!("{text}[url=\"{link}\"][color=#A0C0FF]{link}[/color][/url]")
-        } else {
-          format!("{text}[color=#A0C0FF]{link}[/color]")
-        };
-        tagged += &text;
+        tagged += &format!("{text}[url=\"{result}\"][color=#A0C0FF]{result}[/color][/url]");
         pos = end;
       }
       tagged += &text[pos..];

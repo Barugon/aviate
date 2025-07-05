@@ -223,6 +223,10 @@ impl Summary {
     &self.id
   }
 
+  pub fn name(&self) -> &str {
+    &self.name
+  }
+
   pub fn coord(&self) -> geom::DD {
     self.coord
   }
@@ -235,14 +239,6 @@ impl Summary {
       self.apt_type.abv(),
       self.apt_use.abv()
     )
-  }
-
-  fn get_id_text(&self) -> String {
-    format!("ID: [color=white]{}[/color]\n", self.id)
-  }
-
-  fn get_name_text(&self) -> String {
-    format!("Name: [color=white]{}[/color]\n", self.name)
   }
 
   fn get_coordinates_text(&self) -> String {
@@ -394,9 +390,7 @@ impl Detail {
     // Create regex to search text for phone numbers.
     let regex = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b|\b1-800-WX-BRIEF\b");
 
-    let mut text = self.summary.get_id_text()
-      + &self.summary.get_name_text()
-      + &self.summary.get_apt_type_text()
+    let mut text = self.summary.get_apt_type_text()
       + &self.summary.get_apt_use_text()
       + &self.get_location_text()
       + &self.summary.get_coordinates_text()
@@ -468,7 +462,7 @@ impl Detail {
     if self.fss_phone.is_empty() {
       return String::new();
     }
-    let text = common::tag_text_matches(regex, &self.fss_phone);
+    let text = common::tag_regex_matches(regex, &self.fss_phone);
     format!("Flight Service Station: [color=white]{text}[/color]\n")
   }
 

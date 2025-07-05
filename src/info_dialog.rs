@@ -26,14 +26,15 @@ impl InfoDialog {
   }
 
   #[func]
-  fn launch_dialer(phone: String) {
+  fn launch_uri(phone: String) {
     godot::classes::Os::singleton().shell_open(&format!("tel:{phone}"));
   }
 
-  pub fn show_info(&mut self, text: &str, coord: geom::DD) {
+  pub fn show_info(&mut self, title: &str, text: &str, coord: geom::DD) {
     self.coord = coord;
     self.text.set_text(text);
     self.text.scroll_to_line(0);
+    self.base_mut().set_title(title);
     self.base_mut().call_deferred("show", &[]);
   }
 
@@ -57,7 +58,7 @@ impl IWindow for InfoDialog {
     self.text.init(self.get_child("RichTextLabel"));
 
     // Connect the meta-clicked event.
-    let callable = self.base().callable("launch_dialer");
+    let callable = self.base().callable("launch_uri");
     self.text.connect("meta_clicked", &callable);
 
     // Setup the Go To Button.

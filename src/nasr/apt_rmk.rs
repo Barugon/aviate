@@ -122,7 +122,7 @@ impl Remark {
   }
 
   pub fn get_text(&self, regex: Option<&Gd<RegEx>>) -> String {
-    let text = common::tag_text_matches(regex, &self.text);
+    let text = common::tag_regex_matches(regex, &self.text);
     let element = &self.element;
     let reference = &self.reference;
     if reference.is_empty() {

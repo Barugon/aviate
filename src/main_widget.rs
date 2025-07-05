@@ -228,14 +228,17 @@ impl MainWidget {
     self.airport_reader = Some(airport_reader);
   }
 
-  fn show_info(&self, text: &str, coord: geom::DD) {
+  fn show_airport_detail(&self, detail: airport::Detail) {
     // It's possible to open a another dialog before the airport detail query is complete.
     if self.get_visible_dialog().is_some() {
       return;
     }
 
+    let title = format!("{} ({})", detail.summary().name(), detail.summary().id());
+    let text = detail.get_text();
+    let coord = detail.summary().coord();
     let mut dialog = self.get_child::<info_dialog::InfoDialog>("InfoDialog");
-    dialog.bind_mut().show_info(text, coord);
+    dialog.bind_mut().show_info(&title, &text, coord);
   }
 
   fn show_alert(&self, text: &str) {
@@ -466,7 +469,7 @@ impl IControl for MainWidget {
     if let Some(reply) = last_reply {
       match reply {
         airport::Reply::Airport(summary) => self.select_airport(vec![summary]),
-        airport::Reply::Detail(detail) => self.show_info(&detail.get_text(), detail.summary().coord()),
+        airport::Reply::Detail(detail) => self.show_airport_detail(detail),
         airport::Reply::Nearby(_summaries) => (),
         airport::Reply::Search(summaries) => self.select_airport(summaries),
         airport::Reply::Error(err) => self.show_alert(err.as_ref()),

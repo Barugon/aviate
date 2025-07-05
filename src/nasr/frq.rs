@@ -137,7 +137,7 @@ impl Frequency {
   }
 
   fn get_frequency_text(&self) -> String {
-    format!("\nFrequency: [color=white]{}[/color]\n", self.freq)
+    format!("\nFrequency: [color=#A0FFA0]{}[/color]\n", self.freq)
   }
 
   fn get_frequency_use_text(&self) -> String {
@@ -179,7 +179,7 @@ impl Frequency {
     if self.remark.is_empty() {
       return String::new();
     }
-    let text = common::tag_text_matches(regex, &self.remark);
+    let text = common::tag_regex_matches(regex, &self.remark);
     format!("[ul] [color=white]{}[/color][/ul]\n", text)
   }
 }
