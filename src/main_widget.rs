@@ -228,7 +228,7 @@ impl MainWidget {
     self.airport_reader = Some(airport_reader);
   }
 
-  fn show_airport_detail(&self, detail: airport::Detail) {
+  fn show_airport_detail(&self, detail: Box<airport::Detail>) {
     // It's possible to open a another dialog before the airport detail query is complete.
     if self.get_visible_dialog().is_some() {
       return;

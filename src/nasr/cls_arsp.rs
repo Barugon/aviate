@@ -13,7 +13,7 @@ pub struct Source {
 }
 
 impl Source {
-  /// Open an airport runway data source.
+  /// Open a class airspace data source.
   /// - `path`: CSV zip file path
   pub fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let path = path::PathBuf::from(["/vsizip/", path.to_str().unwrap()].concat()).join("CLS_ARSP.csv");
@@ -78,7 +78,7 @@ impl Source {
   }
 }
 
-/// Airport frequency information.
+/// Class airspace information.
 #[derive(Clone, Debug)]
 pub struct ClassAirspace {
   airspace: Box<str>,
@@ -122,7 +122,7 @@ impl ClassAirspace {
   }
 }
 
-/// Field indexes for `FRQ.csv`.
+/// Field indexes for `CLS_ARSP.csv`.
 struct Fields {
   arpt_id: usize,
   class_b_airspace: usize,

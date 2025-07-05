@@ -13,7 +13,7 @@ pub struct Source {
 }
 
 impl Source {
-  /// Open an airport runway data source.
+  /// Open a frequency data source.
   /// - `path`: CSV zip file path
   pub fn open(path: &path::Path) -> Result<Self, errors::GdalError> {
     let path = path::PathBuf::from(["/vsizip/", path.to_str().unwrap()].concat()).join("FRQ.csv");
@@ -179,7 +179,7 @@ impl Frequency {
       return String::new();
     }
     let text = phone_tagger.process_text(&self.remark);
-    format!("[ul] [color=white]{}[/color][/ul]\n", text)
+    format!("[ul] [color=white]{text}[/color][/ul]\n")
   }
 }
 

@@ -24,7 +24,7 @@ pub struct Reader {
 
 impl Reader {
   /// Create a new airport reader.
-  /// - `path`: path to the airport CSV zip file.
+  /// - `path`: path to the CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     let base_source = match apt_base::Source::open(path) {
       Ok(source) => source,
@@ -78,16 +78,8 @@ impl Reader {
         let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
-          let mut request_processor = RequestProcessor::new(
-            base_source,
-            arsp_source,
-            frq_source,
-            rwy_source,
-            rmk_source,
-            index_status,
-            request_count,
-            thread_sender,
-          );
+          let sources = (base_source, arsp_source, frq_source, rwy_source, rmk_source);
+          let mut request_processor = RequestProcessor::new(sources, index_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
           while let Ok(request) = thread_receiver.recv() {
@@ -210,7 +202,7 @@ pub enum Reply {
   Airport(Summary),
 
   /// Airport detail information from `Info`.
-  Detail(Detail),
+  Detail(Box<Detail>),
 
   /// Airport summaries from a nearby search.
   Nearby(Vec<Summary>),
@@ -221,6 +213,14 @@ pub enum Reply {
   /// Request resulted in an error.
   Error(util::Error),
 }
+
+type Sources = (
+  apt_base::Source,
+  cls_arsp::Source,
+  frq::Source,
+  apt_rwy::Source,
+  apt_rmk::Source,
+);
 
 struct RequestProcessor {
   base_source: apt_base::Source,
@@ -236,15 +236,13 @@ struct RequestProcessor {
 
 impl RequestProcessor {
   fn new(
-    base_source: apt_base::Source,
-    arsp_source: cls_arsp::Source,
-    frq_source: frq::Source,
-    rwy_source: apt_rwy::Source,
-    rmk_source: apt_rmk::Source,
+    sources: Sources,
     index_status: IndexStatus,
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
   ) -> Self {
+    let (base_source, arsp_source, frq_source, rwy_source, rmk_source) = sources;
+
     // Create a spatial reference for decimal-degree coordinates.
     // NOTE: FAA uses NAD83 for decimal-degree coordinates.
     let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
@@ -295,7 +293,7 @@ impl RequestProcessor {
   }
 
   fn setup_indexes(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
-    // Clear existing airport indexes.
+    // Clear existing indexes.
     self.index_status.reset();
     self.base_source.clear_indexes();
     self.arsp_source.clear_index();
@@ -311,7 +309,7 @@ impl RequestProcessor {
       Ok(trans) => {
         self.index_status.set_has_chart_transformation();
 
-        // Create new airport indexes.
+        // Create the index needed for summary-level searches.
         if !self.base_source.create_indexes(&trans, cancel.clone()) {
           let reply = Reply::Error("Failed to create airport summary-level indexing".into());
           self.sender.send(reply).unwrap();
@@ -320,6 +318,7 @@ impl RequestProcessor {
 
         self.index_status.set_has_summary_index();
 
+        // Create the indexes needed for detail-level searches.
         if !self.arsp_source.create_index(&self.base_source, cancel.clone())
           || !self.frq_source.create_index(&self.base_source, cancel.clone())
           || !self.rwy_source.create_index(&self.base_source, cancel.clone())
@@ -365,7 +364,7 @@ impl RequestProcessor {
       && let Some(rmks) = self.rmk_source.remarks(&id, cancel.clone())
       && let Some(detail) = self.base_source.detail(summary, freqs, rwys, rmks, arsp, cancel)
     {
-      return Reply::Detail(detail);
+      return Reply::Detail(Box::new(detail));
     }
 
     Reply::Error(format!("Unable to get information for\n{name} ({id})").into())
