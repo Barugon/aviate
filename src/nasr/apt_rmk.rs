@@ -3,7 +3,6 @@ use crate::{
   util,
 };
 use gdal::{errors, vector};
-use godot::global::godot_warn;
 use std::{collections, path};
 
 /// Dataset source for for `APT_RMK.csv`.
@@ -85,10 +84,7 @@ impl Source {
 
       if let Some(remark) = Remark::new(layer.feature(fid), &self.fields) {
         remarks.push(remark);
-        continue;
       }
-
-      godot_warn!("Unable to read remark record #{fid}");
     }
     remarks
   }
@@ -163,18 +159,19 @@ impl Fields {
 
 fn get_reference(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   Some(match common::get_string(feature, fields.ref_col_name)?.as_str() {
-    "ARPT_ID" => String::from("Airport ID"),
-    "ARPT_NAME" => String::from("Airport Name"),
-    "BCN_LENS_COLOR" => String::from("Beacon Color"),
-    "BCN_LGT_SKED" => String::from("Beacon Schedule"),
-    "ELEV" => String::from("Elevation"),
-    "FACILITY_USE_CODE" => String::from("Facility Use"),
-    "FUEL_TYPE" => String::from("Fuel Type"),
+    "ARPT_ID" => "Airport ID".into(),
+    "ARPT_NAME" => "Airport Name".into(),
+    "BCN_LENS_COLOR" => "Beacon Color".into(),
+    "BCN_LGT_SKED" => "Beacon Schedule".into(),
+    "ELEV" => "Elevation".into(),
+    "FACILITY_USE_CODE" => "Facility Use".into(),
+    "FUEL_TYPE" => "Fuel Type".into(),
     "GENERAL_REMARK" => String::new(),
-    "LGT_SKED" => String::from("Lighting Schedule"),
-    "LNDG_FEE_FLAG" => String::from("Landing Fee"),
-    "SITE_TYPE_CODE" => String::from("Site Type"),
-    "TPA" => String::from("Pattern Altitude"),
+    "LGT_SKED" => "Lighting Schedule".into(),
+    "LNDG_FEE_FLAG" => "Landing Fee".into(),
+    "SITE_TYPE_CODE" => "Site Type".into(),
+    "TPA" => "Pattern Altitude".into(),
+    "SEG_CIRCLE_MKR_FLAG" => "Segmented Circle".into(),
     _ => return None,
   })
 }

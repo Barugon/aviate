@@ -215,8 +215,8 @@ fn get_lighting(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   // Expand abbreviations.
   let lighting = common::get_string(feature, fields.rwy_lgt_code)?;
   Some(match lighting.as_str() {
-    "MED" => String::from("MEDIUM"),
-    "NSTD" => String::from("NON-STANDARD"),
+    "MED" => "MEDIUM".into(),
+    "NSTD" => "NON-STANDARD".into(),
     "PERI" => lighting, // Missing from layout doc.
     _ => lighting,
   })
@@ -230,15 +230,15 @@ fn get_surface(feature: &vector::Feature, fields: &Fields) -> Option<String> {
 
   // Expand abbreviations.
   Some(match surface.as_str() {
-    "ASPH" => String::from("ASPHALT OR BITUMINOUS CONCRETE"),
+    "ASPH" => "ASPHALT OR BITUMINOUS CONCRETE".into(),
     "ASPH-CONC" => surface, // Missing from layout doc.
-    "CONC" => String::from("PORTLAND CEMENT CONCRETE"),
-    "DIRT" => String::from("NATURAL SOIL"),
-    "GRAVEL" => String::from("GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG"),
-    "MATS" => String::from("PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES"),
-    "PEM" => String::from("PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM"),
-    "TREATED" => String::from("OILED; SOIL CEMENT OR LIME STABILIZED"),
-    "TURF" => String::from("GRASS; SOD"),
+    "CONC" => "PORTLAND CEMENT CONCRETE".into(),
+    "DIRT" => "NATURAL SOIL".into(),
+    "GRAVEL" => "GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG".into(),
+    "MATS" => "PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES".into(),
+    "PEM" => "PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM".into(),
+    "TREATED" => "OILED; SOIL CEMENT OR LIME STABILIZED".into(),
+    "TURF" => "GRASS; SOD".into(),
     _ => surface,
   })
 }

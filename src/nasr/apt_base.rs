@@ -341,6 +341,7 @@ pub struct Detail {
   mag_var: Box<str>,
   lndg_fee: Box<str>,
   fss_phone: Box<str>,
+  seg_circ: Box<str>,
   bcn_sked: Box<str>,
   bcn_color: Box<str>,
   lgt_sked: Box<str>,
@@ -371,6 +372,7 @@ impl Detail {
     let mag_var = get_magnetic_variation(&feature, fields)?.into();
     let lndg_fee = get_landing_fee(&feature, fields)?.into();
     let fss_phone = get_fss_phone(&feature, fields)?.into();
+    let seg_circ = get_segmented_circle(&feature, fields)?.into();
     let bcn_sked = get_beacon_schedule(&feature, fields)?.into();
     let bcn_color = get_beacon_color(&feature, fields)?.into();
     let lgt_sked = get_lighting_schedule(&feature, fields)?.into();
@@ -383,6 +385,7 @@ impl Detail {
       mag_var,
       lndg_fee,
       fss_phone,
+      seg_circ,
       bcn_sked,
       bcn_color,
       lgt_sked,
@@ -409,6 +412,7 @@ impl Detail {
       + &self.get_fuel_types_text()
       + &self.get_landing_fee_text()
       + &self.get_fss_phone_text(&phone_tagger)
+      + &self.get_segmented_circle_text()
       + &self.get_beacon_schedule_text()
       + &self.get_beacon_color_text()
       + &self.get_lighting_schedule_text();
@@ -479,6 +483,13 @@ impl Detail {
     format!("Flight Service Station: [color=white]{text}[/color]\n")
   }
 
+  fn get_segmented_circle_text(&self) -> String {
+    if self.seg_circ.is_empty() {
+      return String::new();
+    }
+    format!("Segmented Circle: [color=white]{}[/color]\n", self.seg_circ)
+  }
+
   fn get_beacon_schedule_text(&self) -> String {
     if self.bcn_sked.is_empty() {
       return String::new();
@@ -519,6 +530,7 @@ struct Fields {
   long_decimal: usize,
   mag_hemis: usize,
   mag_varn: usize,
+  seg_circle_mkr_flag: usize,
   site_type_code: usize,
   state_code: usize,
   toll_free_no: usize,
@@ -546,6 +558,7 @@ impl Fields {
       long_decimal: defn.field_index("LONG_DECIMAL")?,
       mag_hemis: defn.field_index("MAG_HEMIS")?,
       mag_varn: defn.field_index("MAG_VARN")?,
+      seg_circle_mkr_flag: defn.field_index("SEG_CIRCLE_MKR_FLAG")?,
       site_type_code: defn.field_index("SITE_TYPE_CODE")?,
       state_code: defn.field_index("STATE_CODE")?,
       toll_free_no: defn.field_index("TOLL_FREE_NO")?,
@@ -606,12 +619,16 @@ fn get_elevation(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   }
 
   let method = match method.as_str() {
-    "E" => "ESTIMATED",
-    "S" => "SURVEYED",
-    _ => return None,
+    "E" => Some("ESTIMATED"),
+    "S" => Some("SURVEYED"),
+    _ => None,
   };
 
-  Some(format!("{elevation} FEET ASL ({method})"))
+  if let Some(method) = method {
+    return Some(format!("{elevation} FEET ASL ({method})"));
+  }
+
+  Some(format!("{elevation} FEET ASL"))
 }
 
 fn get_pattern_altitude(feature: &vector::Feature, fields: &Fields) -> Option<String> {
@@ -640,8 +657,8 @@ fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<
 fn get_landing_fee(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   let landing_fee = common::get_string(feature, fields.lndg_fee_flag)?;
   Some(match landing_fee.as_str() {
-    "Y" => String::from("YES"),
-    "N" => String::from("NO"),
+    "Y" => "YES".into(),
+    "N" => "NO".into(),
     _ => landing_fee,
   })
 }
@@ -658,8 +675,8 @@ fn get_fss_phone(feature: &vector::Feature, fields: &Fields) -> Option<String> {
 fn get_lighting_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   let lighting_schedule = common::get_string(feature, fields.lgt_sked)?;
   Some(match lighting_schedule.as_str() {
-    "SS-SR" => String::from("SUNSET-SUNRISE"),
-    "SEE RMK" => String::from("SEE REMARK"),
+    "SS-SR" => "SUNSET-SUNRISE".into(),
+    "SEE RMK" => "SEE REMARK".into(),
     _ => lighting_schedule,
   })
 }
@@ -667,8 +684,8 @@ fn get_lighting_schedule(feature: &vector::Feature, fields: &Fields) -> Option<S
 fn get_beacon_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   let beacon_schedule = common::get_string(feature, fields.bcn_lgt_sked)?;
   Some(match beacon_schedule.as_str() {
-    "SS-SR" => String::from("SUNSET-SUNRISE"),
-    "SEE RMK" => String::from("SEE REMARK"),
+    "SS-SR" => "SUNSET-SUNRISE".into(),
+    "SEE RMK" => "SEE REMARK".into(),
     _ => beacon_schedule,
   })
 }
@@ -676,15 +693,25 @@ fn get_beacon_schedule(feature: &vector::Feature, fields: &Fields) -> Option<Str
 fn get_beacon_color(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   let beacon_color = common::get_string(feature, fields.bcn_lens_color)?;
   Some(match beacon_color.as_str() {
-    "WG" => String::from("WHITE-GREEN (LIGHTED LAND AIRPORT)"),
-    "WY" => String::from("WHITE-YELLOW (LIGHTED SEAPLANE BASE)"),
-    "WGY" => String::from("WHITE-GREEN-YELLOW (HELIPORT)"),
-    "SWG" => String::from("SPLIT-WHITE-GREEN (LIGHTED MILITARY AIRPORT)"),
-    "W" => String::from("WHITE (UNLIGHTED LAND AIRPORT)"),
-    "Y" => String::from("YELLOW (UNLIGHTED SEAPLANE BASE)"),
-    "G" => String::from("GREEN (LIGHTED LAND AIRPORT)"),
-    "N" => String::from("NONE"),
+    "WG" => "WHITE-GREEN (LIGHTED LAND AIRPORT)".into(),
+    "WY" => "WHITE-YELLOW (LIGHTED SEAPLANE BASE)".into(),
+    "WGY" => "WHITE-GREEN-YELLOW (HELIPORT)".into(),
+    "SWG" => "SPLIT-WHITE-GREEN (LIGHTED MILITARY AIRPORT)".into(),
+    "W" => "WHITE (UNLIGHTED LAND AIRPORT)".into(),
+    "Y" => "YELLOW (UNLIGHTED SEAPLANE BASE)".into(),
+    "G" => "GREEN (LIGHTED LAND AIRPORT)".into(),
+    "N" => "NONE".into(),
     _ => beacon_color,
+  })
+}
+
+fn get_segmented_circle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let segmented_circle = common::get_string(feature, fields.seg_circle_mkr_flag)?;
+  Some(match segmented_circle.as_str() {
+    "Y" => "YES".into(),
+    "N" => "NO".into(),
+    "Y-L" => "YES, LIGHTED".into(),
+    _ => segmented_circle,
   })
 }
 
