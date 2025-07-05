@@ -1,6 +1,6 @@
 use crate::{
   geom,
-  nasr::{apt_rmk, apt_rwy, common, frq},
+  nasr::{apt_rmk, apt_rwy, cls_arsp, common, frq},
   ok, util,
 };
 use gdal::{errors, vector};
@@ -101,6 +101,7 @@ impl Source {
     frequencies: Vec<frq::Frequency>,
     runways: Vec<apt_rwy::Runway>,
     remarks: Vec<apt_rmk::Remark>,
+    class_airspace: Option<cls_arsp::ClassAirspace>,
     cancel: util::Cancel,
   ) -> Option<Detail> {
     use vector::LayerAccess;
@@ -111,7 +112,15 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    Detail::new(layer.feature(fid), &self.fields, summary, frequencies, runways, remarks)
+    Detail::new(
+      layer.feature(fid),
+      &self.fields,
+      summary,
+      frequencies,
+      runways,
+      remarks,
+      class_airspace,
+    )
   }
 
   /// Find airports within a search radius.
@@ -339,6 +348,7 @@ pub struct Detail {
   frequencies: Box<[frq::Frequency]>,
   runways: Box<[apt_rwy::Runway]>,
   remarks: Box<[apt_rmk::Remark]>,
+  airspace: Option<cls_arsp::ClassAirspace>,
 }
 
 impl Detail {
@@ -349,6 +359,7 @@ impl Detail {
     frequencies: Vec<frq::Frequency>,
     runways: Vec<apt_rwy::Runway>,
     remarks: Vec<apt_rmk::Remark>,
+    airspace: Option<cls_arsp::ClassAirspace>,
   ) -> Option<Self> {
     let feature = feature?;
     let frequencies = frequencies.into();
@@ -379,6 +390,7 @@ impl Detail {
       frequencies,
       runways,
       remarks,
+      airspace,
     })
   }
 
@@ -403,6 +415,10 @@ impl Detail {
       + &self.get_beacon_schedule_text()
       + &self.get_beacon_color_text()
       + &self.get_lighting_schedule_text();
+
+    if let Some(airspace) = &self.airspace {
+      text += &airspace.get_text();
+    }
 
     for frequency in &self.frequencies {
       text += &frequency.get_text(regex.as_ref());

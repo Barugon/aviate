@@ -63,7 +63,12 @@ pub fn tag_regex_matches<'a>(regex: Option<&Gd<RegEx>>, text: &'a str) -> borrow
       for (start, end) in ranges {
         let result = &text[start..end];
         let text = &text[pos..start];
-        tagged += &format!("{text}[url=\"{result}\"][color=#A0C0FF]{result}[/color][/url]");
+        let text = if cfg!(target_os = "android") {
+          format!("{text}[url=\"tel:{result}\"][color=#A0C0FF]{result}[/color][/url]")
+        } else {
+          format!("{text}[color=#A0C0FF]{result}[/color]")
+        };
+        tagged += &text;
         pos = end;
       }
       tagged += &text[pos..];

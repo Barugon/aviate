@@ -27,7 +27,7 @@ impl InfoDialog {
 
   #[func]
   fn launch_uri(phone: String) {
-    godot::classes::Os::singleton().shell_open(&format!("tel:{phone}"));
+    godot::classes::Os::singleton().shell_open(&phone);
   }
 
   pub fn show_info(&mut self, title: &str, text: &str, coord: geom::DD) {

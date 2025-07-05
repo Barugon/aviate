@@ -1,6 +1,6 @@
 use crate::{
   geom,
-  nasr::{apt_base, apt_rmk, apt_rwy, common, frq},
+  nasr::{apt_base, apt_rmk, apt_rwy, cls_arsp, common, frq},
   util,
 };
 use gdal::spatial_ref;
@@ -30,6 +30,14 @@ impl Reader {
       Ok(source) => source,
       Err(err) => {
         let err = format!("Unable to open airport base data source:\n{err}");
+        return Err(err.into());
+      }
+    };
+
+    let arsp_source = match cls_arsp::Source::open(path) {
+      Ok(source) => source,
+      Err(err) => {
+        let err = format!("Unable to open class airspace data source:\n{err}");
         return Err(err.into());
       }
     };
@@ -72,6 +80,7 @@ impl Reader {
         move || {
           let mut request_processor = RequestProcessor::new(
             base_source,
+            arsp_source,
             frq_source,
             rwy_source,
             rmk_source,
@@ -215,6 +224,7 @@ pub enum Reply {
 
 struct RequestProcessor {
   base_source: apt_base::Source,
+  arsp_source: cls_arsp::Source,
   frq_source: frq::Source,
   rwy_source: apt_rwy::Source,
   rmk_source: apt_rmk::Source,
@@ -227,6 +237,7 @@ struct RequestProcessor {
 impl RequestProcessor {
   fn new(
     base_source: apt_base::Source,
+    arsp_source: cls_arsp::Source,
     frq_source: frq::Source,
     rwy_source: apt_rwy::Source,
     rmk_source: apt_rmk::Source,
@@ -241,6 +252,7 @@ impl RequestProcessor {
 
     Self {
       base_source,
+      arsp_source,
       frq_source,
       rwy_source,
       rmk_source,
@@ -286,6 +298,7 @@ impl RequestProcessor {
     // Clear existing airport indexes.
     self.index_status.reset();
     self.base_source.clear_indexes();
+    self.arsp_source.clear_index();
     self.frq_source.clear_index();
     self.rwy_source.clear_index();
     self.rmk_source.clear_index();
@@ -307,7 +320,8 @@ impl RequestProcessor {
 
         self.index_status.set_has_summary_index();
 
-        if !self.frq_source.create_index(&self.base_source, cancel.clone())
+        if !self.arsp_source.create_index(&self.base_source, cancel.clone())
+          || !self.frq_source.create_index(&self.base_source, cancel.clone())
           || !self.rwy_source.create_index(&self.base_source, cancel.clone())
           || !self.rmk_source.create_index(&self.base_source, cancel)
         {
@@ -344,10 +358,13 @@ impl RequestProcessor {
     }
 
     let id = summary.id().to_owned();
+    let airspace = self.arsp_source.class_airspace(&id, cancel.clone());
     if let Some(frequencies) = self.frq_source.frequencies(&id, cancel.clone())
       && let Some(runways) = self.rwy_source.runways(&id, cancel.clone())
       && let Some(remarks) = self.rmk_source.remarks(&id, cancel.clone())
-      && let Some(detail) = self.base_source.detail(summary, frequencies, runways, remarks, cancel)
+      && let Some(detail) = self
+        .base_source
+        .detail(summary, frequencies, runways, remarks, airspace, cancel)
     {
       return Reply::Detail(detail);
     }
