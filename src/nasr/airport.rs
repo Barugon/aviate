@@ -78,16 +78,8 @@ impl Reader {
         let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
-          let mut request_processor = RequestProcessor::new(
-            base_source,
-            arsp_source,
-            frq_source,
-            rwy_source,
-            rmk_source,
-            index_status,
-            request_count,
-            thread_sender,
-          );
+          let sources = (base_source, arsp_source, frq_source, rwy_source, rmk_source);
+          let mut request_processor = RequestProcessor::new(sources, index_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
           while let Ok(request) = thread_receiver.recv() {
@@ -210,7 +202,7 @@ pub enum Reply {
   Airport(Summary),
 
   /// Airport detail information from `Info`.
-  Detail(Detail),
+  Detail(Box<Detail>),
 
   /// Airport summaries from a nearby search.
   Nearby(Vec<Summary>),
@@ -236,15 +228,19 @@ struct RequestProcessor {
 
 impl RequestProcessor {
   fn new(
-    base_source: apt_base::Source,
-    arsp_source: cls_arsp::Source,
-    frq_source: frq::Source,
-    rwy_source: apt_rwy::Source,
-    rmk_source: apt_rmk::Source,
+    sources: (
+      apt_base::Source,
+      cls_arsp::Source,
+      frq::Source,
+      apt_rwy::Source,
+      apt_rmk::Source,
+    ),
     index_status: IndexStatus,
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
   ) -> Self {
+    let (base_source, arsp_source, frq_source, rwy_source, rmk_source) = sources;
+
     // Create a spatial reference for decimal-degree coordinates.
     // NOTE: FAA uses NAD83 for decimal-degree coordinates.
     let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
@@ -365,7 +361,7 @@ impl RequestProcessor {
       && let Some(rmks) = self.rmk_source.remarks(&id, cancel.clone())
       && let Some(detail) = self.base_source.detail(summary, freqs, rwys, rmks, arsp, cancel)
     {
-      return Reply::Detail(detail);
+      return Reply::Detail(Box::new(detail));
     }
 
     Reply::Error(format!("Unable to get information for\n{name} ({id})").into())

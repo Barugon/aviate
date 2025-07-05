@@ -179,7 +179,7 @@ impl Frequency {
       return String::new();
     }
     let text = phone_tagger.process_text(&self.remark);
-    format!("[ul] [color=white]{}[/color][/ul]\n", text)
+    format!("[ul] [color=white]{text}[/color][/ul]\n")
   }
 }
 

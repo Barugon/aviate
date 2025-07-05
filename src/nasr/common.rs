@@ -88,7 +88,6 @@ impl PhoneTagger {
       pos = end;
     }
     tagged += &text[pos..];
-
-    return tagged.into();
+    tagged.into()
   }
 }
