@@ -363,7 +363,7 @@ impl RequestProcessor {
     let rwys = self.rwy_source.runways(&id, cancel.clone());
     let rmks = self.rmk_source.remarks(&id, cancel.clone());
     if let Some(detail) = self.base_source.detail(summary, freqs, rwys, rmks, arsp, cancel) {
-      return Reply::Detail(Box::new(detail));
+      return Reply::Detail(detail);
     }
 
     Reply::Error(format!("Unable to get information for\n{name} ({id})").into())

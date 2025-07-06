@@ -102,7 +102,7 @@ impl Source {
     remarks: Vec<apt_rmk::Remark>,
     airspace: Option<cls_arsp::ClassAirspace>,
     cancel: util::Cancel,
-  ) -> Option<Detail> {
+  ) -> Option<Box<Detail>> {
     use vector::LayerAccess;
 
     let &fid = self.id_map.get(&summary.id)?;
@@ -360,7 +360,7 @@ impl Detail {
     runways: Vec<apt_rwy::Runway>,
     remarks: Vec<apt_rmk::Remark>,
     airspace: Option<cls_arsp::ClassAirspace>,
-  ) -> Option<Self> {
+  ) -> Option<Box<Self>> {
     let feature = feature?;
     let frequencies = frequencies.into();
     let runways = runways.into();
@@ -376,7 +376,7 @@ impl Detail {
     let bcn_sked = get_beacon_schedule(&feature, fields)?.into();
     let bcn_color = get_beacon_color(&feature, fields)?.into();
     let lgt_sked = get_lighting_schedule(&feature, fields)?.into();
-    Some(Self {
+    Some(Box::new(Self {
       summary,
       fuel_types,
       location,
@@ -393,7 +393,7 @@ impl Detail {
       runways,
       remarks,
       airspace,
-    })
+    }))
   }
 
   pub fn summary(&self) -> &Summary {
