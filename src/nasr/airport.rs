@@ -1,6 +1,6 @@
 use crate::{
   geom,
-  nasr::{apt_base, apt_rmk, apt_rwy, cls_arsp, common, frq},
+  nasr::{apt_base, apt_rmk, apt_rwy, apt_rwy_end, cls_arsp, common, frq},
   util,
 };
 use gdal::spatial_ref;
@@ -26,40 +26,48 @@ impl Reader {
   /// Create a new airport reader.
   /// - `path`: path to the CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
-    let base_source = match apt_base::Source::open(path) {
-      Ok(source) => source,
+    let base_src = match apt_base::Source::open(path) {
+      Ok(src) => src,
       Err(err) => {
         let err = format!("Unable to open airport base data source:\n{err}");
         return Err(err.into());
       }
     };
 
-    let arsp_source = match cls_arsp::Source::open(path) {
-      Ok(source) => source,
+    let arsp_src = match cls_arsp::Source::open(path) {
+      Ok(src) => src,
       Err(err) => {
         let err = format!("Unable to open class airspace data source:\n{err}");
         return Err(err.into());
       }
     };
 
-    let frq_source = match frq::Source::open(path) {
-      Ok(source) => source,
+    let frq_src = match frq::Source::open(path) {
+      Ok(src) => src,
       Err(err) => {
         let err = format!("Unable to open airport frequency data source:\n{err}");
         return Err(err.into());
       }
     };
 
-    let rwy_source = match apt_rwy::Source::open(path) {
-      Ok(source) => source,
+    let rwy_src = match apt_rwy::Source::open(path) {
+      Ok(src) => src,
       Err(err) => {
         let err = format!("Unable to open airport runway data source:\n{err}");
         return Err(err.into());
       }
     };
 
-    let rmk_source = match apt_rmk::Source::open(path) {
-      Ok(source) => source,
+    let rwy_end_src = match apt_rwy_end::Source::open(path) {
+      Ok(src) => src,
+      Err(err) => {
+        let err = format!("Unable to open airport runway data source:\n{err}");
+        return Err(err.into());
+      }
+    };
+
+    let rmk_src = match apt_rmk::Source::open(path) {
+      Ok(src) => src,
       Err(err) => {
         let err = format!("Unable to open airport remarks data source:\n{err}");
         return Err(err.into());
@@ -78,7 +86,7 @@ impl Reader {
         let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
-          let sources = (base_source, arsp_source, frq_source, rwy_source, rmk_source);
+          let sources = (base_src, arsp_src, frq_src, rwy_src, rwy_end_src, rmk_src);
           let mut request_processor = RequestProcessor::new(sources, index_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
@@ -219,15 +227,17 @@ type Sources = (
   cls_arsp::Source,
   frq::Source,
   apt_rwy::Source,
+  apt_rwy_end::Source,
   apt_rmk::Source,
 );
 
 struct RequestProcessor {
-  base_source: apt_base::Source,
-  arsp_source: cls_arsp::Source,
-  frq_source: frq::Source,
-  rwy_source: apt_rwy::Source,
-  rmk_source: apt_rmk::Source,
+  base_src: apt_base::Source,
+  arsp_src: cls_arsp::Source,
+  frq_src: frq::Source,
+  rwy_src: apt_rwy::Source,
+  rwy_end_src: apt_rwy_end::Source,
+  rmk_src: apt_rmk::Source,
   index_status: IndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<Reply>,
@@ -241,7 +251,7 @@ impl RequestProcessor {
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
   ) -> Self {
-    let (base_source, arsp_source, frq_source, rwy_source, rmk_source) = sources;
+    let (base_src, arsp_src, frq_src, rwy_src, rwy_end_src, rmk_src) = sources;
 
     // Create a spatial reference for decimal-degree coordinates.
     // NOTE: FAA uses NAD83 for decimal-degree coordinates.
@@ -249,11 +259,12 @@ impl RequestProcessor {
     dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
 
     Self {
-      base_source,
-      arsp_source,
-      frq_source,
-      rwy_source,
-      rmk_source,
+      base_src,
+      arsp_src,
+      frq_src,
+      rwy_src,
+      rwy_end_src,
+      rmk_src,
       index_status,
       request_count,
       sender,
@@ -274,19 +285,19 @@ impl RequestProcessor {
         self.setup_indexes(spatial_info, cancel);
       }
       Request::Airport(id, cancel) => {
-        let reply = self.airport(&id, cancel.clone());
+        let reply = self.airport(&id, &cancel);
         self.send(reply, cancel);
       }
       Request::Detail(summary, cancel) => {
-        let reply = self.detail(summary, cancel.clone());
+        let reply = self.detail(summary, &cancel);
         self.send(reply, cancel);
       }
       Request::Nearby(coord, dist, nph, cancel) => {
-        let reply = self.nearby(coord, dist, nph, cancel.clone());
+        let reply = self.nearby(coord, dist, nph, &cancel);
         self.send(reply, cancel);
       }
       Request::Search(term, nph, cancel) => {
-        let reply = self.search(&term, nph, cancel.clone());
+        let reply = self.search(&term, nph, &cancel);
         self.send(reply, cancel);
       }
     }
@@ -295,11 +306,12 @@ impl RequestProcessor {
   fn setup_indexes(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
     // Clear existing indexes.
     self.index_status.reset();
-    self.base_source.clear_indexes();
-    self.arsp_source.clear_index();
-    self.frq_source.clear_index();
-    self.rwy_source.clear_index();
-    self.rmk_source.clear_index();
+    self.base_src.clear_indexes();
+    self.arsp_src.clear_index();
+    self.frq_src.clear_index();
+    self.rwy_src.clear_index();
+    self.rwy_end_src.clear_index();
+    self.rmk_src.clear_index();
 
     let Some((proj4, bounds)) = spatial_info else {
       return;
@@ -310,7 +322,7 @@ impl RequestProcessor {
         self.index_status.set_has_chart_transformation();
 
         // Create the index needed for summary-level searches.
-        if !self.base_source.create_indexes(&trans, cancel.clone()) {
+        if !self.base_src.create_indexes(&trans, &cancel) {
           let reply = Reply::Error("Failed to create airport summary-level indexing".into());
           self.sender.send(reply).unwrap();
           return;
@@ -319,10 +331,11 @@ impl RequestProcessor {
         self.index_status.set_has_summary_index();
 
         // Create the indexes needed for detail-level searches.
-        if !self.arsp_source.create_index(&self.base_source, cancel.clone())
-          || !self.frq_source.create_index(&self.base_source, cancel.clone())
-          || !self.rwy_source.create_index(&self.base_source, cancel.clone())
-          || !self.rmk_source.create_index(&self.base_source, cancel)
+        if !self.arsp_src.create_index(&self.base_src, &cancel)
+          || !self.frq_src.create_index(&self.base_src, &cancel)
+          || !self.rwy_src.create_index(&self.base_src, &cancel)
+          || !self.rwy_end_src.create_index(&self.base_src, &cancel)
+          || !self.rmk_src.create_index(&self.base_src, &cancel)
         {
           let reply = Reply::Error("Failed to create airport detail-level indexing".into());
           self.sender.send(reply).unwrap();
@@ -338,58 +351,59 @@ impl RequestProcessor {
     }
   }
 
-  fn airport(&self, id: &str, cancel: util::Cancel) -> Reply {
+  fn airport(&self, id: &str, cancel: &util::Cancel) -> Reply {
     if !self.index_status.has_summary_index() {
       return Reply::Error("Airport summary-level indexing is required for airport ID search".into());
     }
 
     let id = id.trim().to_uppercase();
-    if let Some(summary) = self.base_source.airport(&id, cancel) {
+    if let Some(summary) = self.base_src.airport(&id, cancel) {
       return Reply::Airport(summary);
     }
 
     Reply::Error(format!("No airport on this chart matches ID\n'{id}'").into())
   }
 
-  fn detail(&self, summary: Summary, cancel: util::Cancel) -> Reply {
+  fn detail(&self, summary: Summary, cancel: &util::Cancel) -> Reply {
     if !self.index_status.has_detail_index() {
       return Reply::Error("Airport detail-level indexing is required for airport information".into());
     }
 
     let id = summary.id().to_owned();
     let name = summary.name().to_owned();
-    let arsp = self.arsp_source.class_airspace(&id, cancel.clone());
-    let freqs = self.frq_source.frequencies(&id, cancel.clone());
-    let rwys = self.rwy_source.runways(&id, cancel.clone());
-    let rmks = self.rmk_source.remarks(&id, cancel.clone());
-    if let Some(detail) = self.base_source.detail(summary, freqs, rwys, rmks, arsp, cancel) {
+    let arsp = self.arsp_src.class_airspace(&id, cancel);
+    let freqs = self.frq_src.frequencies(&id, cancel);
+    let rwy_ends = self.rwy_end_src.runway_ends(&id, cancel);
+    let rwys = self.rwy_src.runways(&id, rwy_ends, cancel);
+    let rmks = self.rmk_src.remarks(&id, cancel);
+    if let Some(detail) = self.base_src.detail(summary, freqs, rwys, rmks, arsp, cancel) {
       return Reply::Detail(detail);
     }
 
     Reply::Error(format!("Unable to get information for\n{name} ({id})").into())
   }
 
-  fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Reply {
+  fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: &util::Cancel) -> Reply {
     if !self.index_status.has_summary_index() {
       return Reply::Error("Airport summary-level indexing is required to find nearby airports".into());
     }
 
-    Reply::Nearby(self.base_source.nearby(coord, dist, nph, cancel))
+    Reply::Nearby(self.base_src.nearby(coord, dist, nph, cancel))
   }
 
-  fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Reply {
+  fn search(&self, term: &str, nph: bool, cancel: &util::Cancel) -> Reply {
     if !self.index_status.has_summary_index() {
       return Reply::Error("Airport summary-level indexing is required for airport search".into());
     }
 
     // Search for an airport ID first.
     let term = term.trim().to_uppercase();
-    if let Some(summary) = self.base_source.airport(&term, cancel.clone()) {
+    if let Some(summary) = self.base_src.airport(&term, cancel) {
       return Reply::Airport(summary);
     }
 
     // Airport ID not found, search the airport names.
-    let summaries = self.base_source.search(&term, nph, cancel);
+    let summaries = self.base_src.search(&term, nph, cancel);
     if summaries.is_empty() {
       return Reply::Error(format!("Nothing on this chart matches\n'{term}'").into());
     }

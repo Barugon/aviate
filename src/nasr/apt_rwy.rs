@@ -1,5 +1,5 @@
 use crate::{
-  nasr::{apt_base, common},
+  nasr::{apt_base, apt_rwy_end, common},
   util,
 };
 use gdal::{errors, vector};
@@ -30,12 +30,13 @@ impl Source {
   /// Create the index.
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
-  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: util::Cancel) -> bool {
+  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
+    type IDMap = collections::HashMap<String, Vec<u64>>;
 
     let base_id_map = base_src.id_map();
     let mut layer = self.layer();
-    let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::with_capacity(base_id_map.len());
+    let mut id_map = IDMap::with_capacity(base_id_map.len());
     let mut add_fid = |id: String, fid: u64| {
       if let Some(id_vec) = id_map.get_mut(id.as_str()) {
         id_vec.push(fid);
@@ -73,7 +74,7 @@ impl Source {
   /// Get runways for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn runways(&self, id: &str, cancel: util::Cancel) -> Vec<Runway> {
+  pub fn runways(&self, id: &str, mut ends_map: apt_rwy_end::RunwayEndMap, cancel: &util::Cancel) -> Vec<Runway> {
     use vector::LayerAccess;
 
     let Some(fids) = self.id_map.get(id) else {
@@ -87,7 +88,7 @@ impl Source {
         return Vec::new();
       }
 
-      if let Some(runway) = Runway::new(layer.feature(fid), &self.fields) {
+      if let Some(runway) = Runway::new(layer.feature(fid), &mut ends_map, &self.fields) {
         runways.push(runway);
         continue;
       }
@@ -111,34 +112,46 @@ pub struct Runway {
   lighting: Box<str>,
   surface: Box<str>,
   condition: Box<str>,
+  ends: Box<[apt_rwy_end::RunwayEnd]>,
 }
 
 impl Runway {
-  fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
+  fn new(feature: Option<vector::Feature>, ends_map: &mut apt_rwy_end::RunwayEndMap, fields: &Fields) -> Option<Self> {
     let feature = feature?;
-    let rwy_id = common::get_string(&feature, fields.rwy_id)?.into();
+    let rwy_id = common::get_string(&feature, fields.rwy_id)?;
     let length = get_length(&feature, fields)?.into();
     let width = get_width(&feature, fields)?.into();
     let lighting = get_lighting(&feature, fields)?.into();
     let surface = get_surface(&feature, fields)?.into();
     let condition = common::get_string(&feature, fields.cond)?.into();
+    let ends = ends_map.remove(&rwy_id).map(|ends| ends.into()).unwrap_or_default();
+
     Some(Self {
-      rwy_id,
+      rwy_id: rwy_id.into(),
       length,
       width,
       lighting,
       surface,
       condition,
+      ends,
     })
   }
 
   pub fn get_text(&self) -> String {
-    self.get_id_text()
+    let mut text = self.get_id_text()
       + &self.get_length_text()
       + &self.get_width_text()
       + &self.get_lighting_text()
       + &self.get_surface_text()
-      + &self.get_condition_text()
+      + &self.get_condition_text();
+
+    for end in &self.ends {
+      text += "[indent]";
+      text += &end.get_text();
+      text += "[/indent]";
+    }
+
+    text
   }
 
   fn get_id_text(&self) -> String {

@@ -34,7 +34,7 @@ impl Source {
   /// Create the indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `cancel`: cancellation object
-  pub fn create_indexes(&mut self, to_chart: &common::ToChart, cancel: util::Cancel) -> bool {
+  pub fn create_indexes(&mut self, to_chart: &common::ToChart, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
 
     let mut layer = self.layer();
@@ -78,7 +78,7 @@ impl Source {
   /// Get airport summary information for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn airport(&self, id: &str, cancel: util::Cancel) -> Option<Summary> {
+  pub fn airport(&self, id: &str, cancel: &util::Cancel) -> Option<Summary> {
     use vector::LayerAccess;
 
     let &fid = self.id_map.get(id)?;
@@ -101,7 +101,7 @@ impl Source {
     runways: Vec<apt_rwy::Runway>,
     remarks: Vec<apt_rmk::Remark>,
     airspace: Option<cls_arsp::ClassAirspace>,
-    cancel: util::Cancel,
+    cancel: &util::Cancel,
   ) -> Option<Box<Detail>> {
     use vector::LayerAccess;
 
@@ -127,7 +127,7 @@ impl Source {
   /// - `dist`: search distance in meters
   /// - `nph`: include non-public heliports
   /// - `cancel`: cancellation object
-  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: util::Cancel) -> Vec<Summary> {
+  pub fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: &util::Cancel) -> Vec<Summary> {
     use vector::LayerAccess;
 
     let coord = [coord.x, coord.y];
@@ -164,7 +164,7 @@ impl Source {
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `nph`: include non-public heliports
   /// - `cancel`: cancellation object
-  pub fn search(&self, term: &str, nph: bool, cancel: util::Cancel) -> Vec<Summary> {
+  pub fn search(&self, term: &str, nph: bool, cancel: &util::Cancel) -> Vec<Summary> {
     use vector::LayerAccess;
 
     let layer = util::Layer::new(self.layer());
@@ -367,10 +367,10 @@ impl Detail {
     let remarks = remarks.into();
     let fuel_types = get_fuel_types(&feature, fields)?.into();
     let location = get_location(&feature, fields)?.into();
-    let elevation = get_elevation(&feature, fields)?.into();
-    let pat_alt = get_pattern_altitude(&feature, fields)?.into();
+    let elevation = common::get_unit_text(&feature, "FEET ASL", fields.elev)?.into();
+    let pat_alt = common::get_unit_text(&feature, "FEET AGL", fields.tpa)?.into();
     let mag_var = get_magnetic_variation(&feature, fields)?.into();
-    let lndg_fee = get_landing_fee(&feature, fields)?.into();
+    let lndg_fee = common::get_yes_no_text(&feature, fields.lndg_fee_flag)?.into();
     let fss_phone = get_fss_phone(&feature, fields)?.into();
     let seg_circ = get_segmented_circle(&feature, fields)?.into();
     let bcn_sked = get_beacon_schedule(&feature, fields)?.into();
@@ -421,8 +421,12 @@ impl Detail {
       text += &airspace.get_text();
     }
 
-    for frequency in &self.frequencies {
-      text += &frequency.get_text(&phone_tagger);
+    if !self.frequencies.is_empty() {
+      text += "\nFrequencies\n[indent]";
+      for frequency in &self.frequencies {
+        text += &frequency.get_text(&phone_tagger);
+      }
+      text += "[/indent]";
     }
 
     for runway in &self.runways {
@@ -520,7 +524,6 @@ struct Fields {
   bcn_lens_color: usize,
   bcn_lgt_sked: usize,
   city: usize,
-  elev_method_code: usize,
   elev: usize,
   facility_use_code: usize,
   fuel_types: usize,
@@ -548,7 +551,6 @@ impl Fields {
       bcn_lens_color: defn.field_index("BCN_LENS_COLOR")?,
       bcn_lgt_sked: defn.field_index("BCN_LGT_SKED")?,
       city: defn.field_index("CITY")?,
-      elev_method_code: defn.field_index("ELEV_METHOD_CODE")?,
       elev: defn.field_index("ELEV")?,
       facility_use_code: defn.field_index("FACILITY_USE_CODE")?,
       fuel_types: defn.field_index("FUEL_TYPES")?,
@@ -611,35 +613,6 @@ fn get_location(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   Some(format!("{city}, {state}"))
 }
 
-fn get_elevation(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let elevation = common::get_string(feature, fields.elev)?;
-  let method = common::get_string(feature, fields.elev_method_code)?;
-  if method.is_empty() {
-    return Some(elevation);
-  }
-
-  let method = match method.as_str() {
-    "E" => Some("ESTIMATED"),
-    "S" => Some("SURVEYED"),
-    _ => None,
-  };
-
-  if let Some(method) = method {
-    return Some(format!("{elevation} FEET ASL ({method})"));
-  }
-
-  Some(format!("{elevation} FEET ASL"))
-}
-
-fn get_pattern_altitude(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let pattern_altitude = common::get_string(feature, fields.tpa)?;
-  if pattern_altitude.is_empty() {
-    return Some(pattern_altitude);
-  }
-
-  Some(format!("{pattern_altitude} FEET AGL"))
-}
-
 fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   let var = common::get_string(feature, fields.mag_varn)?;
   if var.is_empty() {
@@ -652,15 +625,6 @@ fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<
   }
 
   Some(format!("{var}°{hem}"))
-}
-
-fn get_landing_fee(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let landing_fee = common::get_string(feature, fields.lndg_fee_flag)?;
-  Some(match landing_fee.as_str() {
-    "Y" => "YES".into(),
-    "N" => "NO".into(),
-    _ => landing_fee,
-  })
 }
 
 fn get_fss_phone(feature: &vector::Feature, fields: &Fields) -> Option<String> {

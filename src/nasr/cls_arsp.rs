@@ -29,12 +29,13 @@ impl Source {
   /// Create the index.
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
-  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: util::Cancel) -> bool {
+  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
+    type IDMap = collections::HashMap<Box<str>, u64>;
 
     let base_id_map = base_src.id_map();
     let mut layer = self.layer();
-    let mut id_map: collections::HashMap<Box<str>, u64> = collections::HashMap::with_capacity(base_id_map.len());
+    let mut id_map = IDMap::with_capacity(base_id_map.len());
 
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
@@ -61,7 +62,7 @@ impl Source {
   /// Get class airspace for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn class_airspace(&self, id: &str, cancel: util::Cancel) -> Option<ClassAirspace> {
+  pub fn class_airspace(&self, id: &str, cancel: &util::Cancel) -> Option<ClassAirspace> {
     use vector::LayerAccess;
 
     let &fid = self.id_map.get(id)?;

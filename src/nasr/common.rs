@@ -50,6 +50,24 @@ pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
   ok!(feature.field_as_string(index)).and_then(|v| v)
 }
 
+pub fn get_yes_no_text(feature: &vector::Feature, index: usize) -> Option<String> {
+  let text = get_string(feature, index)?;
+  Some(match text.as_str() {
+    "Y" => "YES".into(),
+    "N" => "NO".into(),
+    _ => text,
+  })
+}
+
+pub fn get_unit_text(feature: &vector::Feature, unit: &str, index: usize) -> Option<String> {
+  let text = get_string(feature, index)?;
+  if text.is_empty() {
+    return Some(text);
+  }
+
+  Some(format!("{text} {unit}"))
+}
+
 pub struct PhoneTagger {
   regex: Option<Gd<RegEx>>,
 }

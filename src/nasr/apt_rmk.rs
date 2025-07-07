@@ -29,12 +29,13 @@ impl Source {
   /// Create the index.
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
-  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: util::Cancel) -> bool {
+  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
+    type IDMap = collections::HashMap<String, Vec<u64>>;
 
     let base_id_map = base_src.id_map();
     let mut layer = self.layer();
-    let mut id_map: collections::HashMap<String, Vec<u64>> = collections::HashMap::with_capacity(base_id_map.len());
+    let mut id_map = IDMap::with_capacity(base_id_map.len());
     let mut add_fid = |id: String, fid: u64| {
       if let Some(id_vec) = id_map.get_mut(id.as_str()) {
         id_vec.push(fid);
@@ -68,7 +69,7 @@ impl Source {
   /// Get remarks for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn remarks(&self, id: &str, cancel: util::Cancel) -> Vec<Remark> {
+  pub fn remarks(&self, id: &str, cancel: &util::Cancel) -> Vec<Remark> {
     use vector::LayerAccess;
 
     let Some(fids) = self.id_map.get(id) else {
