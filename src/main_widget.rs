@@ -1,9 +1,9 @@
 use crate::{chart_widget, config, find_dialog, geom, info_dialog, nasr::airport, select_dialog, util};
 use godot::{
   classes::{
-    AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, InputEvent,
+    AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, Input, InputEvent,
     InputEventKey, Label, MarginContainer, OptionButton, PanelContainer, Tree, Window, display_server::WindowMode,
-    notify::ControlNotification,
+    input::CursorShape, notify::ControlNotification,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -447,11 +447,13 @@ impl IControl for MainWidget {
     if self.airport_status.pending != pending {
       // Set the airport label's color to indicate if its busy.
       let property = "theme_override_colors/font_color";
-      let color = if pending {
-        Color::from_rgb(1.0, 1.0, 0.0)
+      let (color, cursor) = if pending {
+        (Color::from_rgb(1.0, 1.0, 0.0), CursorShape::BUSY)
       } else {
-        Color::from_rgb(0.5, 0.5, 0.5)
+        (Color::from_rgb(0.5, 0.5, 0.5), CursorShape::ARROW)
       };
+
+      Input::singleton().set_default_cursor_shape_ex().shape(cursor).done();
       self.airport_label.set(property, &Variant::from(color));
       self.airport_status.pending = pending;
     }
