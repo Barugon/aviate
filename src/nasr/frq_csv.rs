@@ -1,5 +1,5 @@
 use crate::{
-  nasr::{apt_base, common},
+  nasr::{apt_base_csv, common},
   util,
 };
 use gdal::{errors, vector};
@@ -30,7 +30,7 @@ impl Source {
   /// Create the index.
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
-  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: &util::Cancel) -> bool {
+  pub fn create_index(&mut self, base_src: &apt_base_csv::Source, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
     type IDMap = collections::HashMap<String, Vec<u64>>;
 

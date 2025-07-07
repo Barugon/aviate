@@ -1,5 +1,5 @@
 use crate::{
-  nasr::{apt_base, apt_rwy_end, common},
+  nasr::{apt_base_csv, apt_rwy_end_csv, common},
   util,
 };
 use gdal::{errors, vector};
@@ -30,7 +30,7 @@ impl Source {
   /// Create the index.
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
-  pub fn create_index(&mut self, base_src: &apt_base::Source, cancel: &util::Cancel) -> bool {
+  pub fn create_index(&mut self, base_src: &apt_base_csv::Source, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
     type IDMap = collections::HashMap<String, Vec<u64>>;
 
@@ -74,7 +74,7 @@ impl Source {
   /// Get runways for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn runways(&self, id: &str, mut ends_map: apt_rwy_end::RunwayEndMap, cancel: &util::Cancel) -> Vec<Runway> {
+  pub fn runways(&self, id: &str, mut ends_map: apt_rwy_end_csv::RunwayEndMap, cancel: &util::Cancel) -> Vec<Runway> {
     use vector::LayerAccess;
 
     let Some(fids) = self.id_map.get(id) else {
@@ -112,11 +112,15 @@ pub struct Runway {
   lighting: Box<str>,
   surface: Box<str>,
   condition: Box<str>,
-  ends: Box<[apt_rwy_end::RunwayEnd]>,
+  ends: Box<[apt_rwy_end_csv::RunwayEnd]>,
 }
 
 impl Runway {
-  fn new(feature: Option<vector::Feature>, ends_map: &mut apt_rwy_end::RunwayEndMap, fields: &Fields) -> Option<Self> {
+  fn new(
+    feature: Option<vector::Feature>,
+    ends_map: &mut apt_rwy_end_csv::RunwayEndMap,
+    fields: &Fields,
+  ) -> Option<Self> {
     let feature = feature?;
     let rwy_id = common::get_string(&feature, fields.rwy_id)?;
     let length = get_length(&feature, fields)?.into();

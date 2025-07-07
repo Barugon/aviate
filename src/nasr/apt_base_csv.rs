@@ -1,6 +1,6 @@
 use crate::{
   geom,
-  nasr::{apt_rmk, apt_rwy, cls_arsp, common, frq},
+  nasr::{apt_rmk_csv, apt_rwy_csv, cls_arsp_csv, common, frq_csv},
   ok, util,
 };
 use gdal::{errors, vector};
@@ -97,10 +97,10 @@ impl Source {
   pub fn detail(
     &self,
     summary: Summary,
-    frequencies: Vec<frq::Frequency>,
-    runways: Vec<apt_rwy::Runway>,
-    remarks: Vec<apt_rmk::Remark>,
-    airspace: Option<cls_arsp::ClassAirspace>,
+    frequencies: Vec<frq_csv::Frequency>,
+    runways: Vec<apt_rwy_csv::Runway>,
+    remarks: Vec<apt_rmk_csv::Remark>,
+    airspace: Option<cls_arsp_csv::ClassAirspace>,
     cancel: &util::Cancel,
   ) -> Option<Box<Detail>> {
     use vector::LayerAccess;
@@ -345,10 +345,10 @@ pub struct Detail {
   bcn_sked: Box<str>,
   bcn_color: Box<str>,
   lgt_sked: Box<str>,
-  frequencies: Box<[frq::Frequency]>,
-  runways: Box<[apt_rwy::Runway]>,
-  remarks: Box<[apt_rmk::Remark]>,
-  airspace: Option<cls_arsp::ClassAirspace>,
+  frequencies: Box<[frq_csv::Frequency]>,
+  runways: Box<[apt_rwy_csv::Runway]>,
+  remarks: Box<[apt_rmk_csv::Remark]>,
+  airspace: Option<cls_arsp_csv::ClassAirspace>,
 }
 
 impl Detail {
@@ -356,10 +356,10 @@ impl Detail {
     feature: Option<vector::Feature>,
     fields: &Fields,
     summary: Summary,
-    frequencies: Vec<frq::Frequency>,
-    runways: Vec<apt_rwy::Runway>,
-    remarks: Vec<apt_rmk::Remark>,
-    airspace: Option<cls_arsp::ClassAirspace>,
+    frequencies: Vec<frq_csv::Frequency>,
+    runways: Vec<apt_rwy_csv::Runway>,
+    remarks: Vec<apt_rmk_csv::Remark>,
+    airspace: Option<cls_arsp_csv::ClassAirspace>,
   ) -> Option<Box<Self>> {
     let feature = feature?;
     let frequencies = frequencies.into();

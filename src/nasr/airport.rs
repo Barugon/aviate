@@ -1,14 +1,14 @@
 use crate::{
   geom,
-  nasr::{apt_base, apt_rmk, apt_rwy, apt_rwy_end, cls_arsp, common, frq},
+  nasr::{apt_base_csv, apt_rmk_csv, apt_rwy_csv, apt_rwy_end_csv, cls_arsp_csv, common, frq_csv},
   util,
 };
 use gdal::spatial_ref;
 use std::{any, cell, path, sync, thread};
 use sync::{atomic, mpsc};
 
-pub use apt_base::Detail;
-pub use apt_base::Summary;
+pub use apt_base_csv::Detail;
+pub use apt_base_csv::Summary;
 
 /// Reader is used for opening and reading
 /// [NASR 28 day subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/) airport
@@ -27,42 +27,42 @@ impl Reader {
   /// - `path`: path to the CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     let sources = (
-      match apt_base::Source::open(path) {
+      match apt_base_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport base data source:\n{err}");
           return Err(err.into());
         }
       },
-      match cls_arsp::Source::open(path) {
+      match cls_arsp_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open class airspace data source:\n{err}");
           return Err(err.into());
         }
       },
-      match frq::Source::open(path) {
+      match frq_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport frequency data source:\n{err}");
           return Err(err.into());
         }
       },
-      match apt_rwy::Source::open(path) {
+      match apt_rwy_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport runway data source:\n{err}");
           return Err(err.into());
         }
       },
-      match apt_rwy_end::Source::open(path) {
+      match apt_rwy_end_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport runway end data source:\n{err}");
           return Err(err.into());
         }
       },
-      match apt_rmk::Source::open(path) {
+      match apt_rmk_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport remarks data source:\n{err}");
@@ -78,7 +78,7 @@ impl Reader {
 
     // Create the thread.
     thread::Builder::new()
-      .name(any::type_name::<apt_base::Source>().into())
+      .name(any::type_name::<apt_base_csv::Source>().into())
       .spawn({
         let index_status = index_status.clone();
         let request_count = request_count.clone();
@@ -219,21 +219,21 @@ pub enum Reply {
 }
 
 type Sources = (
-  apt_base::Source,
-  cls_arsp::Source,
-  frq::Source,
-  apt_rwy::Source,
-  apt_rwy_end::Source,
-  apt_rmk::Source,
+  apt_base_csv::Source,
+  cls_arsp_csv::Source,
+  frq_csv::Source,
+  apt_rwy_csv::Source,
+  apt_rwy_end_csv::Source,
+  apt_rmk_csv::Source,
 );
 
 struct RequestProcessor {
-  base_src: apt_base::Source,
-  arsp_src: cls_arsp::Source,
-  frq_src: frq::Source,
-  rwy_src: apt_rwy::Source,
-  rwy_end_src: apt_rwy_end::Source,
-  rmk_src: apt_rmk::Source,
+  base_src: apt_base_csv::Source,
+  arsp_src: cls_arsp_csv::Source,
+  frq_src: frq_csv::Source,
+  rwy_src: apt_rwy_csv::Source,
+  rwy_end_src: apt_rwy_end_csv::Source,
+  rmk_src: apt_rmk_csv::Source,
   index_status: IndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<Reply>,
