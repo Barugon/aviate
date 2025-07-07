@@ -26,53 +26,50 @@ impl Reader {
   /// Create a new airport reader.
   /// - `path`: path to the CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
-    let base_src = match apt_base::Source::open(path) {
-      Ok(src) => src,
-      Err(err) => {
-        let err = format!("Unable to open airport base data source:\n{err}");
-        return Err(err.into());
-      }
-    };
-
-    let arsp_src = match cls_arsp::Source::open(path) {
-      Ok(src) => src,
-      Err(err) => {
-        let err = format!("Unable to open class airspace data source:\n{err}");
-        return Err(err.into());
-      }
-    };
-
-    let frq_src = match frq::Source::open(path) {
-      Ok(src) => src,
-      Err(err) => {
-        let err = format!("Unable to open airport frequency data source:\n{err}");
-        return Err(err.into());
-      }
-    };
-
-    let rwy_src = match apt_rwy::Source::open(path) {
-      Ok(src) => src,
-      Err(err) => {
-        let err = format!("Unable to open airport runway data source:\n{err}");
-        return Err(err.into());
-      }
-    };
-
-    let rwy_end_src = match apt_rwy_end::Source::open(path) {
-      Ok(src) => src,
-      Err(err) => {
-        let err = format!("Unable to open airport runway data source:\n{err}");
-        return Err(err.into());
-      }
-    };
-
-    let rmk_src = match apt_rmk::Source::open(path) {
-      Ok(src) => src,
-      Err(err) => {
-        let err = format!("Unable to open airport remarks data source:\n{err}");
-        return Err(err.into());
-      }
-    };
+    let sources = (
+      match apt_base::Source::open(path) {
+        Ok(src) => src,
+        Err(err) => {
+          let err = format!("Unable to open airport base data source:\n{err}");
+          return Err(err.into());
+        }
+      },
+      match cls_arsp::Source::open(path) {
+        Ok(src) => src,
+        Err(err) => {
+          let err = format!("Unable to open class airspace data source:\n{err}");
+          return Err(err.into());
+        }
+      },
+      match frq::Source::open(path) {
+        Ok(src) => src,
+        Err(err) => {
+          let err = format!("Unable to open airport frequency data source:\n{err}");
+          return Err(err.into());
+        }
+      },
+      match apt_rwy::Source::open(path) {
+        Ok(src) => src,
+        Err(err) => {
+          let err = format!("Unable to open airport runway data source:\n{err}");
+          return Err(err.into());
+        }
+      },
+      match apt_rwy_end::Source::open(path) {
+        Ok(src) => src,
+        Err(err) => {
+          let err = format!("Unable to open airport runway end data source:\n{err}");
+          return Err(err.into());
+        }
+      },
+      match apt_rmk::Source::open(path) {
+        Ok(src) => src,
+        Err(err) => {
+          let err = format!("Unable to open airport remarks data source:\n{err}");
+          return Err(err.into());
+        }
+      },
+    );
 
     let index_status = IndexStatus::new();
     let request_count = sync::Arc::new(atomic::AtomicI32::new(0));
@@ -86,7 +83,6 @@ impl Reader {
         let index_status = index_status.clone();
         let request_count = request_count.clone();
         move || {
-          let sources = (base_src, arsp_src, frq_src, rwy_src, rwy_end_src, rmk_src);
           let mut request_processor = RequestProcessor::new(sources, index_status, request_count, thread_sender);
 
           // Wait for a message. Exit when the connection is closed.
