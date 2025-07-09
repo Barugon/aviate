@@ -88,13 +88,10 @@ pub struct ClassAirspace {
 impl ClassAirspace {
   fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
     let feature = feature?;
-    let airspace = get_class_airspace(&feature, fields)?.into();
-    let hours = common::get_string(&feature, fields.airspace_hrs)?.into();
-    let remark = common::get_string(&feature, fields.remark)?.into();
     Some(Self {
-      airspace,
-      hours,
-      remark,
+      airspace: get_class_airspace(&feature, fields)?.into(),
+      hours: common::get_string(&feature, fields.airspace_hrs)?.into(),
+      remark: common::get_string(&feature, fields.remark)?.into(),
     })
   }
 

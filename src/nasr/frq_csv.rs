@@ -76,7 +76,9 @@ impl Source {
         return Vec::new();
       }
 
-      if let Some(frequency) = Frequency::new(layer.feature(fid), &self.fields) {
+      if let Some(feature) = layer.feature(fid)
+        && let Some(frequency) = Frequency::new(feature, &self.fields)
+      {
         frequencies.push(frequency);
         continue;
       }
@@ -103,23 +105,15 @@ pub struct Frequency {
 }
 
 impl Frequency {
-  fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
-    let feature = feature?;
-    let freq = common::get_string(&feature, fields.freq)?.into();
-    let freq_use = common::get_string(&feature, fields.freq_use)?.into();
-    let facility_type = common::get_string(&feature, fields.facility_type)?.into();
-    let sectorization = common::get_string(&feature, fields.sectorization)?.into();
-    let tower_call = common::get_string(&feature, fields.tower_or_comm_call)?.into();
-    let approach_call = common::get_string(&feature, fields.primary_approach_radio_call)?.into();
-    let remark = common::get_string(&feature, fields.remark)?.into();
+  fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
     Some(Self {
-      freq,
-      freq_use,
-      facility_type,
-      sectorization,
-      tower_call,
-      approach_call,
-      remark,
+      freq: common::get_string(&feature, fields.freq)?.into(),
+      freq_use: common::get_string(&feature, fields.freq_use)?.into(),
+      facility_type: common::get_string(&feature, fields.facility_type)?.into(),
+      sectorization: common::get_string(&feature, fields.sectorization)?.into(),
+      tower_call: common::get_string(&feature, fields.tower_or_comm_call)?.into(),
+      approach_call: common::get_string(&feature, fields.primary_approach_radio_call)?.into(),
+      remark: common::get_string(&feature, fields.remark)?.into(),
     })
   }
 

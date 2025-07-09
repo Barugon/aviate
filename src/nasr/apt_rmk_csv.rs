@@ -71,7 +71,9 @@ impl Source {
         return Vec::new();
       }
 
-      if let Some(remark) = Remark::new(layer.feature(fid), &self.fields) {
+      if let Some(feature) = layer.feature(fid)
+        && let Some(remark) = Remark::new(feature, &self.fields)
+      {
         remarks.push(remark);
       }
     }
@@ -95,16 +97,11 @@ pub struct Remark {
 }
 
 impl Remark {
-  fn new(feature: Option<vector::Feature>, fields: &Fields) -> Option<Self> {
-    let feature = feature?;
-    let reference = get_reference(&feature, fields)?.into();
-    let element = common::get_string(&feature, fields.element)?.into();
-    let text = common::get_string(&feature, fields.remark)?.into();
-
+  fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
     Some(Self {
-      reference,
-      element,
-      text,
+      reference: get_reference(&feature, fields)?.into(),
+      element: common::get_string(&feature, fields.element)?.into(),
+      text: common::get_string(&feature, fields.remark)?.into(),
     })
   }
 

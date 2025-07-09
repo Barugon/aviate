@@ -76,7 +76,9 @@ impl Source {
         return Vec::new();
       }
 
-      if let Some(runway) = Runway::new(layer.feature(fid), &mut ends_map, &self.fields) {
+      if let Some(feature) = layer.feature(fid)
+        && let Some(runway) = Runway::new(feature, &mut ends_map, &self.fields)
+      {
         runways.push(runway);
         continue;
       }
@@ -103,27 +105,16 @@ pub struct Runway {
 }
 
 impl Runway {
-  fn new(
-    feature: Option<vector::Feature>,
-    ends_map: &mut apt_rwy_end_csv::RunwayEndMap,
-    fields: &Fields,
-  ) -> Option<Self> {
-    let feature = feature?;
+  fn new(feature: vector::Feature, ends_map: &mut apt_rwy_end_csv::RunwayEndMap, fields: &Fields) -> Option<Self> {
     let rwy_id = common::get_string(&feature, fields.rwy_id)?;
-    let length = get_length(&feature, fields)?.into();
-    let width = get_width(&feature, fields)?.into();
-    let lighting = get_lighting(&feature, fields)?.into();
-    let surface = get_surface(&feature, fields)?.into();
-    let condition = common::get_string(&feature, fields.cond)?.into();
     let ends = ends_map.remove(&rwy_id).map(|ends| ends.into()).unwrap_or_default();
-
     Some(Self {
       rwy_id: rwy_id.into(),
-      length,
-      width,
-      lighting,
-      surface,
-      condition,
+      length: get_length(&feature, fields)?.into(),
+      width: get_width(&feature, fields)?.into(),
+      lighting: get_lighting(&feature, fields)?.into(),
+      surface: get_surface(&feature, fields)?.into(),
+      condition: common::get_string(&feature, fields.cond)?.into(),
       ends,
     })
   }

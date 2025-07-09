@@ -98,7 +98,7 @@ impl From<HashMapVec<String, u64>> for collections::HashMap<Box<str>, Box<[u64]>
   }
 }
 
-/// Search for and tag phone numbers in test.
+/// Search for and tag phone numbers in text.
 pub struct PhoneTagger {
   regex: Option<Gd<RegEx>>,
 }

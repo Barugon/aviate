@@ -122,31 +122,19 @@ pub struct RunwayEnd {
 
 impl RunwayEnd {
   fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
-    let rwy_end_id = common::get_string(&feature, fields.rwy_end_id)?.into();
-    let elevation = common::get_unit_text(&feature, "FEET ASL", fields.rwy_end_elev)?.into();
-    let true_alignment = get_true_alignment(&feature, fields)?.into();
-    let rh_traffic = common::get_yes_no_text(&feature, fields.right_hand_traffic_pat_flag)?.into();
-    let markings = get_markings(&feature, fields)?.into();
-    let gld_slp_ind = get_glide_slope_indicator(&feature, fields)?.into();
-    let displaced_thr_elev = common::get_unit_text(&feature, "FEET ASL", fields.displaced_thr_elev)?.into();
-    let displaced_thr_len = common::get_unit_text(&feature, "FEET", fields.displaced_thr_len)?.into();
-    let tdz_elevation = common::get_unit_text(&feature, "FEET ASL", fields.tdz_elev)?.into();
-    let obstacle = get_obstacle(&feature, fields)?.into();
-    let obstacle_height = common::get_unit_text(&feature, "FEET", fields.obstn_hgt)?.into();
-    let obstacle_offset = get_obstacle_offset(&feature, fields)?.into();
     Some(Self {
-      rwy_end_id,
-      elevation,
-      true_alignment,
-      rh_traffic,
-      markings,
-      gld_slp_ind,
-      displaced_thr_elev,
-      displaced_thr_len,
-      tdz_elevation,
-      obstacle,
-      obstacle_height,
-      obstacle_offset,
+      rwy_end_id: common::get_string(&feature, fields.rwy_end_id)?.into(),
+      elevation: common::get_unit_text(&feature, "FEET ASL", fields.rwy_end_elev)?.into(),
+      true_alignment: get_true_alignment(&feature, fields)?.into(),
+      rh_traffic: common::get_yes_no_text(&feature, fields.right_hand_traffic_pat_flag)?.into(),
+      markings: get_markings(&feature, fields)?.into(),
+      gld_slp_ind: get_glide_slope_indicator(&feature, fields)?.into(),
+      displaced_thr_elev: common::get_unit_text(&feature, "FEET ASL", fields.displaced_thr_elev)?.into(),
+      displaced_thr_len: common::get_unit_text(&feature, "FEET", fields.displaced_thr_len)?.into(),
+      tdz_elevation: common::get_unit_text(&feature, "FEET ASL", fields.tdz_elev)?.into(),
+      obstacle: get_obstacle(&feature, fields)?.into(),
+      obstacle_height: common::get_unit_text(&feature, "FEET", fields.obstn_hgt)?.into(),
+      obstacle_offset: get_obstacle_offset(&feature, fields)?.into(),
     })
   }
 

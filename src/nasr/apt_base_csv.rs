@@ -87,7 +87,8 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    Summary::new(layer.feature(fid), &self.fields, true)
+    let feature = layer.feature(fid)?;
+    Summary::new(feature, &self.fields, true)
   }
 
   /// Get airport detail information.
@@ -111,15 +112,8 @@ impl Source {
     }
 
     let layer = util::Layer::new(self.layer());
-    Detail::new(
-      layer.feature(fid),
-      &self.fields,
-      summary,
-      frequencies,
-      runways,
-      remarks,
-      airspace,
-    )
+    let feature = layer.feature(fid)?;
+    Detail::new(feature, &self.fields, summary, frequencies, runways, remarks, airspace)
   }
 
   /// Find airports within a search radius.
@@ -149,7 +143,9 @@ impl Source {
         return Vec::new();
       }
 
-      if let Some(summary) = Summary::new(layer.feature(fid), &self.fields, nph) {
+      if let Some(feature) = layer.feature(fid)
+        && let Some(summary) = Summary::new(feature, &self.fields, nph)
+      {
         airports.push(summary);
       };
     }
@@ -175,7 +171,8 @@ impl Source {
       }
 
       if name.contains(term)
-        && let Some(summary) = Summary::new(layer.feature(*fid), &self.fields, nph)
+        && let Some(feature) = layer.feature(*fid)
+        && let Some(summary) = Summary::new(feature, &self.fields, nph)
       {
         airports.push(summary);
       }
@@ -205,22 +202,17 @@ pub struct Summary {
 }
 
 impl Summary {
-  fn new(feature: Option<vector::Feature>, fields: &Fields, nph: bool) -> Option<Self> {
-    let feature = feature?;
+  fn new(feature: vector::Feature, fields: &Fields, nph: bool) -> Option<Self> {
     let airport_type = get_airport_type(&feature, fields)?;
     let airport_use = get_airport_use(&feature, fields)?;
     if !nph && airport_type == Type::Heliport && airport_use != Use::Public {
       return None;
     }
 
-    let id = common::get_string(&feature, fields.arpt_id)?.into();
-    let name = common::get_string(&feature, fields.arpt_name)?.into();
-    let coord = get_coord(&feature, fields)?;
-
     Some(Self {
-      id,
-      name,
-      coord,
+      id: common::get_string(&feature, fields.arpt_id)?.into(),
+      name: common::get_string(&feature, fields.arpt_name)?.into(),
+      coord: get_coord(&feature, fields)?,
       apt_type: airport_type,
       apt_use: airport_use,
     })
@@ -351,7 +343,7 @@ pub struct Detail {
 
 impl Detail {
   fn new(
-    feature: Option<vector::Feature>,
+    feature: vector::Feature,
     fields: &Fields,
     summary: Summary,
     frequencies: Vec<frq_csv::Frequency>,
@@ -359,37 +351,22 @@ impl Detail {
     remarks: Vec<apt_rmk_csv::Remark>,
     airspace: Option<cls_arsp_csv::ClassAirspace>,
   ) -> Option<Box<Self>> {
-    let feature = feature?;
-    let frequencies = frequencies.into();
-    let runways = runways.into();
-    let remarks = remarks.into();
-    let fuel_types = get_fuel_types(&feature, fields)?.into();
-    let location = get_location(&feature, fields)?.into();
-    let elevation = common::get_unit_text(&feature, "FEET ASL", fields.elev)?.into();
-    let pat_alt = common::get_unit_text(&feature, "FEET AGL", fields.tpa)?.into();
-    let mag_var = get_magnetic_variation(&feature, fields)?.into();
-    let lndg_fee = common::get_yes_no_text(&feature, fields.lndg_fee_flag)?.into();
-    let fss_phone = get_fss_phone(&feature, fields)?.into();
-    let seg_circ = get_segmented_circle(&feature, fields)?.into();
-    let bcn_sked = get_beacon_schedule(&feature, fields)?.into();
-    let bcn_color = get_beacon_color(&feature, fields)?.into();
-    let lgt_sked = get_lighting_schedule(&feature, fields)?.into();
     Some(Box::new(Self {
       summary,
-      fuel_types,
-      location,
-      elevation,
-      pat_alt,
-      mag_var,
-      lndg_fee,
-      fss_phone,
-      seg_circ,
-      bcn_sked,
-      bcn_color,
-      lgt_sked,
-      frequencies,
-      runways,
-      remarks,
+      fuel_types: get_fuel_types(&feature, fields)?.into(),
+      location: get_location(&feature, fields)?.into(),
+      elevation: common::get_unit_text(&feature, "FEET ASL", fields.elev)?.into(),
+      pat_alt: common::get_unit_text(&feature, "FEET AGL", fields.tpa)?.into(),
+      mag_var: get_magnetic_variation(&feature, fields)?.into(),
+      lndg_fee: common::get_yes_no_text(&feature, fields.lndg_fee_flag)?.into(),
+      fss_phone: get_fss_phone(&feature, fields)?.into(),
+      seg_circ: get_segmented_circle(&feature, fields)?.into(),
+      bcn_sked: get_beacon_schedule(&feature, fields)?.into(),
+      bcn_color: get_beacon_color(&feature, fields)?.into(),
+      lgt_sked: get_lighting_schedule(&feature, fields)?.into(),
+      frequencies: frequencies.into(),
+      runways: runways.into(),
+      remarks: remarks.into(),
       airspace,
     }))
   }
