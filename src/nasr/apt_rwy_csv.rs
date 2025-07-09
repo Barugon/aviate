@@ -32,18 +32,10 @@ impl Source {
   /// - `cancel`: cancellation object
   pub fn create_index(&mut self, base_src: &apt_base_csv::Source, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
-    type IDMap = collections::HashMap<String, Vec<u64>>;
 
     let base_id_map = base_src.id_map();
     let mut layer = self.layer();
-    let mut id_map = IDMap::with_capacity(base_id_map.len());
-    let mut add_fid = |id: String, fid: u64| {
-      if let Some(id_vec) = id_map.get_mut(id.as_str()) {
-        id_vec.push(fid);
-      } else {
-        id_map.insert(id, vec![fid]);
-      }
-    };
+    let mut id_map = common::HashMapVec::new(base_id_map.len());
 
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
@@ -55,15 +47,11 @@ impl Source {
         && base_id_map.contains_key(id.as_str())
         && let Some(fid) = feature.fid()
       {
-        add_fid(id, fid);
+        id_map.push(id, fid);
       };
     }
 
-    self.id_map = collections::HashMap::with_capacity(id_map.len());
-    for (id, vec) in id_map {
-      self.id_map.insert(id.into(), vec.into());
-    }
-
+    self.id_map = id_map.into();
     !self.id_map.is_empty()
   }
 

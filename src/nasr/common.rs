@@ -1,7 +1,7 @@
 use crate::{geom, ok};
 use gdal::{errors, spatial_ref, vector};
 use godot::{classes::RegEx, obj::Gd};
-use std::borrow;
+use std::{borrow, cmp, collections, hash};
 
 pub fn open_options<'a>() -> gdal::DatasetOptions<'a> {
   gdal::DatasetOptions {
@@ -66,6 +66,36 @@ pub fn get_unit_text(feature: &vector::Feature, unit: &str, index: usize) -> Opt
   }
 
   Some(format!("{text} {unit}"))
+}
+
+pub struct HashMapVec<K: cmp::Eq + hash::Hash, V> {
+  map: collections::HashMap<K, Vec<V>>,
+}
+
+impl<K: cmp::Eq + hash::Hash, V> HashMapVec<K, V> {
+  pub fn new(size: usize) -> Self {
+    Self {
+      map: collections::HashMap::with_capacity(size),
+    }
+  }
+
+  pub fn push(&mut self, key: K, val: V) {
+    if let Some(vec) = self.map.get_mut(&key) {
+      vec.push(val);
+    } else {
+      self.map.insert(key, vec![val]);
+    }
+  }
+}
+
+impl From<HashMapVec<String, u64>> for collections::HashMap<Box<str>, Box<[u64]>> {
+  fn from(src: HashMapVec<String, u64>) -> Self {
+    let mut dst = collections::HashMap::with_capacity(src.map.len());
+    for (id, vec) in src.map {
+      dst.insert(id.into(), vec.into());
+    }
+    dst
+  }
 }
 
 pub struct PhoneTagger {
