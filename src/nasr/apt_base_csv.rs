@@ -196,7 +196,6 @@ impl Source {
 }
 
 /// Airport summary information.
-#[derive(Clone, Debug)]
 pub struct Summary {
   id: Box<str>,
   name: Box<str>,
@@ -331,7 +330,6 @@ impl Use {
 }
 
 /// Airport detail information.
-#[derive(Clone, Debug)]
 pub struct Detail {
   summary: Summary,
   fuel_types: Box<str>,

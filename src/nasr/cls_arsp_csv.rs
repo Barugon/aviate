@@ -79,7 +79,6 @@ impl Source {
 }
 
 /// Class airspace information.
-#[derive(Clone, Debug)]
 pub struct ClassAirspace {
   airspace: Box<str>,
   hours: Box<str>,

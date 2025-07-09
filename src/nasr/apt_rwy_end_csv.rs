@@ -105,7 +105,6 @@ impl Source {
 pub type RunwayEndMap = collections::HashMap<String, Vec<RunwayEnd>>;
 
 /// Airport runway information.
-#[derive(Clone, Debug)]
 pub struct RunwayEnd {
   rwy_end_id: Box<str>,
   elevation: Box<str>,

@@ -92,7 +92,6 @@ impl Source {
 }
 
 /// Airport frequency information.
-#[derive(Clone, Debug)]
 pub struct Frequency {
   freq: Box<str>,
   freq_use: Box<str>,

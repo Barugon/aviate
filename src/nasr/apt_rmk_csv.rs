@@ -88,7 +88,6 @@ impl Source {
 }
 
 /// Airport remark information.
-#[derive(Clone, Debug)]
 pub struct Remark {
   reference: Box<str>,
   element: Box<str>,

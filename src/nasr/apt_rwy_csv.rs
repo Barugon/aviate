@@ -92,7 +92,6 @@ impl Source {
 }
 
 /// Airport runway information.
-#[derive(Clone, Debug)]
 pub struct Runway {
   rwy_id: Box<str>,
   length: Box<str>,
