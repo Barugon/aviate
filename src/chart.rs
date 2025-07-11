@@ -31,36 +31,37 @@ impl Reader {
     thread::Builder::new()
       .name(any::type_name::<Reader>().to_owned())
       .spawn(move || {
-        /// Convert a GDAL `RgbaEntry` to a `ColorF32`.
-        fn color_f32(color: &raster::RgbaEntry) -> ColorF32 {
-          // Convert colors to floating point in 0.0..=1.0 range.
-          const SCALE: f32 = 1.0 / u8::MAX as f32;
-          [
-            color.r as f32 * SCALE,
-            color.g as f32 * SCALE,
-            color.b as f32 * SCALE,
-            1.0,
-          ]
-        }
-
-        /// Convert a GDAL `RgbaEntry` to a luminance inverted `ColorF32`.
-        fn inverted_color_f32(color: &raster::RgbaEntry) -> ColorF32 {
-          let [r, g, b, a] = color_f32(color);
-
-          // Convert to YCbCr and invert the luminance.
-          let y = 1.0 - (r * 0.299 + g * 0.587 + b * 0.114);
-          let cb = b * 0.5 - r * 0.168736 - g * 0.331264;
-          let cr = r * 0.5 - g * 0.418688 - b * 0.081312;
-
-          // Convert back to RGB.
-          let r = y + 1.402 * cr;
-          let g = y - 0.344136 * cb - 0.714136 * cr;
-          let b = y + 1.772 * cb;
-
-          [r, g, b, a]
-        }
-
+        /// Convert a GDAL palette to light and dark ColorF32 palettes.
         fn convert_palette(palette: Vec<raster::RgbaEntry>) -> (PaletteF32, PaletteF32) {
+          /// Convert a GDAL `RgbaEntry` to a `ColorF32`.
+          fn color_f32(color: &raster::RgbaEntry) -> ColorF32 {
+            // Convert colors to floating point in 0.0..=1.0 range.
+            const SCALE: f32 = 1.0 / u8::MAX as f32;
+            [
+              color.r as f32 * SCALE,
+              color.g as f32 * SCALE,
+              color.b as f32 * SCALE,
+              1.0,
+            ]
+          }
+
+          /// Convert a GDAL `RgbaEntry` to a luminance inverted `ColorF32`.
+          fn inverted_color_f32(color: &raster::RgbaEntry) -> ColorF32 {
+            let [r, g, b, a] = color_f32(color);
+
+            // Convert to YCbCr and invert the luminance.
+            let y = 1.0 - (r * 0.299 + g * 0.587 + b * 0.114);
+            let cb = b * 0.5 - r * 0.168736 - g * 0.331264;
+            let cr = r * 0.5 - g * 0.418688 - b * 0.081312;
+
+            // Convert back to RGB.
+            let r = y + 1.402 * cr;
+            let g = y - 0.344136 * cb - 0.714136 * cr;
+            let b = y + 1.772 * cb;
+
+            [r, g, b, a]
+          }
+
           let palette = &palette[..PAL_LEN];
           let light = array::from_fn(|idx| color_f32(&palette[idx]));
           let dark = array::from_fn(|idx| inverted_color_f32(&palette[idx]));
