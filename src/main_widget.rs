@@ -8,7 +8,7 @@ use godot::{
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
 };
-use std::path;
+use std::{cmp, path};
 
 #[derive(GodotClass)]
 #[class(base=Control)]
@@ -86,7 +86,7 @@ impl MainWidget {
     dialog.set_current_dir(&self.get_asset_folder());
 
     // Set the dialog size.
-    let width = 500.min(self.base().get_size().x as i32);
+    let width = cmp::min(500, self.base().get_size().x as i32);
     let height = dialog.get_size().y;
     dialog.set_size(Vector2i::new(width, height));
 
