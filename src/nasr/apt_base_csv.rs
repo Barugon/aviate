@@ -54,8 +54,7 @@ impl Source {
         && let Some(coord) = ok!(to_chart.transform(coord))
         && to_chart.bounds().contains(coord)
         && let Some(fid) = feature.fid()
-        && let Some(id) = common::get_string(&feature, self.fields.arpt_id)
-        && let Some(id) = util::StackString::from_str(&id)
+        && let Some(id) = common::get_stack_string(&feature, self.fields.arpt_id)
         && let Some(name) = common::get_string(&feature, self.fields.arpt_name)
       {
         id_map.insert(id, fid);
@@ -211,7 +210,7 @@ impl Summary {
     }
 
     Some(Self {
-      id: util::StackString::from_str(&common::get_string(&feature, fields.arpt_id)?)?,
+      id: common::get_stack_string(&feature, fields.arpt_id)?,
       name: common::get_string(&feature, fields.arpt_name)?.into(),
       coord: get_coord(&feature, fields)?,
       apt_type: airport_type,

@@ -42,8 +42,7 @@ impl Source {
         return false;
       }
 
-      if let Some(id) = common::get_string(&feature, self.fields.arpt_id)
-        && let Some(id) = util::StackString::from_str(&id)
+      if let Some(id) = common::get_stack_string(&feature, self.fields.arpt_id)
         && base_id_map.contains_key(&id)
         && let Some(fid) = feature.fid()
       {
@@ -65,7 +64,8 @@ impl Source {
   pub fn class_airspace(&self, id: &str, cancel: &util::Cancel) -> Option<ClassAirspace> {
     use vector::LayerAccess;
 
-    let &fid = self.id_map.get(&util::StackString::from_str(id)?)?;
+    let id = util::StackString::from_str(id)?;
+    let &fid = self.id_map.get(&id)?;
     if cancel.canceled() {
       return None;
     }

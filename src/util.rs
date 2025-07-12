@@ -6,7 +6,7 @@ use godot::{
   },
   prelude::*,
 };
-use std::{array, borrow, cmp, collections, mem, ops, path, sync, time};
+use std::{array, borrow, cmp, collections, ops, path, sync, time};
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
@@ -203,29 +203,23 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   Ok(ZipInfo::Chart(files))
 }
 
-type StackStringData = [u8; 8];
-
 #[derive(Hash, PartialEq, Eq)]
 pub struct StackString {
-  data: StackStringData,
+  data: [u8; 8],
 }
 
 impl StackString {
-  /// Create a new stack string from a string slice. If the length is greater than 7, `None` will be returned.
+  /// Create a new `StackString` from a string slice of seven or less bytes.
   pub fn from_str(text: &str) -> Option<Self> {
-    const MAX_LEN: usize = mem::size_of::<StackStringData>() - 1;
-    let text = text.as_bytes();
-    if text.len() > MAX_LEN {
+    let bytes = text.as_bytes();
+    if bytes.len() > 7 {
       return None;
     }
 
-    // The last byte is the length.
-    let data = array::from_fn(|idx| match idx {
-      0..MAX_LEN => text.get(idx).copied().unwrap_or_default(),
-      MAX_LEN => text.len() as u8,
-      _ => unreachable!(),
-    });
+    let mut data = array::from_fn(|idx| bytes.get(idx).copied().unwrap_or_default());
 
+    // Last byte is the length.
+    data[7] = bytes.len() as u8;
     Some(Self { data })
   }
 

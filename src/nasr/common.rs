@@ -1,7 +1,7 @@
 use crate::{geom, ok, util};
 use gdal::{errors, spatial_ref, vector};
 use godot::{classes::RegEx, obj::Gd};
-use std::{borrow, cmp, collections, hash};
+use std::{borrow, cmp, collections, ffi, hash};
 
 pub fn open_options<'a>() -> gdal::DatasetOptions<'a> {
   gdal::DatasetOptions {
@@ -48,6 +48,25 @@ pub fn get_f64(feature: &vector::Feature, index: usize) -> Option<f64> {
 
 pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
   ok!(feature.field_as_string(index)).and_then(|v| v)
+}
+
+pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util::StackString> {
+  if index >= feature.field_count() {
+    return None;
+  }
+
+  let idx = ok!(index.try_into())?;
+  if unsafe { gdal_sys::OGR_F_IsFieldNull(feature.c_feature(), idx) } != 0 {
+    return None;
+  }
+
+  let ptr = unsafe { gdal_sys::OGR_F_GetFieldAsString(feature.c_feature(), idx) };
+  if ptr.is_null() {
+    return None;
+  }
+
+  let c_str = unsafe { ffi::CStr::from_ptr(ptr) };
+  util::StackString::from_str(ok!(c_str.to_str())?)
 }
 
 pub fn get_yes_no_text(feature: &vector::Feature, index: usize) -> Option<String> {
