@@ -146,8 +146,8 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom
   let mut points = Vec::with_capacity(array.len());
   for variant in array.iter_shared() {
     let coord = geom::Coord::from_variant(variant)?;
-    let x = coord.x.max(0.0).min(limit.x);
-    let y = coord.y.max(0.0).min(limit.y);
+    let x = coord.x.clamp(0.0, limit.x);
+    let y = coord.y.clamp(0.0, limit.y);
     points.push(geom::Px::new(x, y));
   }
 
