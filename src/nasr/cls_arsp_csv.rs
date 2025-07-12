@@ -9,7 +9,7 @@ use std::{collections, path};
 pub struct Source {
   dataset: gdal::Dataset,
   fields: Fields,
-  id_map: collections::HashMap<Box<str>, u64>,
+  id_map: collections::HashMap<util::StackString, u64>,
 }
 
 impl Source {
@@ -43,10 +43,11 @@ impl Source {
       }
 
       if let Some(id) = common::get_string(&feature, self.fields.arpt_id)
-        && base_id_map.contains_key(id.as_str())
+        && let Some(id) = util::StackString::from_str(&id)
+        && base_id_map.contains_key(&id)
         && let Some(fid) = feature.fid()
       {
-        id_map.insert(id.into(), fid);
+        id_map.insert(id, fid);
       };
     }
 
@@ -64,7 +65,7 @@ impl Source {
   pub fn class_airspace(&self, id: &str, cancel: &util::Cancel) -> Option<ClassAirspace> {
     use vector::LayerAccess;
 
-    let &fid = self.id_map.get(id)?;
+    let &fid = self.id_map.get(&util::StackString::from_str(id)?)?;
     if cancel.canceled() {
       return None;
     }

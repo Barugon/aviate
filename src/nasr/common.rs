@@ -1,4 +1,4 @@
-use crate::{geom, ok};
+use crate::{geom, ok, util};
 use gdal::{errors, spatial_ref, vector};
 use godot::{classes::RegEx, obj::Gd};
 use std::{borrow, cmp, collections, hash};
@@ -88,11 +88,11 @@ impl<K: cmp::Eq + hash::Hash, V> HashMapVec<K, V> {
   }
 }
 
-impl From<HashMapVec<String, u64>> for collections::HashMap<Box<str>, Box<[u64]>> {
-  fn from(src: HashMapVec<String, u64>) -> Self {
+impl From<HashMapVec<util::StackString, u64>> for collections::HashMap<util::StackString, Box<[u64]>> {
+  fn from(src: HashMapVec<util::StackString, u64>) -> Self {
     let mut dst = collections::HashMap::with_capacity(src.map.len());
     for (id, vec) in src.map {
-      dst.insert(id.into(), vec.into());
+      dst.insert(id, vec.into());
     }
     dst
   }

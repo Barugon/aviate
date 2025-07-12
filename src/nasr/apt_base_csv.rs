@@ -10,7 +10,7 @@ use std::{collections, path};
 pub struct Source {
   dataset: gdal::Dataset,
   fields: Fields,
-  id_map: collections::HashMap<Box<str>, u64>,
+  id_map: collections::HashMap<util::StackString, u64>,
   name_vec: Vec<(Box<str>, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
 }
@@ -55,9 +55,10 @@ impl Source {
         && to_chart.bounds().contains(coord)
         && let Some(fid) = feature.fid()
         && let Some(id) = common::get_string(&feature, self.fields.arpt_id)
+        && let Some(id) = util::StackString::from_str(&id)
         && let Some(name) = common::get_string(&feature, self.fields.arpt_name)
       {
-        id_map.insert(id.into(), fid);
+        id_map.insert(id, fid);
         name_vec.push((name.into(), fid));
         loc_vec.push(LocIdx { coord, fid })
       };
@@ -81,7 +82,7 @@ impl Source {
   pub fn airport(&self, id: &str, cancel: &util::Cancel) -> Option<Summary> {
     use vector::LayerAccess;
 
-    let &fid = self.id_map.get(id)?;
+    let &fid = self.id_map.get(&util::StackString::from_str(id)?)?;
     if cancel.canceled() {
       return None;
     }
@@ -183,7 +184,7 @@ impl Source {
     airports
   }
 
-  pub fn id_map(&self) -> &collections::HashMap<Box<str>, u64> {
+  pub fn id_map(&self) -> &collections::HashMap<util::StackString, u64> {
     &self.id_map
   }
 
@@ -194,7 +195,7 @@ impl Source {
 
 /// Airport summary information.
 pub struct Summary {
-  id: Box<str>,
+  id: util::StackString,
   name: Box<str>,
   coord: geom::DD,
   apt_type: Type,
@@ -210,7 +211,7 @@ impl Summary {
     }
 
     Some(Self {
-      id: common::get_string(&feature, fields.arpt_id)?.into(),
+      id: util::StackString::from_str(&common::get_string(&feature, fields.arpt_id)?)?,
       name: common::get_string(&feature, fields.arpt_name)?.into(),
       coord: get_coord(&feature, fields)?,
       apt_type: airport_type,
@@ -219,7 +220,7 @@ impl Summary {
   }
 
   pub fn id(&self) -> &str {
-    &self.id
+    self.id.as_str()
   }
 
   pub fn name(&self) -> &str {
@@ -234,7 +235,7 @@ impl Summary {
     format!(
       "{} ({}), {}, {}",
       self.name,
-      self.id,
+      self.id.as_str(),
       self.apt_type.abv(),
       self.apt_use.abv()
     )

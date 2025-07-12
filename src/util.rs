@@ -6,7 +6,7 @@ use godot::{
   },
   prelude::*,
 };
-use std::{borrow, cmp, collections, ops, path, sync, time};
+use std::{array, borrow, cmp, collections, mem, ops, path, sync, time};
 
 pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
@@ -201,6 +201,38 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   }
 
   Ok(ZipInfo::Chart(files))
+}
+
+type StackStringData = [u8; 8];
+
+#[derive(Hash, PartialEq, Eq)]
+pub struct StackString {
+  data: StackStringData,
+}
+
+impl StackString {
+  /// Create a new stack string from a string slice. If the length is greater than 7, `None` will be returned.
+  pub fn from_str(text: &str) -> Option<Self> {
+    const MAX_LEN: usize = mem::size_of::<StackStringData>() - 1;
+    let text = text.as_bytes();
+    if text.len() > MAX_LEN {
+      return None;
+    }
+
+    // The last byte is the length.
+    let data = array::from_fn(|idx| match idx {
+      0..MAX_LEN => text.get(idx).copied().unwrap_or_default(),
+      MAX_LEN => text.len() as u8,
+      _ => unreachable!(),
+    });
+
+    Some(Self { data })
+  }
+
+  pub fn as_str(&self) -> &str {
+    // The data doesn't need to be checked as it originally came from a string slice.
+    unsafe { str::from_utf8_unchecked(&self.data[..self.data[7] as usize]) }
+  }
 }
 
 #[derive(Default, Eq, PartialEq)]

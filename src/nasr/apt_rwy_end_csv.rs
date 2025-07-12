@@ -10,7 +10,7 @@ use std::{collections, path};
 pub struct Source {
   dataset: gdal::Dataset,
   fields: Fields,
-  id_map: collections::HashMap<Box<str>, Box<[u64]>>,
+  id_map: collections::HashMap<util::StackString, Box<[u64]>>,
 }
 
 impl Source {
@@ -44,7 +44,8 @@ impl Source {
       }
 
       if let Some(id) = common::get_string(&feature, self.fields.arpt_id)
-        && base_id_map.contains_key(id.as_str())
+        && let Some(id) = util::StackString::from_str(&id)
+        && base_id_map.contains_key(&id)
         && let Some(fid) = feature.fid()
       {
         id_map.push(id, fid);
@@ -65,7 +66,7 @@ impl Source {
   pub fn runway_ends(&self, id: &str, cancel: &util::Cancel) -> RunwayEndMap {
     use vector::LayerAccess;
 
-    let Some(fids) = self.id_map.get(id) else {
+    let Some(fids) = util::StackString::from_str(id).and_then(|id| self.id_map.get(&id)) else {
       return collections::HashMap::new();
     };
 
