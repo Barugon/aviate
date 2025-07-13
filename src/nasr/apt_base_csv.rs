@@ -34,7 +34,7 @@ impl Source {
   /// Create the indexes.
   /// - `to_chart`: coordinate transformation and chart bounds
   /// - `cancel`: cancellation object
-  pub fn create_indexes(&mut self, to_chart: &common::ToChart, cancel: &util::Cancel) -> bool {
+  pub fn create_indexes(&mut self, to_chart: &common::ToChart, cancel: &util::Cancel) {
     use vector::LayerAccess;
 
     let mut layer = self.layer();
@@ -47,7 +47,7 @@ impl Source {
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
       if cancel.canceled() {
-        return false;
+        return;
       }
 
       if let Some(coord) = get_coord(&feature, &self.fields)
@@ -66,7 +66,6 @@ impl Source {
     self.id_map = id_map;
     self.name_vec = name_vec;
     self.sp_idx = rstar::RTree::bulk_load(loc_vec);
-    !self.id_map.is_empty() && !self.name_vec.is_empty() && self.sp_idx.size() > 0
   }
 
   pub fn clear_indexes(&mut self) {

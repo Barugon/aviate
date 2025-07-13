@@ -318,26 +318,15 @@ impl RequestProcessor {
         self.index_status.set_has_chart_transformation();
 
         // Create the index needed for summary-level searches.
-        if !self.base_src.create_indexes(&trans, &cancel) {
-          let reply = Reply::Error("Failed to create airport summary-level indexing".into());
-          self.sender.send(reply).unwrap();
-          return;
-        }
-
+        self.base_src.create_indexes(&trans, &cancel);
         self.index_status.set_has_summary_index();
 
         // Create the indexes needed for detail-level searches.
-        if !self.arsp_src.create_index(&self.base_src, &cancel)
-          || !self.frq_src.create_index(&self.base_src, &cancel)
-          || !self.rwy_src.create_index(&self.base_src, &cancel)
-          || !self.rwy_end_src.create_index(&self.base_src, &cancel)
-          || !self.rmk_src.create_index(&self.base_src, &cancel)
-        {
-          let reply = Reply::Error("Failed to create airport detail-level indexing".into());
-          self.sender.send(reply).unwrap();
-          return;
-        }
-
+        self.arsp_src.create_index(&self.base_src, &cancel);
+        self.frq_src.create_index(&self.base_src, &cancel);
+        self.rwy_src.create_index(&self.base_src, &cancel);
+        self.rwy_end_src.create_index(&self.base_src, &cancel);
+        self.rmk_src.create_index(&self.base_src, &cancel);
         self.index_status.set_has_detail_index();
       }
       Err(err) => {
