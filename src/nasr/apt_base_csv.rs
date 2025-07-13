@@ -55,7 +55,7 @@ impl Source {
         && to_chart.bounds().contains(coord)
         && let Some(fid) = feature.fid()
         && let Some(id) = common::get_stack_string(&feature, self.fields.arpt_id)
-        && let Some(name) = common::get_string(&feature, self.fields.arpt_name)
+        && let Some(name) = common::get_str(&feature, self.fields.arpt_name)
       {
         id_map.insert(id, fid);
         name_vec.push((name.into(), fid));
@@ -211,7 +211,7 @@ impl Summary {
 
     Some(Self {
       id: common::get_stack_string(&feature, fields.arpt_id)?,
-      name: common::get_string(&feature, fields.arpt_name)?.into(),
+      name: common::get_str(&feature, fields.arpt_name)?.into(),
       coord: get_coord(&feature, fields)?,
       apt_type: airport_type,
       apt_use: airport_use,
@@ -545,7 +545,7 @@ impl Fields {
 }
 
 fn get_airport_type(feature: &vector::Feature, fields: &Fields) -> Option<Type> {
-  match common::get_string(feature, fields.site_type_code)?.as_str() {
+  match common::get_str(feature, fields.site_type_code)? {
     "A" => Some(Type::Airport),
     "B" => Some(Type::Balloon),
     "C" => Some(Type::Seaplane),
@@ -557,7 +557,7 @@ fn get_airport_type(feature: &vector::Feature, fields: &Fields) -> Option<Type> 
 }
 
 fn get_airport_use(feature: &vector::Feature, fields: &Fields) -> Option<Use> {
-  match common::get_string(feature, fields.facility_use_code)?.as_str() {
+  match common::get_str(feature, fields.facility_use_code)? {
     "PR" => Some(Use::Private),
     "PU" => Some(Use::Public),
     _ => None,
@@ -572,29 +572,29 @@ fn get_coord(feature: &vector::Feature, fields: &Fields) -> Option<geom::DD> {
 }
 
 fn get_fuel_types(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let fuel_types = common::get_string(feature, fields.fuel_types)?;
+  let fuel_types = common::get_str(feature, fields.fuel_types)?;
 
   // Make sure there's a comma and space between each fuel type.
   Some(fuel_types.split(',').map(|s| s.trim()).collect::<Vec<_>>().join(", "))
 }
 
 fn get_location(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let city = common::get_string(feature, fields.city)?;
-  let state = common::get_string(feature, fields.state_code)?;
+  let city = common::get_str(feature, fields.city)?;
+  let state = common::get_str(feature, fields.state_code)?;
   if state.is_empty() {
-    return Some(city);
+    return Some(city.into());
   }
 
   Some(format!("{city}, {state}"))
 }
 
 fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let var = common::get_string(feature, fields.mag_varn)?;
+  let var = common::get_str(feature, fields.mag_varn)?;
   if var.is_empty() {
     return Some(String::new());
   }
 
-  let hem = common::get_string(feature, fields.mag_hemis)?;
+  let hem = common::get_str(feature, fields.mag_hemis)?;
   if hem.is_empty() {
     return Some(String::new());
   }
@@ -603,55 +603,59 @@ fn get_magnetic_variation(feature: &vector::Feature, fields: &Fields) -> Option<
 }
 
 fn get_fss_phone(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let fss_phone = common::get_string(feature, fields.toll_free_no)?;
-  let alt_phone = common::get_string(feature, fields.alt_toll_free_no)?;
+  let fss_phone = common::get_str(feature, fields.toll_free_no)?;
+  let alt_phone = common::get_str(feature, fields.alt_toll_free_no)?;
   if !fss_phone.is_empty() && !alt_phone.is_empty() {
     return Some(format!("{fss_phone} (ALT {alt_phone})"));
   }
-  Some(fss_phone)
+  Some(fss_phone.into())
 }
 
 fn get_lighting_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let lighting_schedule = common::get_string(feature, fields.lgt_sked)?;
-  Some(match lighting_schedule.as_str() {
-    "SS-SR" => "SUNSET-SUNRISE".into(),
-    "SEE RMK" => "SEE REMARK".into(),
+  let lighting_schedule = common::get_str(feature, fields.lgt_sked)?;
+  let lighting_schedule = match lighting_schedule {
+    "SS-SR" => "SUNSET-SUNRISE",
+    "SEE RMK" => "SEE REMARK",
     _ => lighting_schedule,
-  })
+  };
+  Some(lighting_schedule.into())
 }
 
 fn get_beacon_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let beacon_schedule = common::get_string(feature, fields.bcn_lgt_sked)?;
-  Some(match beacon_schedule.as_str() {
-    "SS-SR" => "SUNSET-SUNRISE".into(),
-    "SEE RMK" => "SEE REMARK".into(),
+  let beacon_schedule = common::get_str(feature, fields.bcn_lgt_sked)?;
+  let beacon_schedule = match beacon_schedule {
+    "SS-SR" => "SUNSET-SUNRISE",
+    "SEE RMK" => "SEE REMARK",
     _ => beacon_schedule,
-  })
+  };
+  Some(beacon_schedule.into())
 }
 
 fn get_beacon_color(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let beacon_color = common::get_string(feature, fields.bcn_lens_color)?;
-  Some(match beacon_color.as_str() {
-    "WG" => "WHITE-GREEN (LIGHTED LAND AIRPORT)".into(),
-    "WY" => "WHITE-YELLOW (LIGHTED SEAPLANE BASE)".into(),
-    "WGY" => "WHITE-GREEN-YELLOW (HELIPORT)".into(),
-    "SWG" => "SPLIT-WHITE-GREEN (LIGHTED MILITARY AIRPORT)".into(),
-    "W" => "WHITE (UNLIGHTED LAND AIRPORT)".into(),
-    "Y" => "YELLOW (UNLIGHTED SEAPLANE BASE)".into(),
-    "G" => "GREEN (LIGHTED LAND AIRPORT)".into(),
-    "N" => "NONE".into(),
+  let beacon_color = common::get_str(feature, fields.bcn_lens_color)?;
+  let beacon_color = match beacon_color {
+    "WG" => "WHITE-GREEN (LIGHTED LAND AIRPORT)",
+    "WY" => "WHITE-YELLOW (LIGHTED SEAPLANE BASE)",
+    "WGY" => "WHITE-GREEN-YELLOW (HELIPORT)",
+    "SWG" => "SPLIT-WHITE-GREEN (LIGHTED MILITARY AIRPORT)",
+    "W" => "WHITE (UNLIGHTED LAND AIRPORT)",
+    "Y" => "YELLOW (UNLIGHTED SEAPLANE BASE)",
+    "G" => "GREEN (LIGHTED LAND AIRPORT)",
+    "N" => "NONE",
     _ => beacon_color,
-  })
+  };
+  Some(beacon_color.into())
 }
 
 fn get_segmented_circle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let segmented_circle = common::get_string(feature, fields.seg_circle_mkr_flag)?;
-  Some(match segmented_circle.as_str() {
-    "Y" => "YES".into(),
-    "N" => "NO".into(),
-    "Y-L" => "YES, LIGHTED".into(),
+  let segmented_circle = common::get_str(feature, fields.seg_circle_mkr_flag)?;
+  let segmented_circle = match segmented_circle {
+    "Y" => "YES",
+    "N" => "NO",
+    "Y-L" => "YES, LIGHTED",
     _ => segmented_circle,
-  })
+  };
+  Some(segmented_circle.into())
 }
 
 /// Location spatial index item.

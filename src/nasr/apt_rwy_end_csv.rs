@@ -85,7 +85,7 @@ impl Source {
       }
 
       if let Some(feature) = layer.feature(fid)
-        && let Some(rwy_id) = common::get_string(&feature, self.fields.rwy_id)
+        && let Some(rwy_id) = common::get_str(&feature, self.fields.rwy_id).map(|s| s.into())
         && let Some(runway) = RunwayEnd::new(feature, &self.fields)
       {
         add_rwy_end(rwy_id, runway);
@@ -123,7 +123,7 @@ pub struct RunwayEnd {
 impl RunwayEnd {
   fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
     Some(Self {
-      rwy_end_id: common::get_string(&feature, fields.rwy_end_id)?.into(),
+      rwy_end_id: common::get_str(&feature, fields.rwy_end_id)?.into(),
       elevation: common::get_unit_text(&feature, "FEET ASL", fields.rwy_end_elev)?.into(),
       true_alignment: get_true_alignment(&feature, fields)?.into(),
       rh_traffic: common::get_yes_no_text(&feature, fields.right_hand_traffic_pat_flag)?.into(),
@@ -312,7 +312,7 @@ impl Fields {
 }
 
 fn get_true_alignment(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let mut alignment = common::get_string(feature, fields.true_alignment)?;
+  let mut alignment = common::get_str(feature, fields.true_alignment)?.to_owned();
   if !alignment.is_empty() {
     alignment += "°";
   }
@@ -320,24 +320,24 @@ fn get_true_alignment(feature: &vector::Feature, fields: &Fields) -> Option<Stri
 }
 
 fn get_markings(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let markings = common::get_string(feature, fields.rwy_marking_type_code)?;
-  let markings = match markings.as_str() {
-    "PIR" => "PRECISION INSTRUMENT".into(),
-    "NPI" => "NONPRECISION INSTRUMENT".into(),
-    "BSC" => "BASIC".into(),
-    "NRS" => "NUMBERS ONLY".into(),
-    "NSTD" => "NONSTANDARD (OTHER THAN NUMBERS ONLY)".into(),
-    "BUOY" => "BUOYS (SEAPLANE BASE)".into(),
-    "STOL" => "SHORT TAKEOFF AND LANDING".into(),
+  let markings = common::get_str(feature, fields.rwy_marking_type_code)?;
+  let markings = match markings {
+    "PIR" => "PRECISION INSTRUMENT",
+    "NPI" => "NONPRECISION INSTRUMENT",
+    "BSC" => "BASIC",
+    "NRS" => "NUMBERS ONLY",
+    "NSTD" => "NONSTANDARD (OTHER THAN NUMBERS ONLY)",
+    "BUOY" => "BUOYS (SEAPLANE BASE)",
+    "STOL" => "SHORT TAKEOFF AND LANDING",
     _ => markings,
   };
 
   if !markings.is_empty() {
-    let condition = common::get_string(feature, fields.rwy_marking_cond)?;
-    let condition = match condition.as_str() {
-      "G" => "GOOD".into(),
-      "F" => "FAIR".into(),
-      "P" => "POOR".into(),
+    let condition = common::get_str(feature, fields.rwy_marking_cond)?;
+    let condition = match condition {
+      "G" => "GOOD",
+      "F" => "FAIR",
+      "P" => "POOR",
       _ => condition,
     };
 
@@ -346,54 +346,54 @@ fn get_markings(feature: &vector::Feature, fields: &Fields) -> Option<String> {
     }
   }
 
-  Some(markings)
+  Some(markings.into())
 }
 
 fn get_glide_slope_indicator(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let vgsi = common::get_string(feature, fields.vgsi_code)?;
-  Some(match vgsi.as_str() {
-    "N" => String::new(),
-    "NSTD" => "NONSTANDARD VASI SYSTEM".into(),
-    "P2L" => "2-LGT PAPI ON LEFT SIDE OF RUNWAY".into(),
-    "P2R" => "2-LGT PAPI ON RIGHT SIDE OF RUNWAY".into(),
-    "P4L" => "4-LGT PAPI ON LEFT SIDE OF RUNWAY".into(),
-    "P4R" => "4-LGT PAPI ON RIGHT SIDE OF RUNWAY".into(),
-    "PAPI" => "PRECISION APPROACH PATH INDICATOR".into(),
-    "PNI" => "A SYSTEM OF PANELS USED FOR ALIGNMENT OF APPROACH SLOPE INDICATOR".into(),
-    "PNIL" => "SYSTEM OF PANELS ON LEFT SIDE OF RUNWAY THAT MAY OR MAY NOT BE LIGHTED".into(),
-    "PNIR" => "SYSTEM OF PANELS ON RIGHT SIDE OF RUNWAY THAT MAY OR MAY NOT BE LIGHTED".into(),
-    "PSI" => "PULSATING/STEADY BURNING VISUAL APPROACH SLOPE INDICATOR".into(),
-    "PSIL" => "PULSATING/STEADY BURNING VASI ON LEFT SIDE OF RUNWAY".into(),
-    "PSIR" => "PULSATING/STEADY BURNING VASI ON RIGHT SIDE OF RUNWAY".into(),
+  let vgsi = common::get_str(feature, fields.vgsi_code)?;
+  let vgsi = match vgsi {
+    "N" => Default::default(),
+    "NSTD" => "NONSTANDARD VASI SYSTEM",
+    "P2L" => "2-LGT PAPI ON LEFT SIDE OF RUNWAY",
+    "P2R" => "2-LGT PAPI ON RIGHT SIDE OF RUNWAY",
+    "P4L" => "4-LGT PAPI ON LEFT SIDE OF RUNWAY",
+    "P4R" => "4-LGT PAPI ON RIGHT SIDE OF RUNWAY",
+    "PAPI" => "PRECISION APPROACH PATH INDICATOR",
+    "PNI" => "A SYSTEM OF PANELS USED FOR ALIGNMENT OF APPROACH SLOPE INDICATOR",
+    "PNIL" => "SYSTEM OF PANELS ON LEFT SIDE OF RUNWAY THAT MAY OR MAY NOT BE LIGHTED",
+    "PNIR" => "SYSTEM OF PANELS ON RIGHT SIDE OF RUNWAY THAT MAY OR MAY NOT BE LIGHTED",
+    "PSI" => "PULSATING/STEADY BURNING VISUAL APPROACH SLOPE INDICATOR",
+    "PSIL" => "PULSATING/STEADY BURNING VASI ON LEFT SIDE OF RUNWAY",
+    "PSIR" => "PULSATING/STEADY BURNING VASI ON RIGHT SIDE OF RUNWAY",
     "PVT" => concat!(
       "PRIVATELY OWNED APPROACH SLOPE INDICATOR LIGHT SYSTEM ON A",
       "PUBLIC USE AIRPORT THAT IS INTENDED FOR PRIVATE USE ONLY"
-    )
-    .into(),
-    "S2L" => "2-BOX SAVASI ON LEFT SIDE OF RUNWAY".into(),
-    "S2R" => "2-BOX SAVASI ON RIGHT SIDE OF RUNWAY".into(),
-    "SAVASI" => "SIMPLIFIED ABBREVIATED VISUAL APPROACH SLOPE INDICATOR".into(),
-    "TRI" => "TRI-COLOR VISUAL APPROACH SLOPE INDICATOR".into(),
-    "TRIL" => "TRI-COLOR VASI ON LEFT SIDE OF RUNWAY".into(),
-    "TRIR" => "TRI-COLOR VASI ON RIGHT SIDE OF RUNWAY".into(),
-    "V12" => "12-BOX VASI ON BOTH SIDES OF RUNWAY".into(),
-    "V16" => "16-BOX VASI ON BOTH SIDES OF RUNWAY".into(),
-    "V2L" => "2-BOX VASI ON LEFT SIDE OF RUNWAY".into(),
-    "V2R" => "2-BOX VASI ON RIGHT SIDE OF RUNWAY".into(),
-    "V4L" => "4-BOX VASI ON LEFT SIDE OF RUNWAY".into(),
-    "V4R" => "4-BOX VASI ON RIGHT SIDE OF RUNWAY".into(),
-    "V6L" => "6-BOX VASI ON LEFT SIDE OF RUNWAY".into(),
-    "V6R" => "6-BOX VASI ON RIGHT SIDE OF RUNWAY".into(),
-    "VAS" => "NON-SPECIFIC VASI SYSTEM".into(),
-    "VASI" => "VISUAL APPROACH SLOPE INDICATOR".into(),
+    ),
+    "S2L" => "2-BOX SAVASI ON LEFT SIDE OF RUNWAY",
+    "S2R" => "2-BOX SAVASI ON RIGHT SIDE OF RUNWAY",
+    "SAVASI" => "SIMPLIFIED ABBREVIATED VISUAL APPROACH SLOPE INDICATOR",
+    "TRI" => "TRI-COLOR VISUAL APPROACH SLOPE INDICATOR",
+    "TRIL" => "TRI-COLOR VASI ON LEFT SIDE OF RUNWAY",
+    "TRIR" => "TRI-COLOR VASI ON RIGHT SIDE OF RUNWAY",
+    "V12" => "12-BOX VASI ON BOTH SIDES OF RUNWAY",
+    "V16" => "16-BOX VASI ON BOTH SIDES OF RUNWAY",
+    "V2L" => "2-BOX VASI ON LEFT SIDE OF RUNWAY",
+    "V2R" => "2-BOX VASI ON RIGHT SIDE OF RUNWAY",
+    "V4L" => "4-BOX VASI ON LEFT SIDE OF RUNWAY",
+    "V4R" => "4-BOX VASI ON RIGHT SIDE OF RUNWAY",
+    "V6L" => "6-BOX VASI ON LEFT SIDE OF RUNWAY",
+    "V6R" => "6-BOX VASI ON RIGHT SIDE OF RUNWAY",
+    "VAS" => "NON-SPECIFIC VASI SYSTEM",
+    "VASI" => "VISUAL APPROACH SLOPE INDICATOR",
     _ => vgsi,
-  })
+  };
+  Some(vgsi.into())
 }
 
 fn get_obstacle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let obstacle = common::get_string(feature, fields.obstn_type)?;
-  let marked = common::get_string(feature, fields.obstn_mrkd_code)?;
-  let marked = match marked.as_str() {
+  let obstacle = common::get_str(feature, fields.obstn_type)?;
+  let marked = common::get_str(feature, fields.obstn_mrkd_code)?;
+  let marked = match marked {
     "M" => "MARKED",
     "L" => "LIGHTED",
     "ML" => "MARKED AND LIGHTED",
@@ -401,21 +401,21 @@ fn get_obstacle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   };
 
   if obstacle.is_empty() || marked.is_empty() {
-    return Some(obstacle);
+    return Some(obstacle.into());
   }
 
   Some(format!("{obstacle} ({marked})"))
 }
 
 fn get_obstacle_offset(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let distance = common::get_string(feature, fields.dist_from_thr)?;
+  let distance = common::get_str(feature, fields.dist_from_thr)?;
   if distance.is_empty() {
-    return Some(distance);
+    return Some(String::new());
   }
 
-  let offset = common::get_string(feature, fields.cntrln_offset)?;
-  let direction = common::get_string(feature, fields.cntrln_dir_code)?;
-  let direction = match direction.as_str() {
+  let offset = common::get_str(feature, fields.cntrln_offset)?;
+  let direction = common::get_str(feature, fields.cntrln_dir_code)?;
+  let direction = match direction {
     "B" => Default::default(), // Missing from layout doc.
     "L" => "LEFT",
     "L/R" => "LEFT AND RIGHT",

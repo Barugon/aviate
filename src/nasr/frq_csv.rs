@@ -107,13 +107,13 @@ pub struct Frequency {
 impl Frequency {
   fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
     Some(Self {
-      freq: common::get_string(&feature, fields.freq)?.into(),
-      freq_use: common::get_string(&feature, fields.freq_use)?.into(),
-      facility_type: common::get_string(&feature, fields.facility_type)?.into(),
-      sectorization: common::get_string(&feature, fields.sectorization)?.into(),
-      tower_call: common::get_string(&feature, fields.tower_or_comm_call)?.into(),
-      approach_call: common::get_string(&feature, fields.primary_approach_radio_call)?.into(),
-      remark: common::get_string(&feature, fields.remark)?.into(),
+      freq: common::get_str(&feature, fields.freq)?.into(),
+      freq_use: common::get_str(&feature, fields.freq_use)?.into(),
+      facility_type: common::get_str(&feature, fields.facility_type)?.into(),
+      sectorization: common::get_str(&feature, fields.sectorization)?.into(),
+      tower_call: common::get_str(&feature, fields.tower_or_comm_call)?.into(),
+      approach_call: common::get_str(&feature, fields.primary_approach_radio_call)?.into(),
+      remark: common::get_str(&feature, fields.remark)?.into(),
     })
   }
 

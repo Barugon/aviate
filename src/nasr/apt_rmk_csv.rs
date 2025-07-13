@@ -100,8 +100,8 @@ impl Remark {
   fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
     Some(Self {
       reference: get_reference(&feature, fields)?.into(),
-      element: common::get_string(&feature, fields.element)?.into(),
-      text: common::get_string(&feature, fields.remark)?.into(),
+      element: common::get_str(&feature, fields.element)?.into(),
+      text: common::get_str(&feature, fields.remark)?.into(),
     })
   }
 
@@ -143,20 +143,21 @@ impl Fields {
 }
 
 fn get_reference(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  Some(match common::get_string(feature, fields.ref_col_name)?.as_str() {
-    "ARPT_ID" => "Airport ID".into(),
-    "ARPT_NAME" => "Airport Name".into(),
-    "BCN_LENS_COLOR" => "Beacon Color".into(),
-    "BCN_LGT_SKED" => "Beacon Schedule".into(),
-    "ELEV" => "Elevation".into(),
-    "FACILITY_USE_CODE" => "Facility Use".into(),
-    "FUEL_TYPE" => "Fuel Type".into(),
-    "GENERAL_REMARK" => String::new(),
-    "LGT_SKED" => "Lighting Schedule".into(),
-    "LNDG_FEE_FLAG" => "Landing Fee".into(),
-    "SITE_TYPE_CODE" => "Site Type".into(),
-    "TPA" => "Pattern Altitude".into(),
-    "SEG_CIRCLE_MKR_FLAG" => "Segmented Circle".into(),
+  let reference = match common::get_str(feature, fields.ref_col_name)? {
+    "ARPT_ID" => "Airport ID",
+    "ARPT_NAME" => "Airport Name",
+    "BCN_LENS_COLOR" => "Beacon Color",
+    "BCN_LGT_SKED" => "Beacon Schedule",
+    "ELEV" => "Elevation",
+    "FACILITY_USE_CODE" => "Facility Use",
+    "FUEL_TYPE" => "Fuel Type",
+    "GENERAL_REMARK" => Default::default(),
+    "LGT_SKED" => "Lighting Schedule",
+    "LNDG_FEE_FLAG" => "Landing Fee",
+    "SITE_TYPE_CODE" => "Site Type",
+    "TPA" => "Pattern Altitude",
+    "SEG_CIRCLE_MKR_FLAG" => "Segmented Circle",
     _ => return None,
-  })
+  };
+  Some(reference.into())
 }

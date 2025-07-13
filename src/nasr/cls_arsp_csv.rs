@@ -91,8 +91,8 @@ impl ClassAirspace {
     let feature = feature?;
     Some(Self {
       airspace: get_class_airspace(&feature, fields)?.into(),
-      hours: common::get_string(&feature, fields.airspace_hrs)?.into(),
-      remark: common::get_string(&feature, fields.remark)?.into(),
+      hours: common::get_str(&feature, fields.airspace_hrs)?.into(),
+      remark: common::get_str(&feature, fields.remark)?.into(),
     })
   }
 
@@ -149,25 +149,25 @@ impl Fields {
 
 fn get_class_airspace(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   let mut airspaces = Vec::with_capacity(4);
-  if let Some(b) = common::get_string(feature, fields.class_b_airspace)
+  if let Some(b) = common::get_str(feature, fields.class_b_airspace)
     && b == "Y"
   {
     airspaces.push("B");
   }
 
-  if let Some(c) = common::get_string(feature, fields.class_c_airspace)
+  if let Some(c) = common::get_str(feature, fields.class_c_airspace)
     && c == "Y"
   {
     airspaces.push("C");
   }
 
-  if let Some(d) = common::get_string(feature, fields.class_d_airspace)
+  if let Some(d) = common::get_str(feature, fields.class_d_airspace)
     && d == "Y"
   {
     airspaces.push("D");
   }
 
-  if let Some(e) = common::get_string(feature, fields.class_e_airspace)
+  if let Some(e) = common::get_str(feature, fields.class_e_airspace)
     && e == "Y"
   {
     airspaces.push("E");

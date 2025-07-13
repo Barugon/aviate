@@ -106,15 +106,15 @@ pub struct Runway {
 
 impl Runway {
   fn new(feature: vector::Feature, ends_map: &mut apt_rwy_end_csv::RunwayEndMap, fields: &Fields) -> Option<Self> {
-    let rwy_id = common::get_string(&feature, fields.rwy_id)?;
-    let ends = ends_map.remove(&rwy_id).map(|ends| ends.into()).unwrap_or_default();
+    let rwy_id = common::get_str(&feature, fields.rwy_id)?;
+    let ends = ends_map.remove(rwy_id).map(|ends| ends.into()).unwrap_or_default();
     Some(Self {
       rwy_id: rwy_id.into(),
       length: get_length(&feature, fields)?.into(),
       width: get_width(&feature, fields)?.into(),
       lighting: get_lighting(&feature, fields)?.into(),
       surface: get_surface(&feature, fields)?.into(),
-      condition: common::get_string(&feature, fields.cond)?.into(),
+      condition: common::get_str(&feature, fields.cond)?.into(),
       ends,
     })
   }
@@ -208,32 +208,34 @@ fn get_width(feature: &vector::Feature, fields: &Fields) -> Option<String> {
 
 fn get_lighting(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   // Expand abbreviations.
-  let lighting = common::get_string(feature, fields.rwy_lgt_code)?;
-  Some(match lighting.as_str() {
-    "MED" => "MEDIUM".into(),
-    "NSTD" => "NON-STANDARD".into(),
+  let lighting = common::get_str(feature, fields.rwy_lgt_code)?;
+  let lighting = match lighting {
+    "MED" => "MEDIUM",
+    "NSTD" => "NON-STANDARD",
     "PERI" => lighting, // Missing from layout doc.
     _ => lighting,
-  })
+  };
+  Some(lighting.into())
 }
 
 fn get_surface(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let surface = common::get_string(feature, fields.surface_type_code)?;
+  let surface = common::get_str(feature, fields.surface_type_code)?;
   if surface.is_empty() {
-    return Some(surface);
+    return Some(String::new());
   }
 
   // Expand abbreviations.
-  Some(match surface.as_str() {
-    "ASPH" => "ASPHALT OR BITUMINOUS CONCRETE".into(),
+  let surface = match surface {
+    "ASPH" => "ASPHALT OR BITUMINOUS CONCRETE",
     "ASPH-CONC" => surface, // Missing from layout doc.
-    "CONC" => "PORTLAND CEMENT CONCRETE".into(),
-    "DIRT" => "NATURAL SOIL".into(),
-    "GRAVEL" => "GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG".into(),
-    "MATS" => "PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES".into(),
-    "PEM" => "PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM".into(),
-    "TREATED" => "OILED; SOIL CEMENT OR LIME STABILIZED".into(),
-    "TURF" => "GRASS; SOD".into(),
+    "CONC" => "PORTLAND CEMENT CONCRETE",
+    "DIRT" => "NATURAL SOIL",
+    "GRAVEL" => "GRAVEL; CINDERS; CRUSHED ROCK; CORAL OR SHELLS; SLAG",
+    "MATS" => "PIERCED STEEL PLANKING (PSP); LANDING MATS; MEMBRANES",
+    "PEM" => "PARTIALLY CONCRETE, ASPHALT OR BITUMEN-BOUND MACADAM",
+    "TREATED" => "OILED; SOIL CEMENT OR LIME STABILIZED",
+    "TURF" => "GRASS; SOD",
     _ => surface,
-  })
+  };
+  Some(surface.into())
 }

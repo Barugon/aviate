@@ -1,7 +1,7 @@
 use crate::{geom, ok, util};
 use gdal::{errors, spatial_ref, vector};
 use godot::{classes::RegEx, obj::Gd};
-use std::{borrow, cmp, collections, ffi, hash};
+use std::{borrow, cmp, collections, hash, slice};
 
 pub fn open_options<'a>() -> gdal::DatasetOptions<'a> {
   gdal::DatasetOptions {
@@ -46,11 +46,7 @@ pub fn get_f64(feature: &vector::Feature, index: usize) -> Option<f64> {
   ok!(feature.field_as_double(index)).and_then(|v| v)
 }
 
-pub fn get_string(feature: &vector::Feature, index: usize) -> Option<String> {
-  ok!(feature.field_as_string(index)).and_then(|v| v)
-}
-
-pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util::StackString> {
+pub fn get_str<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
   if index >= feature.field_count() {
     return None;
   }
@@ -60,28 +56,32 @@ pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util:
     return None;
   }
 
-  let ptr = unsafe { gdal_sys::OGR_F_GetFieldAsString(feature.c_feature(), idx) };
-  if ptr.is_null() {
+  let mut len: i32 = 0;
+  let ptr = unsafe { gdal_sys::OGR_F_GetFieldAsBinary(feature.c_feature(), idx, &mut len as *mut i32) };
+  if ptr.is_null() || len < 0 {
     return None;
   }
 
-  let c_str = unsafe { ffi::CStr::from_ptr(ptr) };
-  util::StackString::from_str(ok!(c_str.to_str())?)
+  ok!(str::from_utf8(unsafe { slice::from_raw_parts(ptr, len as usize) }))
+}
+
+pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util::StackString> {
+  util::StackString::from_str(get_str(feature, index)?)
 }
 
 pub fn get_yes_no_text(feature: &vector::Feature, index: usize) -> Option<String> {
-  let text = get_string(feature, index)?;
-  Some(match text.as_str() {
+  let text = get_str(feature, index)?;
+  Some(match text {
     "Y" => "YES".into(),
     "N" => "NO".into(),
-    _ => text,
+    _ => text.into(),
   })
 }
 
 pub fn get_unit_text(feature: &vector::Feature, unit: &str, index: usize) -> Option<String> {
-  let text = get_string(feature, index)?;
+  let text = get_str(feature, index)?;
   if text.is_empty() {
-    return Some(text);
+    return Some(String::new());
   }
 
   Some(format!("{text} {unit}"))
