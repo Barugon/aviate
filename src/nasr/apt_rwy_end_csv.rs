@@ -307,11 +307,11 @@ impl Fields {
 }
 
 fn get_true_alignment(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let mut alignment = common::get_str(feature, fields.true_alignment)?.to_owned();
-  if !alignment.is_empty() {
-    alignment += "°";
+  let alignment = common::get_str(feature, fields.true_alignment)?;
+  if alignment.is_empty() {
+    return Some(String::new());
   }
-  Some(alignment)
+  Some(format!("{alignment}°"))
 }
 
 fn get_markings(feature: &vector::Feature, fields: &Fields) -> Option<String> {
@@ -344,9 +344,9 @@ fn get_markings(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   Some(markings.into())
 }
 
-fn get_glide_slope_indicator(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+fn get_glide_slope_indicator<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
   let vgsi = common::get_str(feature, fields.vgsi_code)?;
-  let vgsi = match vgsi {
+  Some(match vgsi {
     "N" => Default::default(),
     "NSTD" => "NONSTANDARD VASI SYSTEM",
     "P2L" => "2-LGT PAPI ON LEFT SIDE OF RUNWAY",
@@ -381,8 +381,7 @@ fn get_glide_slope_indicator(feature: &vector::Feature, fields: &Fields) -> Opti
     "VAS" => "NON-SPECIFIC VASI SYSTEM",
     "VASI" => "VISUAL APPROACH SLOPE INDICATOR",
     _ => vgsi,
-  };
-  Some(vgsi.into())
+  })
 }
 
 fn get_obstacle(feature: &vector::Feature, fields: &Fields) -> Option<String> {

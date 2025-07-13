@@ -610,29 +610,27 @@ fn get_fss_phone(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   Some(fss_phone.into())
 }
 
-fn get_lighting_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+fn get_lighting_schedule<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
   let lighting_schedule = common::get_str(feature, fields.lgt_sked)?;
-  let lighting_schedule = match lighting_schedule {
+  Some(match lighting_schedule {
     "SS-SR" => "SUNSET-SUNRISE",
     "SEE RMK" => "SEE REMARK",
     _ => lighting_schedule,
-  };
-  Some(lighting_schedule.into())
+  })
 }
 
-fn get_beacon_schedule(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+fn get_beacon_schedule<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
   let beacon_schedule = common::get_str(feature, fields.bcn_lgt_sked)?;
-  let beacon_schedule = match beacon_schedule {
+  Some(match beacon_schedule {
     "SS-SR" => "SUNSET-SUNRISE",
     "SEE RMK" => "SEE REMARK",
     _ => beacon_schedule,
-  };
-  Some(beacon_schedule.into())
+  })
 }
 
-fn get_beacon_color(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+fn get_beacon_color<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
   let beacon_color = common::get_str(feature, fields.bcn_lens_color)?;
-  let beacon_color = match beacon_color {
+  Some(match beacon_color {
     "WG" => "WHITE-GREEN (LIGHTED LAND AIRPORT)",
     "WY" => "WHITE-YELLOW (LIGHTED SEAPLANE BASE)",
     "WGY" => "WHITE-GREEN-YELLOW (HELIPORT)",
@@ -642,19 +640,17 @@ fn get_beacon_color(feature: &vector::Feature, fields: &Fields) -> Option<String
     "G" => "GREEN (LIGHTED LAND AIRPORT)",
     "N" => "NONE",
     _ => beacon_color,
-  };
-  Some(beacon_color.into())
+  })
 }
 
-fn get_segmented_circle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+fn get_segmented_circle<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
   let segmented_circle = common::get_str(feature, fields.seg_circle_mkr_flag)?;
-  let segmented_circle = match segmented_circle {
+  Some(match segmented_circle {
     "Y" => "YES",
     "N" => "NO",
     "Y-L" => "YES, LIGHTED",
     _ => segmented_circle,
-  };
-  Some(segmented_circle.into())
+  })
 }
 
 /// Location spatial index item.

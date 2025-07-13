@@ -71,12 +71,12 @@ pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util:
   util::StackString::from_str(get_str(feature, index)?)
 }
 
-pub fn get_yes_no_text(feature: &vector::Feature, index: usize) -> Option<String> {
+pub fn get_yes_no_text<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
   let text = get_str(feature, index)?;
   Some(match text {
-    "Y" => "YES".into(),
-    "N" => "NO".into(),
-    _ => text.into(),
+    "Y" => "YES",
+    "N" => "NO",
+    _ => text,
   })
 }
 

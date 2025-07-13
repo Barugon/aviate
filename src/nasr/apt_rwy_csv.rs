@@ -204,26 +204,19 @@ fn get_width(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   Some(format!("{} FEET", common::get_i64(feature, fields.rwy_width)?))
 }
 
-fn get_lighting(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  // Expand abbreviations.
+fn get_lighting<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
   let lighting = common::get_str(feature, fields.rwy_lgt_code)?;
-  let lighting = match lighting {
+  Some(match lighting {
     "MED" => "MEDIUM",
     "NSTD" => "NON-STANDARD",
     "PERI" => lighting, // Missing from layout doc.
     _ => lighting,
-  };
-  Some(lighting.into())
+  })
 }
 
-fn get_surface(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+fn get_surface<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
   let surface = common::get_str(feature, fields.surface_type_code)?;
-  if surface.is_empty() {
-    return Some(String::new());
-  }
-
-  // Expand abbreviations.
-  let surface = match surface {
+  Some(match surface {
     "ASPH" => "ASPHALT OR BITUMINOUS CONCRETE",
     "ASPH-CONC" => surface, // Missing from layout doc.
     "CONC" => "PORTLAND CEMENT CONCRETE",
@@ -234,6 +227,5 @@ fn get_surface(feature: &vector::Feature, fields: &Fields) -> Option<String> {
     "TREATED" => "OILED; SOIL CEMENT OR LIME STABILIZED",
     "TURF" => "GRASS; SOD",
     _ => surface,
-  };
-  Some(surface.into())
+  })
 }

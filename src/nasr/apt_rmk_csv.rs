@@ -137,8 +137,8 @@ impl Fields {
   }
 }
 
-fn get_reference(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let reference = match common::get_str(feature, fields.ref_col_name)? {
+fn get_reference<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
+  Some(match common::get_str(feature, fields.ref_col_name)? {
     "ARPT_ID" => "Airport ID",
     "ARPT_NAME" => "Airport Name",
     "BCN_LENS_COLOR" => "Beacon Color",
@@ -153,6 +153,5 @@ fn get_reference(feature: &vector::Feature, fields: &Fields) -> Option<String> {
     "TPA" => "Pattern Altitude",
     "SEG_CIRCLE_MKR_FLAG" => "Segmented Circle",
     _ => return None,
-  };
-  Some(reference.into())
+  })
 }
