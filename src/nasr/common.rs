@@ -124,7 +124,7 @@ pub struct PhoneTagger {
 
 impl PhoneTagger {
   pub fn new() -> Self {
-    let regex = RegEx::create_from_string(r"\b\d{3}-\d{3}-\d{4}\b|\b1-800-WX-BRIEF\b");
+    let regex = RegEx::create_from_string(r"\b(\d-)?\d{3}-\d{3}-\d{4}\b|\b1-800-WX-BRIEF\b");
     Self { regex }
   }
 
