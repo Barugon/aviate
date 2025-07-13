@@ -10,7 +10,7 @@ use std::{collections, path};
 pub struct Source {
   dataset: gdal::Dataset,
   fields: Fields,
-  id_map: collections::HashMap<util::StackString, u64>,
+  id_map: common::IDMap,
   name_vec: Vec<(Box<str>, u64)>,
   sp_idx: rstar::RTree<LocIdx>,
 }
@@ -25,7 +25,7 @@ impl Source {
     Ok(Self {
       dataset,
       fields,
-      id_map: collections::HashMap::new(),
+      id_map: common::IDMap::new(),
       name_vec: Vec::new(),
       sp_idx: rstar::RTree::new(),
     })
@@ -40,7 +40,7 @@ impl Source {
     let mut layer = self.layer();
     let count = layer.feature_count() as usize;
 
-    let mut id_map = collections::HashMap::with_capacity(count);
+    let mut id_map = common::IDMap::with_capacity(count);
     let mut name_vec = Vec::with_capacity(count);
     let mut loc_vec = Vec::with_capacity(count);
 

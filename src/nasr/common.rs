@@ -38,6 +38,8 @@ impl ToChart {
   }
 }
 
+pub type IDMap = collections::HashMap<util::StackString, u64>;
+
 pub fn get_i64(feature: &vector::Feature, index: usize) -> Option<i64> {
   ok!(feature.field_as_integer64(index)).and_then(|v| v)
 }

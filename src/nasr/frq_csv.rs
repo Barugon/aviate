@@ -1,7 +1,4 @@
-use crate::{
-  nasr::{apt_base_csv, common},
-  util,
-};
+use crate::{nasr::common, util};
 use gdal::{errors, vector};
 use godot::global::godot_warn;
 use std::{collections, path};
@@ -30,10 +27,9 @@ impl Source {
   /// Create the index.
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
-  pub fn create_index(&mut self, base_src: &apt_base_csv::Source, cancel: &util::Cancel) -> bool {
+  pub fn create_index(&mut self, base_id_map: &common::IDMap, cancel: &util::Cancel) -> bool {
     use vector::LayerAccess;
 
-    let base_id_map = base_src.id_map();
     let mut layer = self.layer();
     let mut id_map = common::HashMapVec::new(base_id_map.len());
 

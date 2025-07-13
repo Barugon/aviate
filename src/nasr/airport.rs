@@ -322,11 +322,12 @@ impl RequestProcessor {
         self.index_status.set_has_summary_index();
 
         // Create the indexes needed for detail-level searches.
-        self.arsp_src.create_index(&self.base_src, &cancel);
-        self.frq_src.create_index(&self.base_src, &cancel);
-        self.rwy_src.create_index(&self.base_src, &cancel);
-        self.rwy_end_src.create_index(&self.base_src, &cancel);
-        self.rmk_src.create_index(&self.base_src, &cancel);
+        let id_map = self.base_src.id_map();
+        self.arsp_src.create_index(id_map, &cancel);
+        self.frq_src.create_index(id_map, &cancel);
+        self.rwy_src.create_index(id_map, &cancel);
+        self.rwy_end_src.create_index(id_map, &cancel);
+        self.rmk_src.create_index(id_map, &cancel);
         self.index_status.set_has_detail_index();
       }
       Err(err) => {
