@@ -40,15 +40,11 @@ impl ToChart {
 
 pub type IDMap = collections::HashMap<util::StackString, u64>;
 
-pub fn get_i64(feature: &vector::Feature, index: usize) -> Option<i64> {
-  ok!(feature.field_as_integer64(index)).and_then(|v| v)
-}
-
-pub fn get_f64(feature: &vector::Feature, index: usize) -> Option<f64> {
+pub fn get_field_as_f64(feature: &vector::Feature, index: usize) -> Option<f64> {
   ok!(feature.field_as_double(index)).and_then(|v| v)
 }
 
-pub fn get_str<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
+pub fn get_field_as_str<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
   if index >= feature.field_count() {
     return None;
   }
@@ -68,11 +64,11 @@ pub fn get_str<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str
 }
 
 pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util::StackString> {
-  util::StackString::from_str(get_str(feature, index)?)
+  util::StackString::from_str(get_field_as_str(feature, index)?)
 }
 
 pub fn get_yes_no_text<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
-  let text = get_str(feature, index)?;
+  let text = get_field_as_str(feature, index)?;
   Some(match text {
     "Y" => "YES",
     "N" => "NO",
@@ -81,7 +77,7 @@ pub fn get_yes_no_text<'a>(feature: &'a vector::Feature, index: usize) -> Option
 }
 
 pub fn get_unit_text(feature: &vector::Feature, unit: &str, index: usize) -> Option<String> {
-  let text = get_str(feature, index)?;
+  let text = get_field_as_str(feature, index)?;
   if text.is_empty() {
     return Some(String::new());
   }

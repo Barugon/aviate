@@ -95,8 +95,8 @@ impl Remark {
   fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
     Some(Self {
       reference: get_reference(&feature, fields)?.into(),
-      element: common::get_str(&feature, fields.element)?.into(),
-      text: common::get_str(&feature, fields.remark)?.into(),
+      element: common::get_field_as_str(&feature, fields.element)?.into(),
+      text: common::get_field_as_str(&feature, fields.remark)?.into(),
     })
   }
 
@@ -138,7 +138,7 @@ impl Fields {
 }
 
 fn get_reference<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
-  Some(match common::get_str(feature, fields.ref_col_name)? {
+  Some(match common::get_field_as_str(feature, fields.ref_col_name)? {
     "ARPT_ID" => "Airport ID",
     "ARPT_NAME" => "Airport Name",
     "BCN_LENS_COLOR" => "Beacon Color",

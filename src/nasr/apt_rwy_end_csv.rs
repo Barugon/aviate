@@ -80,7 +80,7 @@ impl Source {
       }
 
       if let Some(feature) = layer.feature(fid)
-        && let Some(rwy_id) = common::get_str(&feature, self.fields.rwy_id).map(|s| s.into())
+        && let Some(rwy_id) = common::get_field_as_str(&feature, self.fields.rwy_id).map(|s| s.into())
         && let Some(runway) = RunwayEnd::new(feature, &self.fields)
       {
         add_rwy_end(rwy_id, runway);
@@ -117,18 +117,20 @@ pub struct RunwayEnd {
 
 impl RunwayEnd {
   fn new(feature: vector::Feature, fields: &Fields) -> Option<Self> {
+    const FEET: &str = "FEET";
+    const FEET_ASL: &str = "FEET ASL";
     Some(Self {
-      rwy_end_id: common::get_str(&feature, fields.rwy_end_id)?.into(),
-      elevation: common::get_unit_text(&feature, "FEET ASL", fields.rwy_end_elev)?.into(),
+      rwy_end_id: common::get_field_as_str(&feature, fields.rwy_end_id)?.into(),
+      elevation: common::get_unit_text(&feature, FEET_ASL, fields.rwy_end_elev)?.into(),
       true_alignment: get_true_alignment(&feature, fields)?.into(),
       rh_traffic: common::get_yes_no_text(&feature, fields.right_hand_traffic_pat_flag)?.into(),
       markings: get_markings(&feature, fields)?.into(),
       gld_slp_ind: get_glide_slope_indicator(&feature, fields)?.into(),
-      displaced_thr_elev: common::get_unit_text(&feature, "FEET ASL", fields.displaced_thr_elev)?.into(),
-      displaced_thr_len: common::get_unit_text(&feature, "FEET", fields.displaced_thr_len)?.into(),
-      tdz_elevation: common::get_unit_text(&feature, "FEET ASL", fields.tdz_elev)?.into(),
+      displaced_thr_elev: common::get_unit_text(&feature, FEET_ASL, fields.displaced_thr_elev)?.into(),
+      displaced_thr_len: common::get_unit_text(&feature, FEET, fields.displaced_thr_len)?.into(),
+      tdz_elevation: common::get_unit_text(&feature, FEET_ASL, fields.tdz_elev)?.into(),
       obstacle: get_obstacle(&feature, fields)?.into(),
-      obstacle_height: common::get_unit_text(&feature, "FEET", fields.obstn_hgt)?.into(),
+      obstacle_height: common::get_unit_text(&feature, FEET, fields.obstn_hgt)?.into(),
       obstacle_offset: get_obstacle_offset(&feature, fields)?.into(),
     })
   }
@@ -307,7 +309,7 @@ impl Fields {
 }
 
 fn get_true_alignment(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let alignment = common::get_str(feature, fields.true_alignment)?;
+  let alignment = common::get_field_as_str(feature, fields.true_alignment)?;
   if alignment.is_empty() {
     return Some(String::new());
   }
@@ -315,7 +317,7 @@ fn get_true_alignment(feature: &vector::Feature, fields: &Fields) -> Option<Stri
 }
 
 fn get_markings(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let markings = common::get_str(feature, fields.rwy_marking_type_code)?;
+  let markings = common::get_field_as_str(feature, fields.rwy_marking_type_code)?;
   let markings = match markings {
     "PIR" => "PRECISION INSTRUMENT",
     "NPI" => "NONPRECISION INSTRUMENT",
@@ -328,7 +330,7 @@ fn get_markings(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   };
 
   if !markings.is_empty() {
-    let condition = common::get_str(feature, fields.rwy_marking_cond)?;
+    let condition = common::get_field_as_str(feature, fields.rwy_marking_cond)?;
     let condition = match condition {
       "G" => "GOOD",
       "F" => "FAIR",
@@ -345,7 +347,7 @@ fn get_markings(feature: &vector::Feature, fields: &Fields) -> Option<String> {
 }
 
 fn get_glide_slope_indicator<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
-  let vgsi = common::get_str(feature, fields.vgsi_code)?;
+  let vgsi = common::get_field_as_str(feature, fields.vgsi_code)?;
   Some(match vgsi {
     "N" => Default::default(),
     "NSTD" => "NONSTANDARD VASI SYSTEM",
@@ -385,8 +387,8 @@ fn get_glide_slope_indicator<'a>(feature: &'a vector::Feature, fields: &Fields) 
 }
 
 fn get_obstacle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let obstacle = common::get_str(feature, fields.obstn_type)?;
-  let marked = common::get_str(feature, fields.obstn_mrkd_code)?;
+  let obstacle = common::get_field_as_str(feature, fields.obstn_type)?;
+  let marked = common::get_field_as_str(feature, fields.obstn_mrkd_code)?;
   let marked = match marked {
     "M" => "MARKED",
     "L" => "LIGHTED",
@@ -402,13 +404,13 @@ fn get_obstacle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
 }
 
 fn get_obstacle_offset(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let distance = common::get_str(feature, fields.dist_from_thr)?;
+  let distance = common::get_field_as_str(feature, fields.dist_from_thr)?;
   if distance.is_empty() {
     return Some(String::new());
   }
 
-  let offset = common::get_str(feature, fields.cntrln_offset)?;
-  let direction = common::get_str(feature, fields.cntrln_dir_code)?;
+  let offset = common::get_field_as_str(feature, fields.cntrln_offset)?;
+  let direction = common::get_field_as_str(feature, fields.cntrln_dir_code)?;
   let direction = match direction {
     "B" => Default::default(), // Missing from layout doc.
     "L" => "LEFT",

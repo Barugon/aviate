@@ -104,15 +104,16 @@ pub struct Runway {
 
 impl Runway {
   fn new(feature: vector::Feature, ends_map: &mut apt_rwy_end_csv::RunwayEndMap, fields: &Fields) -> Option<Self> {
-    let rwy_id = common::get_str(&feature, fields.rwy_id)?;
+    const FEET: &str = "FEET";
+    let rwy_id = common::get_field_as_str(&feature, fields.rwy_id)?;
     let ends = ends_map.remove(rwy_id).map(|ends| ends.into()).unwrap_or_default();
     Some(Self {
       rwy_id: rwy_id.into(),
-      length: get_length(&feature, fields)?.into(),
-      width: get_width(&feature, fields)?.into(),
+      length: common::get_unit_text(&feature, FEET, fields.rwy_len)?.into(),
+      width: common::get_unit_text(&feature, FEET, fields.rwy_width)?.into(),
       lighting: get_lighting(&feature, fields)?.into(),
       surface: get_surface(&feature, fields)?.into(),
-      condition: common::get_str(&feature, fields.cond)?.into(),
+      condition: common::get_field_as_str(&feature, fields.cond)?.into(),
       ends,
     })
   }
@@ -196,16 +197,8 @@ impl Fields {
   }
 }
 
-fn get_length(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  Some(format!("{} FEET", common::get_i64(feature, fields.rwy_len)?))
-}
-
-fn get_width(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  Some(format!("{} FEET", common::get_i64(feature, fields.rwy_width)?))
-}
-
 fn get_lighting<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
-  let lighting = common::get_str(feature, fields.rwy_lgt_code)?;
+  let lighting = common::get_field_as_str(feature, fields.rwy_lgt_code)?;
   Some(match lighting {
     "MED" => "MEDIUM",
     "NSTD" => "NON-STANDARD",
@@ -215,7 +208,7 @@ fn get_lighting<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a
 }
 
 fn get_surface<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'a str> {
-  let surface = common::get_str(feature, fields.surface_type_code)?;
+  let surface = common::get_field_as_str(feature, fields.surface_type_code)?;
   Some(match surface {
     "ASPH" => "ASPHALT OR BITUMINOUS CONCRETE",
     "ASPH-CONC" => surface, // Missing from layout doc.
