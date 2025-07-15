@@ -105,8 +105,8 @@ impl<K: cmp::Eq + hash::Hash, V> HashMapVec<K, V> {
   }
 }
 
-impl From<HashMapVec<util::StackString, u64>> for collections::HashMap<util::StackString, Box<[u64]>> {
-  fn from(src: HashMapVec<util::StackString, u64>) -> Self {
+impl<K: cmp::Eq + hash::Hash, V> From<HashMapVec<K, V>> for collections::HashMap<K, Box<[V]>> {
+  fn from(src: HashMapVec<K, V>) -> Self {
     let mut dst = collections::HashMap::with_capacity(src.map.len());
     for (id, vec) in src.map {
       dst.insert(id, vec.into());
