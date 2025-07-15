@@ -428,6 +428,18 @@ pub fn adjust_dialog(dialog: &mut Gd<Window>) {
   }
 }
 
+#[cfg(target_os = "android")]
+pub fn hide_hover(tree: &mut Gd<godot::classes::Tree>) {
+  let mut style = godot::classes::StyleBoxFlat::new_gd();
+  style.set_bg_color(Color::from_rgba8(41, 41, 41, 255));
+
+  let style = Variant::from(style);
+  tree.set("theme_override_styles/hovered", &style);
+
+  let color = Variant::from(tree.get_theme_color("font_color"));
+  tree.set("theme_override_colors/font_hovered_color", &color);
+}
+
 /// RAII type that will reset feature reading when dropped.
 pub struct Layer<'a>(vector::Layer<'a>);
 

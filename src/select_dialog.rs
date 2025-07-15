@@ -84,8 +84,11 @@ impl SelectDialog {
           let (name, info) = choice.split_at(pos);
           let name = GString::from(name.trim());
           item.set_text(0, &name);
-          item.set_tooltip_text(0, &name);
           item.set_text(1, info.trim());
+
+          #[cfg(not(target_os = "android"))]
+          item.set_tooltip_text(0, &name);
+
           if set_min {
             self.tree.set_column_custom_minimum_width(1, 100);
             set_min = false;
@@ -135,7 +138,7 @@ impl SelectDialog {
     }
   }
 
-  pub fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
+  fn get_child<T: Inherits<Node>>(&self, name: &str) -> Gd<T> {
     self.base().find_child(name).unwrap().cast()
   }
 }
@@ -183,6 +186,9 @@ impl IWindow for SelectDialog {
     // Connect the cancel button.
     let mut button = self.get_child::<Button>("CancelButton");
     button.connect("pressed", &callable);
+
+    #[cfg(target_os = "android")]
+    util::hide_hover(&mut self.tree);
   }
 
   fn shortcut_input(&mut self, event: Gd<InputEvent>) {

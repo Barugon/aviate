@@ -545,6 +545,9 @@ fn fixup_file_dialog(file_dialog: &mut Gd<FileDialog>) {
   tree.add_theme_constant_override("draw_guides", 0);
   tree.add_theme_constant_override("v_separation", 2);
 
+  #[cfg(target_os = "android")]
+  util::hide_hover(&mut tree);
+
   let hbox = vbox_children.at(4).try_cast::<HBoxContainer>().unwrap();
   let children = hbox.get_children();
 
