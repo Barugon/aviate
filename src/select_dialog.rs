@@ -62,31 +62,40 @@ impl SelectDialog {
     // Remove existing choices and disable scrolling.
     self.tree.clear();
 
-    // Set column sizing.
-    self.tree.set_column_expand(0, true);
-    self.tree.set_column_custom_minimum_width(1, 100);
-    self.tree.set_column_expand(1, false);
-
     // Disable scrolling.
     self.tree.set_v_scroll_enabled(false);
+
+    // Set column sizing.
+    self.tree.set_column_expand(0, true);
+    self.tree.set_column_expand(1, false);
 
     // Populate with new choices.
     let root = self.tree.create_item().unwrap();
     let count = {
       let mut count = 0;
+      let mut set_min = true;
       for choice in choices {
         let Some(choice) = choice else {
           continue;
         };
 
         let mut item = self.tree.create_item_ex().parent(&root).done().unwrap();
-        item.set_expand_right(0, true);
         if let Some(pos) = choice.rfind('(') {
           let (name, info) = choice.split_at(pos);
-          item.set_text(0, name.trim());
+          let name = GString::from(name.trim());
+          item.set_text(0, &name);
+          item.set_tooltip_text(0, &name);
           item.set_text(1, info.trim());
+          if set_min {
+            self.tree.set_column_custom_minimum_width(1, 100);
+            set_min = false;
+          }
         } else {
           item.set_text(0, choice.trim());
+          if set_min {
+            self.tree.set_column_custom_minimum_width(1, 4);
+            set_min = false;
+          }
         }
         count += 1;
       }
