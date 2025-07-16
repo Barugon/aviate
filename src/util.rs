@@ -376,22 +376,34 @@ pub fn request_permissions() {
   Os::singleton().request_permissions();
 }
 
-/// Make sure that a dialog window doesn't fall outside the edges of the main window.
+/// Make sure that a dialog window doesn't fall outside the interior edges of the main window.
 pub fn adjust_dialog(dialog: &mut Gd<Window>) {
   if !dialog.is_visible() {
     return;
   }
 
-  let Some(parent) = dialog.get_parent() else {
-    return;
-  };
+  fn get_main_widget(dialog: &mut Gd<Window>) -> Result<Gd<Control>, Error> {
+    let mut node: Gd<Node> = dialog.clone().upcast();
+    while let Some(parent) = node.get_parent() {
+      let Some(parent) = ok!(parent.try_cast::<Control>()) else {
+        continue;
+      };
 
-  let Some(parent) = ok!(parent.try_cast::<Control>()) else {
+      if parent.get_name() == "MainWidget".into() {
+        return Ok(parent);
+      }
+
+      node = parent.upcast();
+    }
+    Err("MainWidget not found!".into())
+  }
+
+  let Some(main_widget) = ok!(get_main_widget(dialog)) else {
     return;
   };
 
   const DECO: Vector2i = Vector2i::new(BORDER_WIDTH * 2, TITLE_HEIGHT + BORDER_HEIGHT);
-  let max_size = parent.get_size();
+  let max_size = main_widget.get_size();
   let max_size = Vector2i::new(max_size.x as i32, max_size.y as i32);
   let size = dialog.get_size() + DECO;
 
