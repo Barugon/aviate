@@ -154,11 +154,11 @@ size_flags_vertical = 3
 layout_mode = 2
 theme_override_styles/separator = SubResource("StyleBoxFlat_1aepe")
 
-[node name="NightModeButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
+[node name="NightModeButton" type="CheckBox" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 text = "Night Mode"
 
-[node name="BoundsButton" type="CheckButton" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
+[node name="BoundsButton" type="CheckBox" parent="VBoxContainer/HBoxContainer/SidebarPanel/VBoxContainer"]
 layout_mode = 2
 text = "Show Bounds"
 

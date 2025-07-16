@@ -1,9 +1,9 @@
 use crate::{chart_widget, config, find_dialog, geom, info_dialog, nasr::airport, select_dialog, util};
 use godot::{
   classes::{
-    AcceptDialog, Button, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, Input, InputEvent,
-    InputEventKey, Label, MarginContainer, OptionButton, PanelContainer, Tree, Window, display_server::WindowMode,
-    input::CursorShape, notify::ControlNotification,
+    AcceptDialog, Button, CheckBox, CheckButton, Control, DisplayServer, FileDialog, HBoxContainer, IControl, Input,
+    InputEvent, InputEventKey, Label, MarginContainer, OptionButton, PanelContainer, Tree, Window,
+    display_server::WindowMode, input::CursorShape, notify::ControlNotification,
   },
   global::{HorizontalAlignment, Key, KeyModifierMask},
   prelude::*,
@@ -369,7 +369,7 @@ impl IControl for MainWidget {
     self.chart_widget.bind_mut().set_night_mode(night_mode);
 
     // Connect the night mode button
-    let mut button = self.get_child::<CheckButton>("NightModeButton");
+    let mut button = self.get_child::<CheckBox>("NightModeButton");
     let callable = self.base().callable("toggle_night_mode");
     button.set_pressed(night_mode);
     button.connect("toggled", &callable);
@@ -379,7 +379,7 @@ impl IControl for MainWidget {
     self.chart_widget.bind_mut().set_show_bounds(show_bounds);
 
     // Connect the show bounds button
-    let mut button = self.get_child::<CheckButton>("BoundsButton");
+    let mut button = self.get_child::<CheckBox>("BoundsButton");
     let callable = self.base().callable("toggle_show_bounds");
     button.set_pressed(show_bounds);
     button.connect("toggled", &callable);
