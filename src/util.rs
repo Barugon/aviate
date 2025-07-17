@@ -376,7 +376,7 @@ pub fn request_permissions() {
   Os::singleton().request_permissions();
 }
 
-/// Make sure that a dialog window doesn't fall outside the interior edges of the main window.
+/// Make sure that a dialog window doesn't fall outside of the main widget.
 pub fn adjust_dialog(dialog: &mut Gd<Window>) {
   if !dialog.is_visible() {
     return;
