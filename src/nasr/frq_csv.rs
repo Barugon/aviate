@@ -27,7 +27,7 @@ impl Source {
   /// Create the index.
   /// - `base_src`: airport base data source
   /// - `cancel`: cancellation object
-  pub fn create_index(&mut self, base_id_map: &common::IDMap, cancel: &util::Cancel) -> bool {
+  pub fn create_index(&mut self, base_id_map: &common::IDMap, cancel: &util::Cancel) {
     use vector::LayerAccess;
 
     let mut layer = self.layer();
@@ -36,7 +36,7 @@ impl Source {
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
       if cancel.canceled() {
-        return false;
+        return;
       }
 
       if let Some(id) = common::get_stack_string(&feature, self.fields.serviced_facility)
@@ -48,7 +48,6 @@ impl Source {
     }
 
     self.id_map = id_map.into();
-    !self.id_map.is_empty()
   }
 
   pub fn clear_index(&mut self) {
