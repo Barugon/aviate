@@ -41,7 +41,7 @@ impl ToChart {
 pub type IDMap = collections::HashMap<util::StackString, u64>;
 
 pub fn get_field_as_f64(feature: &vector::Feature, index: usize) -> Option<f64> {
-  ok!(feature.field_as_double(index)).and_then(|v| v)
+  ok!(feature.field_as_double(index))?
 }
 
 pub fn get_field_as_str<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
