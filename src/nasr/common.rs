@@ -49,18 +49,23 @@ pub fn get_field_as_str<'a>(feature: &'a vector::Feature, index: usize) -> Optio
     return None;
   }
 
-  let idx = ok!(index.try_into())?;
-  if unsafe { gdal_sys::OGR_F_IsFieldNull(feature.c_feature(), idx) } != 0 {
-    return None;
-  }
+  let bytes = unsafe {
+    let idx = index as i32;
+    let ptr = gdal_sys::OGR_F_GetFieldDefnRef(feature.c_feature(), idx);
+    if ptr.is_null() || gdal_sys::OGR_Fld_GetType(ptr) != gdal_sys::OGRFieldType::OFTString {
+      return None;
+    }
 
-  let mut len: i32 = 0;
-  let ptr = unsafe { gdal_sys::OGR_F_GetFieldAsBinary(feature.c_feature(), idx, &mut len as *mut i32) };
-  if ptr.is_null() || len < 0 {
-    return None;
-  }
+    let mut len: i32 = 0;
+    let ptr = gdal_sys::OGR_F_GetFieldAsBinary(feature.c_feature(), idx, &mut len as *mut i32);
+    if ptr.is_null() || len < 0 {
+      return None;
+    }
 
-  ok!(str::from_utf8(unsafe { slice::from_raw_parts(ptr, len as usize) }))
+    slice::from_raw_parts(ptr, len as usize)
+  };
+
+  ok!(str::from_utf8(bytes))
 }
 
 pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util::StackString> {
