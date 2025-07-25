@@ -3,7 +3,6 @@ use godot::{classes::Json, prelude::*};
 use std::{cell, rc};
 
 /// Storage for configuration items, persisted as JSON.
-#[derive(Clone)]
 pub struct Storage {
   items: rc::Rc<cell::RefCell<Items>>,
 }

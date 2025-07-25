@@ -257,7 +257,7 @@ impl Summary {
 }
 
 /// Airport type.
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 enum Type {
   Airport,
   Balloon,
@@ -295,7 +295,7 @@ impl Type {
 }
 
 /// Airport use.
-#[derive(Clone, Eq, Debug, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 enum Use {
   Private,
   Public,

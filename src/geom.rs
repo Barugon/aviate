@@ -4,7 +4,7 @@ use godot::prelude::*;
 use std::{cmp, ops};
 
 /// Decimal-degree coordinate.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub struct DD(Coord);
 
 impl DD {
@@ -53,7 +53,7 @@ fn format_dms<const NEG: char, const POS: char>(dd: f64) -> String {
 }
 
 /// Chart coordinate.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub struct Cht(Coord);
 
 impl Cht {
@@ -78,7 +78,7 @@ impl ops::Deref for Cht {
 }
 
 /// Pixel coordinate
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub struct Px(Coord);
 
 impl Px {
@@ -101,7 +101,7 @@ impl ops::Deref for Px {
   }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub struct Coord {
   pub x: f64,
   pub y: f64,
