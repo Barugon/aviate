@@ -26,50 +26,50 @@ impl Reader {
   /// Create a new airport reader.
   /// - `path`: path to the CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
-    let sources = (
-      match apt_base_csv::Source::open(path) {
+    let sources = Sources {
+      base: match apt_base_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport base data source:\n{err}");
           return Err(err.into());
         }
       },
-      match cls_arsp_csv::Source::open(path) {
+      arsp: match cls_arsp_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open class airspace data source:\n{err}");
           return Err(err.into());
         }
       },
-      match frq_csv::Source::open(path) {
+      frq: match frq_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport frequency data source:\n{err}");
           return Err(err.into());
         }
       },
-      match apt_rwy_csv::Source::open(path) {
+      rwy: match apt_rwy_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport runway data source:\n{err}");
           return Err(err.into());
         }
       },
-      match apt_rwy_end_csv::Source::open(path) {
+      rwy_end: match apt_rwy_end_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport runway end data source:\n{err}");
           return Err(err.into());
         }
       },
-      match apt_rmk_csv::Source::open(path) {
+      rmk: match apt_rmk_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
           let err = format!("Unable to open airport remarks data source:\n{err}");
           return Err(err.into());
         }
       },
-    );
+    };
 
     let index_status = IndexStatus::new();
     let request_count = sync::Arc::new(atomic::AtomicI32::new(0));
@@ -218,22 +218,17 @@ pub enum Reply {
   Error(util::Error),
 }
 
-type Sources = (
-  apt_base_csv::Source,
-  cls_arsp_csv::Source,
-  frq_csv::Source,
-  apt_rwy_csv::Source,
-  apt_rwy_end_csv::Source,
-  apt_rmk_csv::Source,
-);
+struct Sources {
+  base: apt_base_csv::Source,
+  arsp: cls_arsp_csv::Source,
+  frq: frq_csv::Source,
+  rwy: apt_rwy_csv::Source,
+  rwy_end: apt_rwy_end_csv::Source,
+  rmk: apt_rmk_csv::Source,
+}
 
 struct RequestProcessor {
-  base_src: apt_base_csv::Source,
-  arsp_src: cls_arsp_csv::Source,
-  frq_src: frq_csv::Source,
-  rwy_src: apt_rwy_csv::Source,
-  rwy_end_src: apt_rwy_end_csv::Source,
-  rmk_src: apt_rmk_csv::Source,
+  sources: Sources,
   index_status: IndexStatus,
   request_count: sync::Arc<atomic::AtomicI32>,
   sender: mpsc::Sender<Reply>,
@@ -247,20 +242,13 @@ impl RequestProcessor {
     request_count: sync::Arc<atomic::AtomicI32>,
     sender: mpsc::Sender<Reply>,
   ) -> Self {
-    let (base_src, arsp_src, frq_src, rwy_src, rwy_end_src, rmk_src) = sources;
-
     // Create a spatial reference for decimal-degree coordinates.
     // NOTE: FAA uses NAD83 for decimal-degree coordinates.
     let mut dd_sr = spatial_ref::SpatialRef::from_proj4(util::PROJ4_NAD83).unwrap();
     dd_sr.set_axis_mapping_strategy(spatial_ref::AxisMappingStrategy::TraditionalGisOrder);
 
     Self {
-      base_src,
-      arsp_src,
-      frq_src,
-      rwy_src,
-      rwy_end_src,
-      rmk_src,
+      sources,
       index_status,
       request_count,
       sender,
@@ -302,12 +290,12 @@ impl RequestProcessor {
   fn setup_indexes(&mut self, spatial_info: Option<(String, geom::Bounds)>, cancel: util::Cancel) {
     // Clear existing indexes.
     self.index_status.reset();
-    self.base_src.clear_indexes();
-    self.arsp_src.clear_index();
-    self.frq_src.clear_index();
-    self.rwy_src.clear_index();
-    self.rwy_end_src.clear_index();
-    self.rmk_src.clear_index();
+    self.sources.base.clear_indexes();
+    self.sources.arsp.clear_index();
+    self.sources.frq.clear_index();
+    self.sources.rwy.clear_index();
+    self.sources.rwy_end.clear_index();
+    self.sources.rmk.clear_index();
 
     let Some((proj4, bounds)) = spatial_info else {
       return;
@@ -318,16 +306,16 @@ impl RequestProcessor {
         self.index_status.set_has_chart_transformation();
 
         // Create the index needed for summary-level searches.
-        self.base_src.create_indexes(&trans, &cancel);
+        self.sources.base.create_indexes(&trans, &cancel);
         self.index_status.set_has_summary_index();
 
         // Create the indexes needed for detail-level searches.
-        let id_map = self.base_src.id_map();
-        self.arsp_src.create_index(id_map, &cancel);
-        self.frq_src.create_index(id_map, &cancel);
-        self.rwy_src.create_index(id_map, &cancel);
-        self.rwy_end_src.create_index(id_map, &cancel);
-        self.rmk_src.create_index(id_map, &cancel);
+        let id_map = self.sources.base.id_map();
+        self.sources.arsp.create_index(id_map, &cancel);
+        self.sources.frq.create_index(id_map, &cancel);
+        self.sources.rwy.create_index(id_map, &cancel);
+        self.sources.rwy_end.create_index(id_map, &cancel);
+        self.sources.rmk.create_index(id_map, &cancel);
         self.index_status.set_has_detail_index();
       }
       Err(err) => {
@@ -343,7 +331,7 @@ impl RequestProcessor {
     }
 
     let id = id.trim().to_uppercase();
-    if let Some(summary) = self.base_src.airport(&id, cancel) {
+    if let Some(summary) = self.sources.base.airport(&id, cancel) {
       return Reply::Airport(summary);
     }
 
@@ -357,12 +345,12 @@ impl RequestProcessor {
 
     let id = summary.id().to_owned();
     let name = summary.name().to_owned();
-    let arsp = self.arsp_src.class_airspace(&id, cancel);
-    let freqs = self.frq_src.frequencies(&id, cancel);
-    let rwy_ends = self.rwy_end_src.runway_ends(&id, cancel);
-    let rwys = self.rwy_src.runways(&id, rwy_ends, cancel);
-    let rmks = self.rmk_src.remarks(&id, cancel);
-    if let Some(detail) = self.base_src.detail(summary, freqs, rwys, rmks, arsp, cancel) {
+    let arsp = self.sources.arsp.class_airspace(&id, cancel);
+    let freqs = self.sources.frq.frequencies(&id, cancel);
+    let rwy_ends = self.sources.rwy_end.runway_ends(&id, cancel);
+    let rwys = self.sources.rwy.runways(&id, rwy_ends, cancel);
+    let rmks = self.sources.rmk.remarks(&id, cancel);
+    if let Some(detail) = self.sources.base.detail(summary, freqs, rwys, rmks, arsp, cancel) {
       return Reply::Detail(detail);
     }
 
@@ -374,7 +362,7 @@ impl RequestProcessor {
       return Reply::Error("Airport summary-level indexing is required to find nearby airports".into());
     }
 
-    Reply::Nearby(self.base_src.nearby(coord, dist, nph, cancel))
+    Reply::Nearby(self.sources.base.nearby(coord, dist, nph, cancel))
   }
 
   fn search(&self, term: &str, nph: bool, cancel: &util::Cancel) -> Reply {
@@ -384,12 +372,12 @@ impl RequestProcessor {
 
     // Search for an airport ID first.
     let term = term.trim().to_uppercase();
-    if let Some(summary) = self.base_src.airport(&term, cancel) {
+    if let Some(summary) = self.sources.base.airport(&term, cancel) {
       return Reply::Airport(summary);
     }
 
     // Airport ID not found, search the airport names.
-    let summaries = self.base_src.search(&term, nph, cancel);
+    let summaries = self.sources.base.search(&term, nph, cancel);
     if summaries.is_empty() {
       return Reply::Error(format!("Nothing on this chart matches\n'{term}'").into());
     }
