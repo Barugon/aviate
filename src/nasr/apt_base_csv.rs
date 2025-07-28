@@ -38,11 +38,9 @@ impl Source {
     use vector::LayerAccess;
 
     let mut layer = self.layer();
-    let count = layer.feature_count() as usize;
-
-    let mut id_map = common::IDMap::with_capacity(count);
-    let mut name_vec = Vec::with_capacity(count);
-    let mut loc_vec = Vec::with_capacity(count);
+    let mut id_map = common::IDMap::new();
+    let mut name_vec = Vec::new();
+    let mut loc_vec = Vec::new();
 
     // Iterator resets feature reading when dropped.
     for feature in layer.features() {
@@ -62,6 +60,9 @@ impl Source {
         loc_vec.push(LocIdx { coord, fid })
       };
     }
+
+    id_map.shrink_to_fit();
+    name_vec.shrink_to_fit();
 
     self.id_map = id_map;
     self.name_vec = name_vec;

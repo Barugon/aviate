@@ -46,6 +46,7 @@ impl Source {
       };
     }
 
+    id_map.shrink_to_fit();
     self.id_map = id_map;
   }
 
