@@ -303,10 +303,20 @@ impl RequestProcessor {
 
     match common::ToChart::new(&proj4, &self.dd_sr, bounds) {
       Ok(trans) => {
+        if cancel.canceled() {
+          return;
+        }
+
         self.index_status.set_has_chart_transformation();
 
         // Create the index needed for summary-level searches.
         self.sources.base.create_indexes(&trans, &cancel);
+
+        if cancel.canceled() {
+          self.index_status.reset();
+          return;
+        }
+
         self.index_status.set_has_summary_index();
 
         // Create the indexes needed for detail-level searches.
@@ -316,6 +326,12 @@ impl RequestProcessor {
         self.sources.rwy.create_index(id_map, &cancel);
         self.sources.rwy_end.create_index(id_map, &cancel);
         self.sources.rmk.create_index(id_map, &cancel);
+
+        if cancel.canceled() {
+          self.index_status.reset();
+          return;
+        }
+
         self.index_status.set_has_detail_index();
       }
       Err(err) => {
