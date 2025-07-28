@@ -11,8 +11,8 @@ crate-type = ["cdylib"]
 dev = []
 
 [dependencies]
-gdal = {version = "0.18", features = ["bindgen"]}
-gdal-sys = {version = "0.11", features = ["bindgen"]}
+gdal = "0.18"
+gdal-sys = "0.11"
 godot = {version = "0.3", features = ["experimental-threads"]}
 rstar = "0.12"
 
