@@ -57,10 +57,10 @@ impl Source {
   /// Get frequencies for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn frequencies(&self, id: &str, cancel: &util::Cancel) -> Vec<Frequency> {
+  pub fn frequencies(&self, id: &util::StackString, cancel: &util::Cancel) -> Vec<Frequency> {
     use vector::LayerAccess;
 
-    let Some(fids) = util::StackString::from_str(id).and_then(|id| self.id_map.get(&id)) else {
+    let Some(fids) = self.id_map.get(id) else {
       return Vec::new();
     };
 

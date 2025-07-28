@@ -60,10 +60,15 @@ impl Source {
   /// Get runways for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn runways(&self, id: &str, mut ends_map: apt_rwy_end_csv::RunwayEndMap, cancel: &util::Cancel) -> Vec<Runway> {
+  pub fn runways(
+    &self,
+    id: &util::StackString,
+    mut ends_map: apt_rwy_end_csv::RunwayEndMap,
+    cancel: &util::Cancel,
+  ) -> Vec<Runway> {
     use vector::LayerAccess;
 
-    let Some(fids) = util::StackString::from_str(id).and_then(|id| self.id_map.get(&id)) else {
+    let Some(fids) = self.id_map.get(id) else {
       return Vec::new();
     };
 

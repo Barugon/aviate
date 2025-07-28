@@ -57,10 +57,10 @@ impl Source {
   /// Get runway ends for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn runway_ends(&self, id: &str, cancel: &util::Cancel) -> RunwayEndMap {
+  pub fn runway_ends(&self, id: &util::StackString, cancel: &util::Cancel) -> RunwayEndMap {
     use vector::LayerAccess;
 
-    let Some(fids) = util::StackString::from_str(id).and_then(|id| self.id_map.get(&id)) else {
+    let Some(fids) = self.id_map.get(id) else {
       return collections::HashMap::new();
     };
 

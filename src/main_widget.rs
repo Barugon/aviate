@@ -234,7 +234,7 @@ impl MainWidget {
       return;
     }
 
-    let title = format!("{} ({})", detail.summary().name(), detail.summary().id());
+    let title = format!("{} ({})", detail.summary().name(), detail.summary().id().as_str());
     let text = detail.get_text();
     let coord = detail.summary().coord();
     let mut dialog = self.get_child::<info_dialog::InfoDialog>("InfoDialog");

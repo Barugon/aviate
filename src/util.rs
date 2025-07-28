@@ -203,7 +203,7 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   Ok(ZipInfo::Chart(files))
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct StackString {
   data: [u8; 8],
 }

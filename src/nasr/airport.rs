@@ -130,7 +130,7 @@ impl Reader {
   /// Lookup airport detail information.
   /// - `summary`: airport summary information
   pub fn detail(&self, summary: Summary) {
-    assert!(!summary.id().is_empty());
+    assert!(!summary.id().as_str().is_empty());
     let cancel = self.cancel_request();
     self.send(Request::Detail(summary, cancel), true);
   }
@@ -359,7 +359,7 @@ impl RequestProcessor {
       return Reply::Error("Airport detail-level indexing is required for airport information".into());
     }
 
-    let id = summary.id().to_owned();
+    let id = summary.id().clone();
     let name = summary.name().to_owned();
     let arsp = self.sources.arsp.class_airspace(&id, cancel);
     let freqs = self.sources.frq.frequencies(&id, cancel);
@@ -370,7 +370,7 @@ impl RequestProcessor {
       return Reply::Detail(detail);
     }
 
-    Reply::Error(format!("Unable to get information for\n{name} ({id})").into())
+    Reply::Error(format!("Unable to get information for\n{name} ({})", id.as_str()).into())
   }
 
   fn nearby(&self, coord: geom::Cht, dist: f64, nph: bool, cancel: &util::Cancel) -> Reply {

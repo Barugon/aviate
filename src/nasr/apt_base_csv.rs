@@ -218,8 +218,8 @@ impl Summary {
     })
   }
 
-  pub fn id(&self) -> &str {
-    self.id.as_str()
+  pub fn id(&self) -> &util::StackString {
+    &self.id
   }
 
   pub fn name(&self) -> &str {

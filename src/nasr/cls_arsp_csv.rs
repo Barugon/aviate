@@ -57,11 +57,10 @@ impl Source {
   /// Get class airspace for the specified airport ID.
   /// - `id`: airport ID
   /// - `cancel`: cancellation object
-  pub fn class_airspace(&self, id: &str, cancel: &util::Cancel) -> Option<ClassAirspace> {
+  pub fn class_airspace(&self, id: &util::StackString, cancel: &util::Cancel) -> Option<ClassAirspace> {
     use vector::LayerAccess;
 
-    let id = util::StackString::from_str(id)?;
-    let &fid = self.id_map.get(&id)?;
+    let &fid = self.id_map.get(id)?;
     if cancel.canceled() {
       return None;
     }
