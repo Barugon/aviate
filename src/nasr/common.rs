@@ -69,7 +69,7 @@ pub fn get_field_as_str<'a>(feature: &'a vector::Feature, index: usize) -> Optio
 }
 
 pub fn get_stack_string(feature: &vector::Feature, index: usize) -> Option<util::StackString> {
-  util::StackString::from_str(get_field_as_str(feature, index)?)
+  get_field_as_str(feature, index).and_then(util::StackString::from_str)
 }
 
 pub fn get_yes_no_text<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
