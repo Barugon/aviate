@@ -26,47 +26,47 @@ impl Reader {
   /// Create a new airport reader.
   /// - `path`: path to the CSV zip file.
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
+    macro_rules! error_msg {
+      ($src:literal, $err:expr) => {
+        format!(concat!("Unable to open ", $src, " data source:\n{}"), $err).into()
+      };
+    }
+
     let sources = Sources {
       base: match apt_base_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
-          let err = format!("Unable to open airport base data source:\n{err}");
-          return Err(err.into());
+          return Err(error_msg!("airport base", err));
         }
       },
       arsp: match cls_arsp_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
-          let err = format!("Unable to open class airspace data source:\n{err}");
-          return Err(err.into());
+          return Err(error_msg!("class airspace", err));
         }
       },
       frq: match frq_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
-          let err = format!("Unable to open airport frequency data source:\n{err}");
-          return Err(err.into());
+          return Err(error_msg!("frequency", err));
         }
       },
       rwy: match apt_rwy_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
-          let err = format!("Unable to open airport runway data source:\n{err}");
-          return Err(err.into());
+          return Err(error_msg!("runway", err));
         }
       },
       rwy_end: match apt_rwy_end_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
-          let err = format!("Unable to open airport runway end data source:\n{err}");
-          return Err(err.into());
+          return Err(error_msg!("runway end", err));
         }
       },
       rmk: match apt_rmk_csv::Source::open(path) {
         Ok(src) => src,
         Err(err) => {
-          let err = format!("Unable to open airport remarks data source:\n{err}");
-          return Err(err.into());
+          return Err(error_msg!("airport remarks", err));
         }
       },
     };
