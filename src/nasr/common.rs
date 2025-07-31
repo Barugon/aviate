@@ -127,7 +127,7 @@ pub struct PhoneTagger {
 
 impl PhoneTagger {
   pub fn new() -> Self {
-    let str = concat!(
+    const REGEX: &str = concat!(
       r"(?<=\s|^)\+1 \(\d{3}\) \d{3}-\d{4}\b", // +1 (XXX) XXX-XXXX
       r"|(?<=\s|^)\+1 \d{3}-\d{3}-\d{4}\b",    // +1 XXX-XXX-XXXX
       r"|(?<=\s|^)\(\d{3}\) \d{3}-\d{4}\b",    // (XXX) XXX-XXXX
@@ -135,8 +135,9 @@ impl PhoneTagger {
       r"|\b\d{3}-\d{3}-\d{4}\b",               // XXX-XXX-XXXX
       r"|\b1-800-WX-BRIEF\b"                   // 1-800-WX-BRIEF
     );
-    let regex = RegEx::create_from_string(str);
-    Self { regex }
+    Self {
+      regex: RegEx::create_from_string(REGEX),
+    }
   }
 
   pub fn process_text<'a>(&self, text: &'a str) -> borrow::Cow<'a, str> {
