@@ -469,12 +469,6 @@ impl<'a> ops::Deref for Layer<'a> {
   }
 }
 
-impl ops::DerefMut for Layer<'_> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.0
-  }
-}
-
 impl Drop for Layer<'_> {
   fn drop(&mut self) {
     use vector::LayerAccess;
