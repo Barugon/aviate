@@ -28,7 +28,10 @@ impl Reader {
   pub fn new(path: &path::Path) -> Result<Self, util::Error> {
     macro_rules! error_msg {
       ($src:literal, $err:expr) => {
-        format!(concat!("Unable to open ", $src, " data source:\n{}"), $err).into()
+        util::Error::Owned(format!(
+          concat!("Unable to open ", $src, " data source:\n{}"),
+          $err
+        ))
       };
     }
 
