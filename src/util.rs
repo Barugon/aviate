@@ -66,7 +66,7 @@ impl Cancel {
   }
 }
 
-/// Error message as either `&'static str` or `String`.
+/// Error message.
 pub type Error = borrow::Cow<'static, str>;
 
 pub enum ZipInfo {
@@ -233,15 +233,15 @@ impl StackString {
 pub struct WinInfo {
   pub pos: Option<geom::Pos>,
   pub size: Option<geom::Size>,
-  pub maxed: bool,
+  pub maximized: bool,
 }
 
 impl WinInfo {
   pub fn from_display(display_server: &Gd<DisplayServer>) -> Self {
     let pos = Some(display_server.window_get_position().into());
     let size = Some(display_server.window_get_size().into());
-    let maxed = display_server.window_get_mode() == WindowMode::MAXIMIZED;
-    Self { pos, size, maxed }
+    let maximized = display_server.window_get_mode() == WindowMode::MAXIMIZED;
+    Self { pos, size, maximized }
   }
 
   pub fn from_variant(value: Option<Variant>) -> Self {
@@ -250,18 +250,18 @@ impl WinInfo {
     {
       let pos = value.get(WinInfo::POS_KEY).and_then(geom::Pos::from_variant);
       let size = value.get(WinInfo::SIZE_KEY).and_then(geom::Size::from_variant);
-      let maxed = value
-        .get(WinInfo::MAXED_KEY)
+      let maximized = value
+        .get(WinInfo::MAXIMIZED_KEY)
         .and_then(|v| ok!(v.try_to::<bool>()))
         .unwrap_or(false);
-      return Self { pos, size, maxed };
+      return Self { pos, size, maximized };
     }
     WinInfo::default()
   }
 
   pub fn to_variant(&self) -> Variant {
     let mut dict = Dictionary::new();
-    dict.set(WinInfo::MAXED_KEY, Variant::from(self.maxed));
+    dict.set(WinInfo::MAXIMIZED_KEY, Variant::from(self.maximized));
 
     if let Some(pos) = &self.pos {
       dict.set(WinInfo::POS_KEY, pos.to_variant());
@@ -276,7 +276,7 @@ impl WinInfo {
 
   const POS_KEY: &'static str = "pos";
   const SIZE_KEY: &'static str = "size";
-  const MAXED_KEY: &'static str = "maxed";
+  const MAXIMIZED_KEY: &'static str = "maximized";
 }
 
 pub trait ToI32 {

@@ -284,7 +284,7 @@ impl MainWidget {
     #[cfg(not(target_os = "android"))]
     display_server.window_set_min_size(Vector2i { x: 800, y: 600 });
 
-    if win_info.maxed {
+    if win_info.maximized {
       display_server.window_set_mode(WindowMode::MAXIMIZED);
       return;
     }
