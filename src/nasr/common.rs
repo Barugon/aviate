@@ -146,8 +146,8 @@ impl PhoneTagger {
     };
 
     let mut ranges = Vec::new();
-    for result in regex.search_all(text).iter_shared() {
-      ranges.push(result.get_start() as usize..result.get_end() as usize);
+    for matched in regex.search_all(text).iter_shared() {
+      ranges.push(matched.get_start() as usize..matched.get_end() as usize);
     }
 
     if ranges.is_empty() {
@@ -157,14 +157,13 @@ impl PhoneTagger {
     let mut tagged = String::new();
     let mut pos = 0;
     for range in ranges {
-      let result = &text[range.clone()];
-      let text = &text[pos..range.start];
-      let text = if cfg!(target_os = "android") {
-        format!("{text}[url=\"tel:{result}\"][color=#A0C0FF]{result}[/color][/url]")
+      let matched = &text[range.clone()];
+      let inter = &text[pos..range.start];
+      tagged += &if cfg!(target_os = "android") {
+        format!("{inter}[url=\"tel:{matched}\"][color=#A0C0FF]{matched}[/color][/url]")
       } else {
-        format!("{text}[color=#A0C0FF]{result}[/color]")
+        format!("{inter}[color=#A0C0FF]{matched}[/color]")
       };
-      tagged += &text;
       pos = range.end;
     }
     tagged += &text[pos..];
