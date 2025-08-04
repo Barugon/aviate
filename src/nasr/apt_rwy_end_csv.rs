@@ -112,6 +112,7 @@ pub struct RunwayEnd {
   tdz_elevation: Box<str>,
   obstacle: Box<str>,
   obstacle_height: Box<str>,
+  obstacle_distance: Box<str>,
   obstacle_offset: Box<str>,
   obstacle_clearance_slope: Box<str>,
 }
@@ -132,6 +133,7 @@ impl RunwayEnd {
       tdz_elevation: common::get_unit_text(&feature, FEET_ASL, fields.tdz_elev)?.into(),
       obstacle: get_obstacle(&feature, fields)?.into(),
       obstacle_height: common::get_unit_text(&feature, FEET, fields.obstn_hgt)?.into(),
+      obstacle_distance: common::get_unit_text(&feature, FEET, fields.dist_from_thr)?.into(),
       obstacle_offset: get_obstacle_offset(&feature, fields)?.into(),
       obstacle_clearance_slope: get_obstacle_clearance_slope(&feature, fields)?.into(),
     })
@@ -147,8 +149,6 @@ impl RunwayEnd {
       && self.displaced_thr_len.is_empty()
       && self.tdz_elevation.is_empty()
       && self.obstacle.is_empty()
-      && self.obstacle_height.is_empty()
-      && self.obstacle_offset.is_empty()
     {
       return String::new();
     }
@@ -163,9 +163,6 @@ impl RunwayEnd {
       + &self.get_displaced_threshold_length_text()
       + &self.get_touchdown_zone_elevation_text()
       + &self.get_obstacle_text()
-      + &self.get_obstacle_height_text()
-      + &self.get_obstacle_offset_text()
-      + &self.get_obstacle_clearance_slope_text()
   }
 
   fn get_id_text(&self) -> String {
@@ -241,31 +238,44 @@ impl RunwayEnd {
     if text.is_empty() {
       return String::new();
     }
-    format!("[ul] Obstacle: [color=white]{text}[/color][/ul]\n")
+    format!("[indent]Obstacle: [color=white]{text}[/color]\n")
+      + &self.get_obstacle_height_text()
+      + &self.get_obstacle_distance_text()
+      + &self.get_obstacle_offset_text()
+      + &self.get_obstacle_clearance_slope_text()
+      + "[/indent]"
   }
 
   fn get_obstacle_height_text(&self) -> String {
     let text = &self.obstacle_height;
-    if text.is_empty() || self.obstacle.is_empty() {
+    if text.is_empty() {
       return String::new();
     }
-    format!("[ul] Obstacle Height: [color=white]{text}[/color][/ul]\n")
+    format!("[ul] Height: [color=white]{text}[/color][/ul]\n")
+  }
+
+  fn get_obstacle_distance_text(&self) -> String {
+    let text = &self.obstacle_distance;
+    if text.is_empty() {
+      return String::new();
+    }
+    format!("[ul] Distance: [color=white]{text}[/color][/ul]\n")
   }
 
   fn get_obstacle_offset_text(&self) -> String {
     let text = &self.obstacle_offset;
-    if text.is_empty() || self.obstacle.is_empty() {
+    if text.is_empty() || self.obstacle_distance.is_empty() {
       return String::new();
     }
-    format!("[ul] Distance From Threshold: [color=white]{text}[/color][/ul]\n")
+    format!("[ul] Offset: [color=white]{text}[/color][/ul]\n")
   }
 
   fn get_obstacle_clearance_slope_text(&self) -> String {
     let text = &self.obstacle_clearance_slope;
-    if text.is_empty() || self.obstacle.is_empty() {
+    if text.is_empty() {
       return String::new();
     }
-    format!("[ul] Obstacle Clearance Slope: [color=white]{text}[/color][/ul]\n")
+    format!("[ul] Clearance Slope: [color=white]{text}[/color][/ul]\n")
   }
 }
 
@@ -417,11 +427,6 @@ fn get_obstacle(feature: &vector::Feature, fields: &Fields) -> Option<String> {
 }
 
 fn get_obstacle_offset(feature: &vector::Feature, fields: &Fields) -> Option<String> {
-  let distance = common::get_field_as_str(feature, fields.dist_from_thr)?;
-  if distance.is_empty() {
-    return Some(String::new());
-  }
-
   let offset = common::get_field_as_str(feature, fields.cntrln_offset)?;
   let direction = common::get_field_as_str(feature, fields.cntrln_dir_code)?;
   let direction = match direction {
@@ -433,10 +438,10 @@ fn get_obstacle_offset(feature: &vector::Feature, fields: &Fields) -> Option<Str
   };
 
   if offset.is_empty() || offset == "0" || direction.is_empty() {
-    return Some(format!("{distance} FEET"));
+    return Some(String::new());
   }
 
-  Some(format!("{distance} FEET, {offset} FEET {direction} OF CENTERLINE"))
+  Some(format!("{offset} FEET {direction} OF CENTERLINE"))
 }
 
 fn get_obstacle_clearance_slope(feature: &vector::Feature, fields: &Fields) -> Option<String> {
