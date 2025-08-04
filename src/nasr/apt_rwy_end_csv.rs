@@ -441,7 +441,7 @@ fn get_obstacle_offset(feature: &vector::Feature, fields: &Fields) -> Option<Str
 
 fn get_obstacle_clearance_slope(feature: &vector::Feature, fields: &Fields) -> Option<String> {
   let slope = common::get_field_as_str(feature, fields.obstn_clnc_slope)?;
-  if slope.is_empty() {
+  if slope.is_empty() || slope == "0" {
     return Some(String::new());
   }
 
