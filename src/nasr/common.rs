@@ -45,19 +45,9 @@ pub fn get_field_as_f64(feature: &vector::Feature, index: usize) -> Option<f64> 
 }
 
 pub fn get_field_as_str<'a>(feature: &'a vector::Feature, index: usize) -> Option<&'a str> {
-  if index >= feature.field_count() {
-    return None;
-  }
-
   let bytes = unsafe {
-    let idx = index as i32;
-    let ptr = gdal_sys::OGR_F_GetFieldDefnRef(feature.c_feature(), idx);
-    if ptr.is_null() || gdal_sys::OGR_Fld_GetType(ptr) != gdal_sys::OGRFieldType::OFTString {
-      return None;
-    }
-
     let mut len: i32 = 0;
-    let ptr = gdal_sys::OGR_F_GetFieldAsBinary(feature.c_feature(), idx, &mut len as *mut i32);
+    let ptr = gdal_sys::OGR_F_GetFieldAsBinary(feature.c_feature(), index as i32, &mut len as *mut i32);
     if ptr.is_null() || len < 0 {
       return None;
     }
