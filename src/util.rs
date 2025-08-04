@@ -225,7 +225,7 @@ impl StackString {
 
   pub fn as_str(&self) -> &str {
     // The data doesn't need to be checked as it originally came from a string slice.
-    unsafe { str::from_utf8_unchecked(&self.data[..self.data[7] as usize]) }
+    unsafe { str::from_utf8_unchecked(&self.data[..self.data[7] as usize & 7]) }
   }
 }
 
