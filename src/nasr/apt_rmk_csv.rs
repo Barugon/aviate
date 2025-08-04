@@ -149,9 +149,16 @@ fn get_reference<'a>(feature: &'a vector::Feature, fields: &Fields) -> Option<&'
     "GENERAL_REMARK" => Default::default(),
     "LGT_SKED" => "Lighting Schedule",
     "LNDG_FEE_FLAG" => "Landing Fee",
-    "SITE_TYPE_CODE" => "Site Type",
-    "TPA" => "Pattern Altitude",
+    "OBSTN_CLNC_SLOPE" => "Obstacle Clearance Slope",
+    "OBSTN_TYPE" => "Runway Obstacle",
+    "RWY_MARKING_COND" => "Runway Marking Condition",
+    "RWY_MARKING_TYPE_CODE" => "Runway Marking Type",
     "SEG_CIRCLE_MKR_FLAG" => "Segmented Circle",
+    "SITE_TYPE_CODE" => "Site Type",
+    "SURFACE_TYPE_CODE" => "Runway Surface",
+    "TPA" => "Pattern Altitude",
+    "UNICOM_FREQ" => "Unicom Frequency",
+    "VGSI_CODE" => "VGSI",
     _ => return None,
   })
 }
