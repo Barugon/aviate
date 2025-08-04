@@ -113,6 +113,7 @@ pub struct RunwayEnd {
   obstacle: Box<str>,
   obstacle_height: Box<str>,
   obstacle_offset: Box<str>,
+  obstacle_clearance_slope: Box<str>,
 }
 
 impl RunwayEnd {
@@ -132,6 +133,7 @@ impl RunwayEnd {
       obstacle: get_obstacle(&feature, fields)?.into(),
       obstacle_height: common::get_unit_text(&feature, FEET, fields.obstn_hgt)?.into(),
       obstacle_offset: get_obstacle_offset(&feature, fields)?.into(),
+      obstacle_clearance_slope: get_obstacle_clearance_slope(&feature, fields)?.into(),
     })
   }
 
@@ -163,6 +165,7 @@ impl RunwayEnd {
       + &self.get_obstacle_text()
       + &self.get_obstacle_height_text()
       + &self.get_obstacle_offset_text()
+      + &self.get_obstacle_clearance_slope_text()
   }
 
   fn get_id_text(&self) -> String {
@@ -243,7 +246,7 @@ impl RunwayEnd {
 
   fn get_obstacle_height_text(&self) -> String {
     let text = &self.obstacle_height;
-    if text.is_empty() {
+    if text.is_empty() || self.obstacle.is_empty() {
       return String::new();
     }
     format!("[ul] Obstacle Height: [color=white]{text}[/color][/ul]\n")
@@ -251,10 +254,18 @@ impl RunwayEnd {
 
   fn get_obstacle_offset_text(&self) -> String {
     let text = &self.obstacle_offset;
-    if text.is_empty() {
+    if text.is_empty() || self.obstacle.is_empty() {
       return String::new();
     }
     format!("[ul] Distance From Threshold: [color=white]{text}[/color][/ul]\n")
+  }
+
+  fn get_obstacle_clearance_slope_text(&self) -> String {
+    let text = &self.obstacle_clearance_slope;
+    if text.is_empty() || self.obstacle.is_empty() {
+      return String::new();
+    }
+    format!("[ul] Obstacle Clearance Slope: [color=white]{text}[/color][/ul]\n")
   }
 }
 
@@ -266,6 +277,7 @@ struct Fields {
   displaced_thr_elev: usize,
   displaced_thr_len: usize,
   dist_from_thr: usize,
+  obstn_clnc_slope: usize,
   obstn_hgt: usize,
   obstn_mrkd_code: usize,
   obstn_type: usize,
@@ -292,6 +304,7 @@ impl Fields {
       displaced_thr_elev: defn.field_index("DISPLACED_THR_ELEV")?,
       displaced_thr_len: defn.field_index("DISPLACED_THR_LEN")?,
       dist_from_thr: defn.field_index("DIST_FROM_THR")?,
+      obstn_clnc_slope: defn.field_index("OBSTN_CLNC_SLOPE")?,
       obstn_hgt: defn.field_index("OBSTN_HGT")?,
       obstn_mrkd_code: defn.field_index("OBSTN_MRKD_CODE")?,
       obstn_type: defn.field_index("OBSTN_TYPE")?,
@@ -424,4 +437,13 @@ fn get_obstacle_offset(feature: &vector::Feature, fields: &Fields) -> Option<Str
   }
 
   Some(format!("{distance} FEET, {offset} FEET {direction} OF CENTERLINE"))
+}
+
+fn get_obstacle_clearance_slope(feature: &vector::Feature, fields: &Fields) -> Option<String> {
+  let slope = common::get_field_as_str(feature, fields.obstn_clnc_slope)?;
+  if slope.is_empty() {
+    return Some(String::new());
+  }
+
+  Some(format!("{slope}:1"))
 }
