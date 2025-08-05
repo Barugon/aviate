@@ -364,7 +364,7 @@ impl IControl for MainWidget {
     let callable = self.base().callable("open_zip_file_clicked");
     button.connect("pressed", &callable);
 
-    // Read nite mode from the config.
+    // Read night mode from the config.
     let night_mode = self.config.get_night_mode().unwrap_or(false);
     self.chart_widget.bind_mut().set_night_mode(night_mode);
 
@@ -378,7 +378,7 @@ impl IControl for MainWidget {
     let show_bounds = self.config.get_show_bounds().unwrap_or(false);
     self.chart_widget.bind_mut().set_show_bounds(show_bounds);
 
-    // Connect the show bounds button
+    // Connect the show bounds button.
     let mut button = self.get_child::<CheckBox>("BoundsButton");
     let callable = self.base().callable("toggle_show_bounds");
     button.set_pressed(show_bounds);
