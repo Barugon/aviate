@@ -12,14 +12,12 @@ impl DD {
     Self(Coord::new(lon, lat))
   }
 
-  #[allow(unused)]
-  pub fn get_latitude(&self) -> String {
-    format_dms::<'S', 'N'>(self.y)
+  pub fn get_longitude(&self) -> String {
+    format_dms(self.x, if self.x < 0.0 { 'W' } else { 'E' })
   }
 
-  #[allow(unused)]
-  pub fn get_longitude(&self) -> String {
-    format_dms::<'W', 'E'>(self.x)
+  pub fn get_latitude(&self) -> String {
+    format_dms(self.y, if self.y < 0.0 { 'S' } else { 'N' })
   }
 }
 
@@ -37,19 +35,15 @@ impl ops::Deref for DD {
   }
 }
 
-/// Convert a decimal degree value to a degrees-minutes-seconds string.
-fn format_dms<const NEG: char, const POS: char>(dd: f64) -> String {
-  let lat = NEG == 'S' && POS == 'N' && (-90.0..=90.0).contains(&dd);
-  let lon = NEG == 'W' && POS == 'E' && (-180.0..=180.0).contains(&dd);
-  assert!(lat || lon);
-
-  let dir = if dd < 0.0 { NEG } else { POS };
+fn format_dms(dd: f64, dir: char) -> String {
   let dd = dd.abs();
   let deg = dd.trunc();
   let dm = (dd - deg) * 60.0;
   let min = dm.trunc();
   let sec = (dm - min) * 60.0;
-  format!("{deg:00$}°{min:02}'{sec:0>5.2}\"{dir}", if lon { 3 } else { 2 })
+  let sec = format!("{sec:.2}");
+  let sec = sec.trim_end_matches('0').trim_end_matches('.');
+  format!("{deg}° {min}' {sec}\" {dir}")
 }
 
 /// Chart coordinate.
@@ -572,33 +566,26 @@ mod test {
   fn test_format_dms() {
     use super::*;
 
-    pub fn to_dec_deg(deg: f64, min: f64, sec: f64) -> f64 {
+    pub fn to_dd(deg: f64, min: f64, sec: f64) -> f64 {
       const DEG_PER_MIN: f64 = 1.0 / 60.0;
       const DEG_PER_SEC: f64 = DEG_PER_MIN / 60.0;
-      return deg.signum() * (deg.abs() + min * DEG_PER_MIN + sec * DEG_PER_SEC);
+      deg.signum() * (deg.abs() + min * DEG_PER_MIN + sec * DEG_PER_SEC)
     }
 
-    let dd = to_dec_deg(0.0, 59.0, 60.0);
-    assert!(dd == 1.0);
+    assert!(to_dd(0.0, 59.0, 60.0) == 1.0);
+    assert!(to_dd(-0.0, 59.0, 60.0) == -1.0);
 
-    let dd = to_dec_deg(-0.0, 59.0, 60.0);
-    assert!(dd == -1.0);
+    let lon = to_dd(22.0, 24.0, 3.03);
+    let lat = to_dd(34.0, 5.0, 6.9);
+    let dd = DD::new(lon, lat);
+    assert!(dd.get_longitude() == "22° 24' 3.03\" E");
+    assert!(dd.get_latitude() == "34° 5' 6.9\" N");
 
-    let dd = to_dec_deg(34.0, 5.0, 6.9);
-    let lat = format_dms::<'S', 'N'>(dd);
-    assert!(lat == "34°05'06.90\"N");
-
-    let dd = to_dec_deg(-26.0, 15.0, 44.63);
-    let lat = format_dms::<'S', 'N'>(dd);
-    assert!(lat == "26°15'44.63\"S");
-
-    let dd = to_dec_deg(22.0, 24.0, 3.03);
-    let lon = format_dms::<'W', 'E'>(dd);
-    assert!(lon == "022°24'03.03\"E");
-
-    let dd = to_dec_deg(-117.0, 8.0, 47.0);
-    let lon = format_dms::<'W', 'E'>(dd);
-    assert!(lon == "117°08'47.00\"W");
+    let lon = to_dd(-117.0, 8.0, 47.0);
+    let lat = to_dd(-26.0, 15.0, 44.63);
+    let dd = DD::new(lon, lat);
+    assert!(dd.get_longitude() == "117° 8' 47\" W");
+    assert!(dd.get_latitude() == "26° 15' 44.63\" S");
   }
 
   #[test]
