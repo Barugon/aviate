@@ -51,9 +51,8 @@ fn format_dms(dd: f64, dir: char) -> String {
 pub struct Cht(Coord);
 
 impl Cht {
-  #[allow(unused)]
-  pub fn new(lon: f64, lat: f64) -> Self {
-    Self(Coord::new(lon, lat))
+  pub fn new(x: f64, y: f64) -> Self {
+    Self(Coord::new(x, y))
   }
 }
 
@@ -185,11 +184,10 @@ impl Bounds {
 /// Check if a point is contained in a polygon.
 fn polygon_contains(poly: &[Cht], point: Cht) -> bool {
   let mut inside = false;
-  let count = poly.len();
-  for idx in 0..count {
+  for idx in 0..poly.len() {
     // Line segment start and end points.
     let start = poly[idx];
-    let end = poly[(idx + 1) % count];
+    let end = poly[(idx + 1) % poly.len()];
 
     // Check if the point is between the Y coordinates of the current line segment.
     if (start.y > point.y) != (end.y > point.y) {
