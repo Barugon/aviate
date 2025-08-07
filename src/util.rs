@@ -177,10 +177,10 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
 
     if ext == "tif" {
       tifs.push(file);
-    } else if ext == "tfw" {
-      if let Some(stem) = file.file_stem() {
-        tfws.insert(path::PathBuf::from(stem));
-      }
+    } else if ext == "tfw"
+      && let Some(stem) = file.file_stem()
+    {
+      tfws.insert(path::PathBuf::from(stem));
     }
   }
 

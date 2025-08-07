@@ -69,7 +69,7 @@ impl Source {
     ClassAirspace::new(layer.feature(fid), &self.fields)
   }
 
-  fn layer(&self) -> vector::Layer {
+  fn layer(&self) -> vector::Layer<'_> {
     self.dataset.layer(0).unwrap()
   }
 }

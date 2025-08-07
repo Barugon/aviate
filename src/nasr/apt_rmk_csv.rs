@@ -79,7 +79,7 @@ impl Source {
     self.id_map = collections::HashMap::new();
   }
 
-  fn layer(&self) -> vector::Layer {
+  fn layer(&self) -> vector::Layer<'_> {
     self.dataset.layer(0).unwrap()
   }
 }

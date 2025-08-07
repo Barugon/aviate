@@ -83,7 +83,7 @@ impl Source {
     frequencies
   }
 
-  fn layer(&self) -> vector::Layer {
+  fn layer(&self) -> vector::Layer<'_> {
     self.dataset.layer(0).unwrap()
   }
 }
