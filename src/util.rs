@@ -8,7 +8,6 @@ use godot::{
 };
 use std::{array, borrow, cmp, collections, ops, path, sync, time};
 
-pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
 pub const ZOOM_RANGE: ops::RangeInclusive<f32> = 1.0 / 8.0..=1.0;
 pub const TITLE_HEIGHT: i32 = 32;
@@ -348,7 +347,7 @@ pub fn folder_str(path: &path::Path) -> Option<&str> {
 
 /// Return the folder of a path as a `GString`.
 pub fn folder_gstring<P: AsRef<path::Path>>(path: P) -> Option<GString> {
-  Some(folder_str(path.as_ref())?.into())
+  folder_str(path.as_ref()).map(|p| p.into())
 }
 
 /// Get the OS specific downloads folder.

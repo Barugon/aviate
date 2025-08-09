@@ -9,7 +9,8 @@ pub struct Storage {
 
 impl Storage {
   pub fn new() -> Self {
-    let items = rc::Rc::new(cell::RefCell::new(Items::load(Storage::path())));
+    let path = GString::from("user://settings.json");
+    let items = rc::Rc::new(cell::RefCell::new(Items::load(path)));
     Self { items }
   }
 
@@ -60,10 +61,6 @@ impl Storage {
     self.items.borrow().get(key)
   }
 
-  fn path() -> GString {
-    format!("user://{}.json", util::APP_NAME).into()
-  }
-
   const WIN_INFO_KEY: &'static str = "win_info";
   const NIGHT_MODE_KEY: &'static str = "night_mode";
   const SHOW_BOUNDS_KEY: &'static str = "show_bounds";
@@ -89,18 +86,7 @@ impl Items {
   }
 
   fn set(&mut self, key: &str, item: Variant) {
-    let existing = self.items.get_or_nil(key);
-    if Json::stringify(&existing) == Json::stringify(&item) {
-      return;
-    }
-
     self.items.set(key, item);
-    self.store();
-  }
-
-  fn store(&self) {
-    let text = Json::stringify(&Variant::from(self.items.clone()));
-    util::store_text(&self.path, &text);
   }
 
   fn load_items(path: &GString) -> Dictionary {
@@ -114,6 +100,13 @@ impl Items {
     };
 
     items
+  }
+}
+
+impl Drop for Items {
+  fn drop(&mut self) {
+    let text = Json::stringify(&Variant::from(self.items.clone()));
+    util::store_text(&self.path, &text);
   }
 }
 
@@ -135,8 +128,8 @@ pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> Vec<geom::P
 
 fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom::Px>> {
   // Parse the bounds JSON.
-  let json = Json::parse_string(include_str!("../res/bounds.json"));
-  let dict = ok!(json.try_to::<Dictionary>())?;
+  let var = Json::parse_string(include_str!("../res/bounds.json"));
+  let dict = ok!(var.try_to::<Dictionary>())?;
 
   // Find the chart.
   let array = ok!(dict.get(chart_name)?.try_to::<Array<Variant>>())?;
@@ -166,8 +159,8 @@ fn convert_bounds_svgs() {
   };
 
   // Parse the JSON.
-  let variant = Json::parse_string(&text);
-  let Some(mut dict) = ok!(variant.try_to::<Dictionary>()) else {
+  let var = Json::parse_string(&text);
+  let Some(mut dict) = ok!(var.try_to::<Dictionary>()) else {
     return;
   };
 
@@ -254,6 +247,6 @@ fn convert_bounds_svgs() {
 
   if changed {
     // Store the bounds JSON file.
-    util::store_text(&path, &Json::stringify(&variant));
+    util::store_text(&path, &Json::stringify(&var));
   }
 }
