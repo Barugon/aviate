@@ -8,7 +8,6 @@ use godot::{
 };
 use std::{array, borrow, cmp, collections, ops, path, sync, time};
 
-pub const APP_NAME: &str = env!("CARGO_PKG_NAME");
 pub const PROJ4_NAD83: &str = "+proj=longlat +datum=NAD83 +no_defs";
 pub const ZOOM_RANGE: ops::RangeInclusive<f32> = 1.0 / 8.0..=1.0;
 pub const TITLE_HEIGHT: i32 = 32;
@@ -293,10 +292,23 @@ impl ToI32 for f64 {
   }
 }
 
+impl ToI32 for i64 {
+  fn to_i32(self) -> Option<i32> {
+    let cast = self as i32;
+    if cast as Self == self {
+      return Some(cast);
+    }
+    None
+  }
+}
+
 impl ToI32 for Variant {
   fn to_i32(self) -> Option<i32> {
-    // JSON values are read as f64.
-    ok!(self.try_to::<f64>())?.to_i32()
+    match self.get_type() {
+      VariantType::FLOAT => self.to::<f64>().to_i32(),
+      VariantType::INT => self.to::<i64>().to_i32(),
+      _ => None,
+    }
   }
 }
 
@@ -326,8 +338,11 @@ impl ToU32 for i64 {
 
 impl ToU32 for Variant {
   fn to_u32(self) -> Option<u32> {
-    // JSON values are read as f64.
-    ok!(self.try_to::<f64>())?.to_u32()
+    match self.get_type() {
+      VariantType::FLOAT => self.to::<f64>().to_u32(),
+      VariantType::INT => self.to::<i64>().to_u32(),
+      _ => None,
+    }
   }
 }
 
@@ -348,7 +363,7 @@ pub fn folder_str(path: &path::Path) -> Option<&str> {
 
 /// Return the folder of a path as a `GString`.
 pub fn folder_gstring<P: AsRef<path::Path>>(path: P) -> Option<GString> {
-  Some(folder_str(path.as_ref())?.into())
+  folder_str(path.as_ref()).map(|p| p.into())
 }
 
 /// Get the OS specific downloads folder.
