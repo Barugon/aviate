@@ -153,7 +153,7 @@ fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom
   Some(points)
 }
 
-/// Processes SVG files in '~/Downloads/bounds' and store into 'res/bounds.json'.
+/// Process SVG files in '~/Downloads/bounds' and store into 'res/bounds.json'.
 #[cfg(feature = "dev")]
 fn convert_bounds_svgs() {
   use std::path;
@@ -206,7 +206,7 @@ fn convert_bounds_svgs() {
 
     // Find the end of the points text.
     let text = &text[pos + tag.len()..];
-    let tag = "\" />";
+    let tag = "Z\" />";
     let Some(pos) = text.find(tag) else {
       continue;
     };
@@ -222,8 +222,8 @@ fn convert_bounds_svgs() {
 
     // Create a JSON array from the points.
     for (idx, item) in text.split_ascii_whitespace().enumerate() {
-      // Ignore duplicates.
-      if item == first || item == prev {
+      // Ignore duplicates and "C".
+      if item == first || item == prev || item == "C" {
         continue;
       }
 
