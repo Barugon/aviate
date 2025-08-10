@@ -1,15 +1,17 @@
 use crate::{geom, ok, util};
 use godot::{classes::Json, prelude::*};
-use std::{cell, rc};
 
 /// Storage for configuration items, persisted as JSON.
 pub struct Storage {
-  items: rc::Rc<cell::RefCell<Items>>,
+  items: Items,
 }
 
 impl Storage {
   pub fn new() -> Self {
-    let items = rc::Rc::new(cell::RefCell::new(Items::load(Storage::path())));
+    #[cfg(feature = "dev")]
+    convert_bounds_svgs();
+
+    let items = Items::load(GString::from("user://settings.json"));
     Self { items }
   }
 
@@ -53,21 +55,23 @@ impl Storage {
   }
 
   fn set_value(&mut self, key: &str, val: Variant) {
-    self.items.borrow_mut().set(key, val);
+    self.items.set(key, val);
   }
 
   fn get_value(&self, key: &str) -> Option<Variant> {
-    self.items.borrow().get(key)
-  }
-
-  fn path() -> GString {
-    format!("user://{}.json", util::APP_NAME).into()
+    self.items.get(key)
   }
 
   const WIN_INFO_KEY: &'static str = "win_info";
   const NIGHT_MODE_KEY: &'static str = "night_mode";
   const SHOW_BOUNDS_KEY: &'static str = "show_bounds";
   const ASSET_FOLDER_KEY: &'static str = "asset_folder";
+}
+
+impl Drop for Storage {
+  fn drop(&mut self) {
+    self.items.store();
+  }
 }
 
 struct Items {
@@ -77,9 +81,6 @@ struct Items {
 
 impl Items {
   fn load(path: GString) -> Self {
-    #[cfg(feature = "dev")]
-    convert_bounds_svgs();
-
     let items = Self::load_items(&path);
     Self { path, items }
   }
@@ -89,13 +90,7 @@ impl Items {
   }
 
   fn set(&mut self, key: &str, item: Variant) {
-    let existing = self.items.get_or_nil(key);
-    if Json::stringify(&existing) == Json::stringify(&item) {
-      return;
-    }
-
     self.items.set(key, item);
-    self.store();
   }
 
   fn store(&self) {
@@ -135,8 +130,8 @@ pub fn get_chart_bounds(chart_name: &str, chart_size: geom::Size) -> Vec<geom::P
 
 fn get_bounds_from_json(chart_name: &str, limit: geom::Coord) -> Option<Vec<geom::Px>> {
   // Parse the bounds JSON.
-  let json = Json::parse_string(include_str!("../res/bounds.json"));
-  let dict = ok!(json.try_to::<Dictionary>())?;
+  let variant = Json::parse_string(include_str!("../res/bounds.json"));
+  let dict = ok!(variant.try_to::<Dictionary>())?;
 
   // Find the chart.
   let array = ok!(dict.get(chart_name)?.try_to::<Array<Variant>>())?;
