@@ -81,8 +81,26 @@ struct Items {
 
 impl Items {
   fn load(path: GString) -> Self {
-    let items = Self::load_items(&path);
+    fn load_items(path: &GString) -> Dictionary {
+      let Some(text) = util::load_text(path) else {
+        return Dictionary::new();
+      };
+
+      let variant = Json::parse_string(&text);
+      let Some(items) = ok!(variant.try_to::<Dictionary>().map_err(|err| format!("{path:?}: {err}"))) else {
+        return Dictionary::new();
+      };
+
+      items
+    }
+
+    let items = load_items(&path);
     Self { path, items }
+  }
+
+  fn store(&self) {
+    let text = Json::stringify(&Variant::from(self.items.clone()));
+    util::store_text(&self.path, &text);
   }
 
   fn get(&self, key: &str) -> Option<Variant> {
@@ -91,24 +109,6 @@ impl Items {
 
   fn set(&mut self, key: &str, item: Variant) {
     self.items.set(key, item);
-  }
-
-  fn store(&self) {
-    let text = Json::stringify(&Variant::from(self.items.clone()));
-    util::store_text(&self.path, &text);
-  }
-
-  fn load_items(path: &GString) -> Dictionary {
-    let Some(text) = util::load_text(path) else {
-      return Dictionary::new();
-    };
-
-    let var = Json::parse_string(&text);
-    let Some(items) = ok!(var.try_to::<Dictionary>().map_err(|err| format!("{path:?}: {err}"))) else {
-      return Dictionary::new();
-    };
-
-    items
   }
 }
 
