@@ -202,13 +202,14 @@ pub fn get_zip_info(path: &path::Path) -> Result<ZipInfo, Error> {
   Ok(ZipInfo::Chart(files))
 }
 
+/// A short string of seven or less bytes.
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct StackString {
   data: [u8; 8],
 }
 
 impl StackString {
-  /// Create a new `StackString` from a string slice of seven or less bytes.
+  /// Create a new `StackString` from a string slice.
   pub fn from_str(text: &str) -> Option<Self> {
     let bytes = text.as_bytes();
     if bytes.len() > 7 {
