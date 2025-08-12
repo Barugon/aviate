@@ -19,9 +19,9 @@ pub struct Reader {
 impl Reader {
   /// Create a new chart reader.
   /// - `path`: chart file path
-  pub fn new(path: &path::Path) -> Result<Self, util::Error> {
+  pub fn new(path: &path::Path, config: &config::Storage) -> Result<Self, util::Error> {
     // Open the chart source.
-    let (source, palette, transformation, chart_name) = Source::open(path)?;
+    let (source, palette, transformation, chart_name) = Source::open(path, config)?;
 
     // Create the communication channels.
     let (sender, thread_receiver) = mpsc::channel::<Request>();
@@ -201,8 +201,8 @@ pub struct Transformation {
 
 impl Transformation {
   fn new(
-    chart_name: &str,
     px_size: geom::Size,
+    bounds: Vec<geom::Px>,
     chart_sr: spatial_ref::SpatialRef,
     from_px: gdal::GeoTransform,
   ) -> errors::Result<Self> {
@@ -215,9 +215,6 @@ impl Transformation {
     let to_dd = spatial_ref::CoordTransform::new(&chart_sr, &dd_sr)?;
     let from_dd = spatial_ref::CoordTransform::new(&dd_sr, &chart_sr)?;
     let to_px = gdal::GeoTransformEx::invert(&from_px)?;
-
-    // Get the chart bounds.
-    let bounds = config::get_chart_bounds(chart_name, px_size);
 
     Ok(Transformation {
       px_size,
@@ -345,7 +342,10 @@ impl Source {
 
   /// Open a chart data source.
   /// - `path`: chart file path
-  fn open(path: &path::Path) -> Result<(Self, Vec<raster::RgbaEntry>, Transformation, String), util::Error> {
+  fn open(
+    path: &path::Path,
+    config: &config::Storage,
+  ) -> Result<(Self, Vec<raster::RgbaEntry>, Transformation, String), util::Error> {
     macro_rules! error_msg {
       ($val:literal) => {
         util::Error::Borrowed(concat!("Unable to open chart:\n", $val))
@@ -394,7 +394,8 @@ impl Source {
       return Err(error_msg!("cannot determine chart name"));
     };
 
-    let transformation = match Transformation::new(chart_name, px_size, spatial_ref, geo_trans) {
+    let bounds = config.get_chart_bounds(chart_name, px_size);
+    let transformation = match Transformation::new(px_size, bounds, spatial_ref, geo_trans) {
       Ok(trans) => trans,
       Err(err) => return Err(error_msg!(err)),
     };

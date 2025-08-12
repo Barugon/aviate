@@ -181,7 +181,7 @@ impl MainWidget {
   }
 
   fn open_chart(&mut self, path: &str, file: &str) {
-    let result = self.chart_widget.bind_mut().open_chart_reader(path, file);
+    let result = self.chart_widget.bind_mut().open_chart_reader(path, file, &self.config);
     match result {
       Ok(()) => (),
       Err(err) => {

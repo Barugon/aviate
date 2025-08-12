@@ -1,4 +1,4 @@
-use crate::{chart, geom, util};
+use crate::{chart, config, geom, util};
 use godot::{
   classes::{
     Control, IControl, InputEvent, InputEventMagnifyGesture, InputEventMouseButton, InputEventMouseMotion,
@@ -20,12 +20,12 @@ pub struct ChartWidget {
 }
 
 impl ChartWidget {
-  pub fn open_chart_reader(&mut self, path: &str, file: &str) -> Result<(), util::Error> {
+  pub fn open_chart_reader(&mut self, path: &str, file: &str, config: &config::Storage) -> Result<(), util::Error> {
     // Concatenate the VSI prefix and the file path.
     let path = path::PathBuf::from(["/vsizip/", path].concat()).join(file);
 
     // Create a new chart reader.
-    let chart_reader = chart::Reader::new(&path)?;
+    let chart_reader = chart::Reader::new(&path, config)?;
     self.heliport = chart_reader.chart_name().ends_with(" HEL");
     self.chart_reader = Some(chart_reader);
     self.display_info.origin = geom::Pos::default();
