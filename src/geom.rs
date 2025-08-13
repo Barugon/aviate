@@ -604,12 +604,14 @@ mod test {
     assert!(polygon_contains(&points, Cht::new(20.0, 10.0)));
     assert!(polygon_contains(&points, Cht::new(80.0, 80.0)));
     assert!(!polygon_contains(&points, Cht::new(20.0, 50.0)));
+    assert!(!polygon_contains(&points, Cht::new(110.0, 50.0)));
   }
 
   #[test]
   fn polygon_as_extent() {
     use super::*;
 
+    // Clockwise from upper left.
     let points = [
       Cht::new(0.0, 0.0),
       Cht::new(100.0, 0.0),
@@ -619,6 +621,27 @@ mod test {
 
     assert!(matches!(Extent::from_polygon(&points).1, ExtentType::Exact));
 
+    // Counter-clockwise from upper right.
+    let points = [
+      Cht::new(100.0, 0.0),
+      Cht::new(0.0, 0.0),
+      Cht::new(0.0, 100.0),
+      Cht::new(100.0, 100.0),
+    ];
+
+    assert!(matches!(Extent::from_polygon(&points).1, ExtentType::Exact));
+
+    // Clockwise from lower left.
+    let points = [
+      Cht::new(0.0, 100.0),
+      Cht::new(0.0, 0.0),
+      Cht::new(100.0, 0.0),
+      Cht::new(100.0, 100.0),
+    ];
+
+    assert!(matches!(Extent::from_polygon(&points).1, ExtentType::Exact));
+
+    // Clockwise from upper left with a closing point.
     let points = [
       Cht::new(0.0, 0.0),
       Cht::new(100.0, 0.0),
@@ -629,10 +652,12 @@ mod test {
 
     assert!(matches!(Extent::from_polygon(&points).1, ExtentType::Exact));
 
+    // Only three points.
     let points = [Cht::new(0.0, 0.0), Cht::new(100.0, 0.0), Cht::new(100.0, 100.0)];
 
     assert!(matches!(Extent::from_polygon(&points).1, ExtentType::Contained));
 
+    // Not quite square.
     let points = [
       Cht::new(0.0, 0.0),
       Cht::new(100.0, 1.0),
@@ -642,6 +667,7 @@ mod test {
 
     assert!(matches!(Extent::from_polygon(&points).1, ExtentType::Contained));
 
+    // Five points but last point doesn't close.
     let points = [
       Cht::new(0.0, 0.0),
       Cht::new(100.0, 0.0),
