@@ -12,6 +12,8 @@ config_version=5
 
 config/name="Aviate"
 run/main_scene="res://main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="aviate"
 config/features=PackedStringArray("4.4", "Forward Plus")
 run/low_processor_mode=true
 boot_splash/show_image=false
