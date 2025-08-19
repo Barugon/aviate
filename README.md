@@ -1,5 +1,9 @@
 # Aviate
 
+This project is now hosted at [codeberg](https://codeberg.org/Barugon/aviate)
+
+---
+
 Aviate will eventually be a VFR flight planner. The intent is to use free FAA assets (charts and other data) without any massaging or conversion. You would simply download the assets you need and open the zip files directly.
 
 VFR charts are updated every 56 days and can be downloaded here: https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/vfr/
